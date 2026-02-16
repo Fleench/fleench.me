@@ -8,18 +8,22 @@ Usage:
 The builder scans for Markdown files in the source directory and writes
 matching .html files to the output directory using the provided template.
 
+It supports YAML front matter at the top of each markdown file:
+
+  ---
+  template: src/page.html.temp
+  title: My Page Title
+  page_name: my-page
+  output: custom-name.html
+  ---
+
 It also supports block directives inside markdown files:
 
   heading:::element_id---location
 
-Any part can be empty by using {}. Examples:
-  Welcome:::intro---content
-  {}:::news---sidebar
-  Menu:::{}---nav bar
-
-Each directive starts a new block. Following markdown lines belong to that
-block until the next directive. Blocks are rendered into their target location
-placeholder in the template, e.g. {{ content }}, {{ sidebar }}, {{ nav bar }}.
+Any directive part can be empty via {}.
+Blocks are rendered into matching template placeholders such as
+{{ content }}, {{ sidebar }}, {{ nav bar }}.
 """
 
 from __future__ import annotations
@@ -34,6 +38,11 @@ try:
     import markdown as md_lib  # type: ignore
 except Exception:  # pragma: no cover - optional dependency
     md_lib = None
+
+try:
+    import yaml  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    yaml = None
 
 
 def _fallback_markdown_to_html(markdown_text: str) -> str:
@@ -95,6 +104,12 @@ class ContentBlock:
     markdown_body: str
 
 
+@dataclass
+class ParsedPage:
+    metadata: dict[str, str]
+    markdown_body: str
+
+
 _BLOCK_DIRECTIVE = re.compile(r"^(.*?):::(.*?)---(.*?)$")
 
 
@@ -103,6 +118,46 @@ def _normalize_piece(value: str) -> str | None:
     if trimmed == "{}" or trimmed == "":
         return None
     return trimmed
+
+
+def _simple_front_matter_parse(raw: str) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if ":" not in stripped:
+            continue
+        key, value = stripped.split(":", 1)
+        result[key.strip()] = value.strip().strip('"').strip("'")
+    return result
+
+
+def parse_front_matter(markdown_text: str) -> ParsedPage:
+    """Parse optional YAML front matter and return metadata + markdown body."""
+    if not markdown_text.startswith("---\n"):
+        return ParsedPage(metadata={}, markdown_body=markdown_text)
+
+    end_match = re.search(r"\n---\s*(\n|$)", markdown_text[4:])
+    if not end_match:
+        return ParsedPage(metadata={}, markdown_body=markdown_text)
+
+    end_idx = 4 + end_match.start()
+    front_matter_raw = markdown_text[4:end_idx]
+
+    # Skip closing marker and one trailing newline if present.
+    body_start = 4 + end_match.end()
+    body = markdown_text[body_start:]
+
+    if yaml is not None:
+        loaded = yaml.safe_load(front_matter_raw) or {}
+        if not isinstance(loaded, dict):
+            loaded = {}
+        metadata = {str(k): str(v) for k, v in loaded.items()}
+    else:
+        metadata = _simple_front_matter_parse(front_matter_raw)
+
+    return ParsedPage(metadata=metadata, markdown_body=body)
 
 
 def parse_markdown_blocks(markdown_text: str) -> list[ContentBlock]:
@@ -174,9 +229,7 @@ def _combine_locations(blocks: list[ContentBlock]) -> dict[str, str]:
     return {k: "\n".join(v) for k, v in rendered_by_location.items()}
 
 
-def render(template_text: str, title: str, locations: dict[str, str]) -> str:
-    context = {"title": html.escape(title), **locations}
-
+def render(template_text: str, context: dict[str, str]) -> str:
     def replace_placeholder(match: re.Match[str]) -> str:
         key = match.group(1).strip()
         return context.get(key, "")
@@ -184,12 +237,51 @@ def render(template_text: str, title: str, locations: dict[str, str]) -> str:
     return re.sub(r"{{\s*([^{}]+?)\s*}}", replace_placeholder, template_text)
 
 
-def derive_title(md_path: Path) -> str:
-    text = md_path.read_text(encoding="utf-8")
-    for line in text.splitlines():
+def derive_title(md_path: Path, metadata: dict[str, str], markdown_body: str) -> str:
+    if metadata.get("title"):
+        return metadata["title"]
+    if metadata.get("page_name"):
+        return metadata["page_name"]
+
+    for line in markdown_body.splitlines():
         if line.startswith("# "):
             return line[2:].strip()
     return md_path.stem.replace("-", " ").title()
+
+
+def resolve_template_path(template_value: str | None, md_file: Path, default_template: Path) -> Path:
+    if not template_value:
+        return default_template
+
+    candidate = Path(template_value)
+    if candidate.is_absolute() and candidate.exists():
+        return candidate
+
+    relative_to_md = md_file.parent / candidate
+    if relative_to_md.exists():
+        return relative_to_md
+
+    relative_to_cwd = Path.cwd() / candidate
+    if relative_to_cwd.exists():
+        return relative_to_cwd
+
+    # Fallback to value as provided; caller will raise if not found.
+    return candidate
+
+
+def output_filename(md_file: Path, metadata: dict[str, str]) -> str:
+    explicit_output = metadata.get("output")
+    if explicit_output:
+        return explicit_output
+
+    page_name = metadata.get("page_name")
+    if page_name:
+        cleaned = page_name.strip().replace(" ", "-")
+        if cleaned.endswith(".html"):
+            return cleaned
+        return f"{cleaned}.html"
+
+    return f"{md_file.stem}.html"
 
 
 def build(src_dir: Path, out_dir: Path, template_path: Path) -> int:
@@ -199,20 +291,29 @@ def build(src_dir: Path, out_dir: Path, template_path: Path) -> int:
     if not template_path.exists():
         raise FileNotFoundError(f"Template not found: {template_path}")
 
-    template_text = template_path.read_text(encoding="utf-8")
     markdown_files = sorted(src_dir.glob("*.md"))
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
     built = 0
     for md_file in markdown_files:
-        markdown_text = md_file.read_text(encoding="utf-8")
-        blocks = parse_markdown_blocks(markdown_text)
-        locations = _combine_locations(blocks)
-        title = derive_title(md_file)
-        full_html = render(template_text, title, locations)
+        raw_text = md_file.read_text(encoding="utf-8")
+        parsed = parse_front_matter(raw_text)
 
-        output_name = f"{md_file.stem}.html"
+        selected_template = resolve_template_path(parsed.metadata.get("template"), md_file, template_path)
+        if not selected_template.exists():
+            raise FileNotFoundError(f"Template not found: {selected_template}")
+        template_text = selected_template.read_text(encoding="utf-8")
+
+        blocks = parse_markdown_blocks(parsed.markdown_body)
+        locations = _combine_locations(blocks)
+        title = derive_title(md_file, parsed.metadata, parsed.markdown_body)
+
+        escaped_meta = {k: html.escape(v) for k, v in parsed.metadata.items()}
+        context = {"title": html.escape(title), **escaped_meta, **locations}
+        full_html = render(template_text, context)
+
+        output_name = output_filename(md_file, parsed.metadata)
         output_path = out_dir / output_name
         output_path.write_text(full_html, encoding="utf-8")
         built += 1
@@ -231,7 +332,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--template",
         default="src/page.html.temp",
-        help="Template file with {{ title }} and {{ content }} placeholders",
+        help="Default template file (can be overridden in markdown front matter)",
     )
     return parser.parse_args()
 
