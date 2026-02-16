@@ -29,14 +29,21 @@ Blocks are rendered into matching template placeholders such as
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
+import os
+import subprocess
 import shutil
+import sys
 from dataclasses import dataclass
 import html
+from email.utils import format_datetime
 from urllib import parse as urlparse
 from urllib import request as urlrequest
 import re
 from pathlib import Path
+import venv
+import xml.etree.ElementTree as ET
 
 try:
     import markdown as md_lib  # type: ignore
@@ -47,6 +54,66 @@ try:
     import yaml  # type: ignore
 except Exception:  # pragma: no cover - optional dependency
     yaml = None
+
+
+def _is_truthy(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
+def _is_running_in_venv() -> bool:
+    return bool(os.environ.get("VIRTUAL_ENV")) or sys.prefix != getattr(sys, "base_prefix", sys.prefix)
+
+
+def _load_requirements(root_dir: Path) -> list[str]:
+    requirement_files = [root_dir / "requirements.txt", root_dir / "requirements-dev.txt"]
+    packages: list[str] = []
+    for requirement_file in requirement_files:
+        if not requirement_file.exists():
+            continue
+        for line in requirement_file.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            packages.append(stripped)
+    if packages:
+        return packages
+
+    # Fallback to known optional dependencies used by this script.
+    return ["markdown", "PyYAML"]
+
+
+def ensure_local_venv(root_dir: Path) -> None:
+    if _is_running_in_venv():
+        return
+
+    venv_dir = root_dir / ".venv"
+    created_venv = False
+    if not venv_dir.exists():
+        print(f"Creating virtual environment at {venv_dir}")
+        venv.create(venv_dir, with_pip=True)
+        created_venv = True
+
+    bin_dir = "Scripts" if os.name == "nt" else "bin"
+    python_path = venv_dir / bin_dir / ("python.exe" if os.name == "nt" else "python")
+    if not python_path.exists():
+        raise FileNotFoundError(f"Unable to locate venv python: {python_path}")
+
+    packages = _load_requirements(root_dir) if created_venv else []
+    if packages:
+        print("Installing dependencies into .venv")
+        try:
+            subprocess.run([str(python_path), "-m", "pip", "install", "--upgrade", "pip"], check=True)
+            subprocess.run([str(python_path), "-m", "pip", "install", *packages], check=True)
+        except subprocess.CalledProcessError as exc:
+            print(f"Dependency install failed, continuing with available packages: {exc}")
+
+    print("Re-running build with local virtual environment")
+    subprocess.run([str(python_path), *sys.argv], check=True)
+    raise SystemExit(0)
 
 
 def _fallback_markdown_to_html(markdown_text: str) -> str:
@@ -406,9 +473,13 @@ def _send_webmention(source_url: str, target_url: str) -> bool:
     )
 
     try:
-        with urlrequest.urlopen(req, timeout=8):
-            print(f"Webping sent: {source_url} -> {target_url}")
-            return True
+        with urlrequest.urlopen(req, timeout=8) as response:
+            status_code = getattr(response, "status", response.getcode())
+            if status_code == 200:
+                print(f"Webping sent: {source_url} -> {target_url}")
+                return True
+            print(f"Webping skipped for {target_url}: HTTP {status_code}")
+            return False
     except Exception as exc:
         print(f"Webping failed for {target_url}: {exc}")
         return False
@@ -419,7 +490,8 @@ def _copy_static_assets(src_dir: Path, out_dir: Path) -> int:
     for source_path in src_dir.rglob("*"):
         if not source_path.is_file():
             continue
-        if source_path.suffix.lower() not in {".js", ".css", ".html"}:
+        name_lower = source_path.name.lower()
+        if name_lower.endswith(".html.temp") or name_lower.endswith(".md"):
             continue
 
         relative_path = source_path.relative_to(src_dir)
@@ -432,7 +504,156 @@ def _copy_static_assets(src_dir: Path, out_dir: Path) -> int:
     return copied
 
 
-def build(src_dir: Path, out_dir: Path, template_path: Path | None, site_url: str | None) -> int:
+def _simple_yaml_parse(raw: str) -> dict[str, object]:
+    root: dict[str, object] = {}
+    stack: list[tuple[int, dict[str, object]]] = [(-1, root)]
+
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        indent = len(line) - len(line.lstrip(" "))
+        if ":" not in stripped:
+            continue
+
+        key, value = stripped.split(":", 1)
+        key = key.strip()
+        value = value.strip()
+
+        while stack and indent <= stack[-1][0]:
+            stack.pop()
+        parent = stack[-1][1] if stack else root
+
+        if value == "":
+            nested: dict[str, object] = {}
+            parent[key] = nested
+            stack.append((indent, nested))
+            continue
+
+        normalized = value.strip('"').strip("'")
+        if normalized.lower() in {"true", "false"}:
+            parent[key] = normalized.lower() == "true"
+        else:
+            parent[key] = normalized
+
+    return root
+
+
+def load_config(root_dir: Path) -> dict[str, object]:
+    config_path = root_dir / "config.yml"
+    if not config_path.exists():
+        return {}
+
+    raw = config_path.read_text(encoding="utf-8")
+    if yaml is not None:
+        loaded = yaml.safe_load(raw) or {}
+        if isinstance(loaded, dict):
+            return loaded
+        return {}
+
+    print("PyYAML not installed; using limited config parser")
+    return _simple_yaml_parse(raw)
+
+
+def _extract_post_date(md_path: Path, metadata: dict[str, str]) -> dt.datetime:
+    for key in ("date", "published", "pub_date"):
+        value = metadata.get(key)
+        if not value:
+            continue
+        cleaned = value.strip()
+        try:
+            parsed = dt.datetime.fromisoformat(cleaned.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=dt.timezone.utc)
+            return parsed
+        except ValueError:
+            pass
+
+    filename_match = re.match(r"(\d{4}-\d{2}-\d{2})", md_path.stem)
+    if filename_match:
+        parsed = dt.datetime.fromisoformat(filename_match.group(1))
+        return parsed.replace(tzinfo=dt.timezone.utc)
+
+    modified = dt.datetime.fromtimestamp(md_path.stat().st_mtime, tz=dt.timezone.utc)
+    return modified
+
+
+def _extract_description(markdown_body: str) -> str:
+    for line in markdown_body.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            continue
+        return stripped[:240]
+    return ""
+
+
+def _generate_rss_feed(src_dir: Path, out_dir: Path, site_url: str, config: dict[str, object]) -> Path | None:
+    rss_config = config.get("rss")
+    if not isinstance(rss_config, dict) or not _is_truthy(rss_config.get("enabled", False)):
+        return None
+
+    content_dir_name = str(rss_config.get("content_dir", "blog"))
+    feed_path = str(rss_config.get("feed_path", "feed.xml"))
+    content_dir = src_dir / content_dir_name
+    if not content_dir.exists():
+        print(f"RSS skipped: content directory not found ({content_dir})")
+        return None
+
+    entries: list[tuple[dt.datetime, Path, ParsedPage]] = []
+    for md_path in sorted(content_dir.rglob("*.md")):
+        raw_text = md_path.read_text(encoding="utf-8")
+        parsed = parse_front_matter(raw_text)
+        published = _extract_post_date(md_path, parsed.metadata)
+        entries.append((published, md_path, parsed))
+
+    if not entries:
+        print(f"RSS skipped: no markdown files in {content_dir}")
+        return None
+
+    entries.sort(key=lambda item: item[0], reverse=True)
+    now = dt.datetime.now(tz=dt.timezone.utc)
+
+    rss_el = ET.Element("rss", attrib={"version": "2.0"})
+    channel = ET.SubElement(rss_el, "channel")
+    ET.SubElement(channel, "title").text = str(config.get("site_title") or site_url)
+    ET.SubElement(channel, "link").text = site_url.rstrip("/") + "/"
+    ET.SubElement(channel, "description").text = str(config.get("site_title") or "Site feed")
+    ET.SubElement(channel, "lastBuildDate").text = format_datetime(now)
+
+    for published, md_path, parsed in entries:
+        item = ET.SubElement(channel, "item")
+        title = derive_title(md_path, parsed.metadata, parsed.markdown_body)
+        rel_path = md_path.relative_to(src_dir).with_suffix(".html")
+        link = urlparse.urljoin(site_url.rstrip("/") + "/", str(rel_path).replace("\\", "/"))
+        description = parsed.metadata.get("description") or _extract_description(parsed.markdown_body)
+
+        ET.SubElement(item, "title").text = title
+        ET.SubElement(item, "link").text = link
+        ET.SubElement(item, "guid").text = link
+        ET.SubElement(item, "pubDate").text = format_datetime(
+            published if published.tzinfo else published.replace(tzinfo=dt.timezone.utc)
+        )
+        ET.SubElement(item, "description").text = description
+
+    output_path = out_dir / feed_path
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    tree = ET.ElementTree(rss_el)
+    tree.write(output_path, encoding="utf-8", xml_declaration=True)
+    print(f"Generated RSS: {output_path}")
+    return output_path
+
+
+def build(
+    src_dir: Path,
+    out_dir: Path,
+    template_path: Path | None,
+    site_url: str | None,
+    config: dict[str, object] | None = None,
+) -> int:
+    config = config or {}
     if not src_dir.exists():
         raise FileNotFoundError(f"Source directory not found: {src_dir}")
 
@@ -487,19 +708,30 @@ def build(src_dir: Path, out_dir: Path, template_path: Path | None, site_url: st
         should_send_webpings = was_fresh_build or not previous_urls
 
         if should_send_webpings and page_urls:
+            previous_set = set(previous_urls)
+            successful_urls: list[str] = [url for url in page_urls if url in previous_set]
             if site_url:
                 source_url = urlparse.urljoin(site_url.rstrip("/") + "/", output_name)
                 for target_url in page_urls:
-                    _send_webmention(source_url, target_url)
+                    if target_url in previous_set:
+                        continue
+                    if _send_webmention(source_url, target_url):
+                        successful_urls.append(target_url)
             else:
                 print(f"Skipping webpings for {md_file.name}: --site-url is required")
-
-        webping_state[file_key] = page_urls
+            webping_state[file_key] = successful_urls
+        else:
+            webping_state[file_key] = [url for url in previous_urls if url in page_urls]
 
     if built == 0:
         print(f"No markdown files found in {src_dir}")
     if copied_assets == 0:
-        print(f"No .js, .css, or .html files found in {src_dir}")
+        print(f"No static assets copied from {src_dir}")
+
+    if site_url:
+        _generate_rss_feed(src_dir, out_dir, site_url, config)
+    elif config.get("rss"):
+        print("Skipping RSS generation: site_url is required")
 
     _save_webping_state(webping_state_path, webping_state)
     return built
@@ -523,12 +755,20 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    root_dir = Path(__file__).resolve().parent
+    ensure_local_venv(root_dir)
+
     args = parse_args()
+    config = load_config(root_dir)
+    config_site_url = config.get("site_url") if isinstance(config, dict) else None
+    chosen_site_url = args.site_url or (str(config_site_url) if config_site_url else None)
+
     build(
         Path(args.src),
         Path(args.out),
         Path(args.template) if args.template else None,
-        args.site_url,
+        chosen_site_url,
+        config,
     )
 
 
