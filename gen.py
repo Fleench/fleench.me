@@ -835,11 +835,20 @@ def build(
         locations = _combine_locations(blocks)
         title = derive_title(md_file, parsed.metadata, parsed.markdown_body)
 
+        output_name = output_filename(md_file, parsed.metadata)
+        published_dt = _extract_post_date(md_file, parsed.metadata)
+        published_iso = published_dt.date().isoformat()
+
         escaped_meta = {k: html.escape(v) for k, v in parsed.metadata.items()}
-        context = {"title": html.escape(title), **escaped_meta, **locations}
+        context = {
+            "title": html.escape(title),
+            "output": html.escape(output_name),
+            "date": html.escape(parsed.metadata.get("date", published_iso)),
+            **escaped_meta,
+            **locations,
+        }
         full_html = render(template_text, context)
 
-        output_name = output_filename(md_file, parsed.metadata)
         output_path = out_dir / output_name
         output_path.write_text(full_html, encoding="utf-8")
         built += 1
