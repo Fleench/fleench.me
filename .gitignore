@@ -1,0 +1,10 @@
+# Build output
+dist/
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Local state for the build script
+.webping-state.json
