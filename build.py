@@ -29,9 +29,12 @@ Blocks are rendered into matching template placeholders such as
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 from dataclasses import dataclass
 import html
+from urllib import parse as urlparse
+from urllib import request as urlrequest
 import re
 from pathlib import Path
 
@@ -285,18 +288,130 @@ def output_filename(md_file: Path, metadata: dict[str, str]) -> str:
     return f"{md_file.stem}.html"
 
 
+def extract_target_urls(markdown_body: str) -> list[str]:
+    found = re.findall(r"https?://[^\s)>'\"]+", markdown_body)
+    # Preserve order and drop duplicates.
+    unique: list[str] = []
+    seen: set[str] = set()
+    for url in found:
+        if url in seen:
+            continue
+        seen.add(url)
+        unique.append(url)
+    return unique
+
+
 DEFAULT_TEMPLATE = """<!DOCTYPE html>
-<html lang=\"en\">
+<html lang="en">
   <head>
-    <meta charset=\"UTF-8\" />
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ title }}</title>
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <main>{{ content }}</main>
+    <div class="page-wrap">
+      <header class="marquee-frame">
+        <marquee behavior="alternate" scrollamount="6">
+          ★ Welcome to Retro Pixel Palace ★ Midnight Edition ★
+        </marquee>
+      </header>
+
+      <nav class="top-nav panel">{{ nav bar }}</nav>
+
+      <main class="layout">
+        <section class="content panel">{{ content }}</section>
+      </main>
+
+      <footer class="panel footer">
+        <p>© 2001 Retro Pixel Palace — E-mail: webmaster@pixelpalace.example</p>
+      </footer>
+    </div>
   </body>
 </html>
 """
+DEFAULT_TEMPLATE_PATH = Path("src/page.html.temp")
+WEBPING_STATE_FILE = Path(__file__).with_name(".webping-state.json")
+
+
+def _load_webping_state(state_path: Path) -> dict[str, list[str]]:
+    if not state_path.exists():
+        return {}
+    try:
+        loaded = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(loaded, dict):
+        return {}
+    result: dict[str, list[str]] = {}
+    for key, value in loaded.items():
+        if isinstance(key, str) and isinstance(value, list):
+            result[key] = [str(item) for item in value]
+    return result
+
+
+def _save_webping_state(state_path: Path, state: dict[str, list[str]]) -> None:
+    state_path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _discover_webmention_endpoint(target_url: str) -> str | None:
+    req = urlrequest.Request(target_url, headers={"User-Agent": "fleench-builder/1.0"})
+    with urlrequest.urlopen(req, timeout=8) as response:
+        link_header = response.headers.get("Link", "")
+        header_match = re.search(r'<([^>]+)>\s*;\s*rel="?webmention"?', link_header, flags=re.IGNORECASE)
+        if header_match:
+            return urlparse.urljoin(target_url, header_match.group(1))
+
+        body = response.read(50_000).decode("utf-8", errors="ignore")
+
+    body_match = re.search(
+        r'<link[^>]+rel=["\'][^"\']*webmention[^"\']*["\'][^>]+href=["\']([^"\']+)["\']',
+        body,
+        flags=re.IGNORECASE,
+    )
+    if body_match:
+        return urlparse.urljoin(target_url, body_match.group(1))
+
+    alt_match = re.search(
+        r'<a[^>]+rel=["\'][^"\']*webmention[^"\']*["\'][^>]+href=["\']([^"\']+)["\']',
+        body,
+        flags=re.IGNORECASE,
+    )
+    if alt_match:
+        return urlparse.urljoin(target_url, alt_match.group(1))
+
+    return None
+
+
+def _send_webmention(source_url: str, target_url: str) -> bool:
+    try:
+        endpoint = _discover_webmention_endpoint(target_url)
+    except Exception as exc:
+        print(f"Webping discovery failed for {target_url}: {exc}")
+        return False
+
+    if not endpoint:
+        print(f"Webping skipped (no endpoint): {target_url}")
+        return False
+
+    payload = urlparse.urlencode({"source": source_url, "target": target_url}).encode("utf-8")
+    req = urlrequest.Request(
+        endpoint,
+        data=payload,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "fleench-builder/1.0",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlrequest.urlopen(req, timeout=8):
+            print(f"Webping sent: {source_url} -> {target_url}")
+            return True
+    except Exception as exc:
+        print(f"Webping failed for {target_url}: {exc}")
+        return False
 
 
 def _copy_static_assets(src_dir: Path, out_dir: Path) -> int:
@@ -317,23 +432,30 @@ def _copy_static_assets(src_dir: Path, out_dir: Path) -> int:
     return copied
 
 
-def build(src_dir: Path, out_dir: Path, template_path: Path | None) -> int:
+def build(src_dir: Path, out_dir: Path, template_path: Path | None, site_url: str | None) -> int:
     if not src_dir.exists():
         raise FileNotFoundError(f"Source directory not found: {src_dir}")
 
     template_text_default = DEFAULT_TEMPLATE
-    if template_path is not None:
-        if not template_path.exists():
-            raise FileNotFoundError(f"Template not found: {template_path}")
-        template_text_default = template_path.read_text(encoding="utf-8")
+    resolved_default_template = template_path
+    if resolved_default_template is None and DEFAULT_TEMPLATE_PATH.exists():
+        resolved_default_template = DEFAULT_TEMPLATE_PATH
+
+    if resolved_default_template is not None:
+        if not resolved_default_template.exists():
+            raise FileNotFoundError(f"Template not found: {resolved_default_template}")
+        template_text_default = resolved_default_template.read_text(encoding="utf-8")
 
     markdown_files = sorted(src_dir.glob("*.md"))
 
     out_dir.mkdir(parents=True, exist_ok=True)
     copied_assets = _copy_static_assets(src_dir, out_dir)
+    webping_state_path = WEBPING_STATE_FILE
+    webping_state = _load_webping_state(webping_state_path)
 
     built = 0
     for md_file in markdown_files:
+        file_key = str(md_file.relative_to(src_dir))
         raw_text = md_file.read_text(encoding="utf-8")
         parsed = parse_front_matter(raw_text)
 
@@ -355,15 +477,31 @@ def build(src_dir: Path, out_dir: Path, template_path: Path | None) -> int:
 
         output_name = output_filename(md_file, parsed.metadata)
         output_path = out_dir / output_name
+        was_fresh_build = not output_path.exists()
         output_path.write_text(full_html, encoding="utf-8")
         built += 1
         print(f"Built: {output_path}")
+
+        page_urls = extract_target_urls(parsed.markdown_body)
+        previous_urls = webping_state.get(file_key, [])
+        should_send_webpings = was_fresh_build or not previous_urls
+
+        if should_send_webpings and page_urls:
+            if site_url:
+                source_url = urlparse.urljoin(site_url.rstrip("/") + "/", output_name)
+                for target_url in page_urls:
+                    _send_webmention(source_url, target_url)
+            else:
+                print(f"Skipping webpings for {md_file.name}: --site-url is required")
+
+        webping_state[file_key] = page_urls
 
     if built == 0:
         print(f"No markdown files found in {src_dir}")
     if copied_assets == 0:
         print(f"No .js, .css, or .html files found in {src_dir}")
 
+    _save_webping_state(webping_state_path, webping_state)
     return built
 
 
@@ -376,12 +514,22 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Default template file (can be overridden in markdown front matter)",
     )
+    parser.add_argument(
+        "--site-url",
+        default=None,
+        help="Public base URL used as source URL when sending webpings",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    build(Path(args.src), Path(args.out), Path(args.template) if args.template else None)
+    build(
+        Path(args.src),
+        Path(args.out),
+        Path(args.template) if args.template else None,
+        args.site_url,
+    )
 
 
 if __name__ == "__main__":
