@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="page-wrap">
+      <header class="marquee-frame">
+        <marquee behavior="alternate" scrollamount="6">
+          ★ Welcome to Retro Pixel Palace ★ Best viewed at 1024x768 ★
+        </marquee>
+      </header>
+
+      <main class="layout">
+        <aside class="sidebar panel">
+          {{ sidebar }}
+        </aside>
+
+        <section class="content panel">{{ content }}</section>
+      </main>
+
+      <section class="panel">{{ nav bar }}</section>
+
+      <footer class="panel footer">
+        <p>© 2001 Retro Pixel Palace — E-mail: webmaster@pixelpalace.example</p>
+      </footer>
+    </div>
+  </body>
+</html>
