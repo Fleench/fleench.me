@@ -10,19 +10,15 @@
     <div class="page-wrap">
       <header class="marquee-frame">
         <marquee behavior="alternate" scrollamount="6">
-          ★ Welcome to Retro Pixel Palace ★ Best viewed at 1024x768 ★
+          ★ Welcome to Retro Pixel Palace ★ Midnight Edition ★
         </marquee>
       </header>
 
-      <main class="layout">
-        <aside class="sidebar panel">
-          {{ sidebar }}
-        </aside>
+      <nav class="top-nav panel">{{ nav bar }}</nav>
 
+      <main class="layout">
         <section class="content panel">{{ content }}</section>
       </main>
-
-      <section class="panel">{{ nav bar }}</section>
 
       <footer class="panel footer">
         <p>© 2001 Retro Pixel Palace — E-mail: webmaster@pixelpalace.example</p>
