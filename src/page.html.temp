@@ -18,8 +18,17 @@
 
       <nav class="top-nav panel">{{ nav bar }}</nav>
 
-      <main class="layout">
-        <section class="content panel">{{ content }}</section>
+      <main class="layout h-entry">
+        <section class="content panel">
+          <div class="e-content">{{ content }}</div>
+          <div style="display:none;">
+            <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
+            <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
+            <div class="p-author h-card">
+              <a class="u-url n" href="https://flench.me">Glenn Sutherland</a>
+            </div>
+          </div>
+        </section>
       </main>
       <div id="webmentions"></div>
       <script src="mentions.js"></script>
