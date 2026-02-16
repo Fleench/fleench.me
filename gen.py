@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-"""Simple markdown-to-HTML builder.
+"""Simple markdown-to-HTML generator.
 
 Usage:
-  python build.py
-  python build.py --src src --out dist --template src/page.html.temp
+  python gen.py build
+  python gen.py build --src src --out dist --template src/page.html.temp
+  python gen.py publish
 
-The builder scans for Markdown files in the source directory and writes
+The generator scans for Markdown files in the source directory and writes
 matching .html files to the output directory using the provided template.
+
+Webmention flow:
+- build: builds pages and stages pending webmentions.
+- publish: sends staged webmentions and records successful deliveries.
 
 It supports YAML front matter at the top of each markdown file:
 
@@ -398,27 +403,164 @@ DEFAULT_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 DEFAULT_TEMPLATE_PATH = Path("src/page.html.temp")
-WEBPING_STATE_FILE = Path(__file__).with_name(".webping-state.json")
+WEBMENTION_STATE_FILE = Path(__file__).with_name(".webmention-state.json")
 
 
-def _load_webping_state(state_path: Path) -> dict[str, list[str]]:
+def _load_webmention_state(state_path: Path) -> dict[str, object]:
     if not state_path.exists():
-        return {}
+        return {"sent": {}, "queue": []}
     try:
         loaded = json.loads(state_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {}
+        return {"sent": {}, "queue": []}
+
     if not isinstance(loaded, dict):
-        return {}
-    result: dict[str, list[str]] = {}
-    for key, value in loaded.items():
-        if isinstance(key, str) and isinstance(value, list):
-            result[key] = [str(item) for item in value]
-    return result
+        return {"sent": {}, "queue": []}
+
+    # Backwards compatibility: old format was {"file.md": ["https://target"]}
+    if "sent" not in loaded and "queue" not in loaded:
+        sent: dict[str, list[str]] = {}
+        for key, value in loaded.items():
+            if isinstance(key, str) and isinstance(value, list):
+                sent[key] = [str(item) for item in value]
+        return {"sent": sent, "queue": []}
+
+    raw_sent = loaded.get("sent")
+    raw_queue = loaded.get("queue")
+
+    sent_result: dict[str, list[str]] = {}
+    if isinstance(raw_sent, dict):
+        for key, value in raw_sent.items():
+            if isinstance(key, str) and isinstance(value, list):
+                sent_result[key] = [str(item) for item in value]
+
+    queue_result: list[dict[str, str]] = []
+    if isinstance(raw_queue, list):
+        for entry in raw_queue:
+            if not isinstance(entry, dict):
+                continue
+            file_key = entry.get("file_key")
+            source_url = entry.get("source_url")
+            target_url = entry.get("target_url")
+            if isinstance(file_key, str) and isinstance(source_url, str) and isinstance(target_url, str):
+                queue_result.append(
+                    {
+                        "file_key": file_key,
+                        "source_url": source_url,
+                        "target_url": target_url,
+                    }
+                )
+
+    return {"sent": sent_result, "queue": queue_result}
 
 
-def _save_webping_state(state_path: Path, state: dict[str, list[str]]) -> None:
+def _save_webmention_state(state_path: Path, state: dict[str, object]) -> None:
     state_path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _normalize_queue(queue: list[dict[str, str]]) -> list[dict[str, str]]:
+    unique: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for entry in queue:
+        pair = (entry["source_url"], entry["target_url"])
+        if pair in seen:
+            continue
+        seen.add(pair)
+        unique.append(entry)
+    return unique
+
+
+def _stage_webmentions(
+    state: dict[str, object],
+    file_key: str,
+    source_url: str | None,
+    target_urls: list[str],
+) -> int:
+    sent = state.setdefault("sent", {})
+    queue = state.setdefault("queue", [])
+
+    if not isinstance(sent, dict) or not isinstance(queue, list):
+        raise ValueError("Webmention state is corrupted")
+
+    sent_urls = sent.setdefault(file_key, [])
+    if not isinstance(sent_urls, list):
+        sent_urls = []
+        sent[file_key] = sent_urls
+
+    sent_set = set(str(url) for url in sent_urls)
+    target_set = set(target_urls)
+
+    queue_entries: list[dict[str, str]] = [entry for entry in queue if isinstance(entry, dict)]
+    queue_entries = [
+        entry
+        for entry in queue_entries
+        if entry.get("file_key") != file_key or entry.get("target_url") in target_set
+    ]
+
+    staged_count = 0
+    if not source_url:
+        state["queue"] = _normalize_queue(queue_entries)
+        if target_urls:
+            print(f"Skipping webmention staging for {file_key}: --site-url is required")
+        return staged_count
+
+    queued_pairs = {
+        (entry.get("source_url"), entry.get("target_url"))
+        for entry in queue_entries
+        if isinstance(entry.get("source_url"), str) and isinstance(entry.get("target_url"), str)
+    }
+
+    for target_url in target_urls:
+        if target_url in sent_set:
+            continue
+        pair = (source_url, target_url)
+        if pair in queued_pairs:
+            continue
+        queue_entries.append({"file_key": file_key, "source_url": source_url, "target_url": target_url})
+        queued_pairs.add(pair)
+        staged_count += 1
+        print(f"Webmention staged: {source_url} -> {target_url}")
+
+    state["queue"] = _normalize_queue(queue_entries)
+    return staged_count
+
+
+def _publish_webmentions(state_path: Path) -> tuple[int, int]:
+    state = _load_webmention_state(state_path)
+    queue = state.get("queue")
+    sent = state.get("sent")
+    if not isinstance(queue, list) or not isinstance(sent, dict):
+        raise ValueError("Webmention state is corrupted")
+
+    delivered = 0
+    remaining: list[dict[str, str]] = []
+    for entry in queue:
+        if not isinstance(entry, dict):
+            continue
+        file_key = entry.get("file_key")
+        source_url = entry.get("source_url")
+        target_url = entry.get("target_url")
+        if not isinstance(file_key, str) or not isinstance(source_url, str) or not isinstance(target_url, str):
+            continue
+
+        sent_urls = sent.setdefault(file_key, [])
+        if not isinstance(sent_urls, list):
+            sent_urls = []
+            sent[file_key] = sent_urls
+
+        if target_url in set(str(url) for url in sent_urls):
+            continue
+
+        if _send_webmention(source_url, target_url):
+            sent_urls.append(target_url)
+            delivered += 1
+            continue
+
+        remaining.append({"file_key": file_key, "source_url": source_url, "target_url": target_url})
+
+    state["queue"] = _normalize_queue(remaining)
+    _save_webmention_state(state_path, state)
+    return delivered, len(state["queue"])
 
 
 def _discover_webmention_endpoint(target_url: str) -> str | None:
@@ -454,11 +596,11 @@ def _send_webmention(source_url: str, target_url: str) -> bool:
     try:
         endpoint = _discover_webmention_endpoint(target_url)
     except Exception as exc:
-        print(f"Webping discovery failed for {target_url}: {exc}")
+        print(f"Webmention discovery failed for {target_url}: {exc}")
         return False
 
     if not endpoint:
-        print(f"Webping skipped (no endpoint): {target_url}")
+        print(f"Webmention skipped (no endpoint): {target_url}")
         return False
 
     payload = urlparse.urlencode({"source": source_url, "target": target_url}).encode("utf-8")
@@ -476,12 +618,12 @@ def _send_webmention(source_url: str, target_url: str) -> bool:
         with urlrequest.urlopen(req, timeout=8) as response:
             status_code = getattr(response, "status", response.getcode())
             if status_code == 200:
-                print(f"Webping sent: {source_url} -> {target_url}")
+                print(f"Webmention sent: {source_url} -> {target_url}")
                 return True
-            print(f"Webping skipped for {target_url}: HTTP {status_code}")
+            print(f"Webmention skipped for {target_url}: HTTP {status_code}")
             return False
     except Exception as exc:
-        print(f"Webping failed for {target_url}: {exc}")
+        print(f"Webmention failed for {target_url}: {exc}")
         return False
 
 
@@ -652,7 +794,7 @@ def build(
     template_path: Path | None,
     site_url: str | None,
     config: dict[str, object] | None = None,
-) -> int:
+) -> tuple[int, int]:
     config = config or {}
     if not src_dir.exists():
         raise FileNotFoundError(f"Source directory not found: {src_dir}")
@@ -671,10 +813,11 @@ def build(
 
     out_dir.mkdir(parents=True, exist_ok=True)
     copied_assets = _copy_static_assets(src_dir, out_dir)
-    webping_state_path = WEBPING_STATE_FILE
-    webping_state = _load_webping_state(webping_state_path)
+    webmention_state_path = WEBMENTION_STATE_FILE
+    webmention_state = _load_webmention_state(webmention_state_path)
 
     built = 0
+    staged_total = 0
     for md_file in markdown_files:
         file_key = str(md_file.relative_to(src_dir))
         raw_text = md_file.read_text(encoding="utf-8")
@@ -698,30 +841,13 @@ def build(
 
         output_name = output_filename(md_file, parsed.metadata)
         output_path = out_dir / output_name
-        was_fresh_build = not output_path.exists()
         output_path.write_text(full_html, encoding="utf-8")
         built += 1
         print(f"Built: {output_path}")
 
         page_urls = extract_target_urls(parsed.markdown_body)
-        previous_urls = webping_state.get(file_key, [])
-        should_send_webpings = was_fresh_build or not previous_urls
-
-        if should_send_webpings and page_urls:
-            previous_set = set(previous_urls)
-            successful_urls: list[str] = [url for url in page_urls if url in previous_set]
-            if site_url:
-                source_url = urlparse.urljoin(site_url.rstrip("/") + "/", output_name)
-                for target_url in page_urls:
-                    if target_url in previous_set:
-                        continue
-                    if _send_webmention(source_url, target_url):
-                        successful_urls.append(target_url)
-            else:
-                print(f"Skipping webpings for {md_file.name}: --site-url is required")
-            webping_state[file_key] = successful_urls
-        else:
-            webping_state[file_key] = [url for url in previous_urls if url in page_urls]
+        source_url = urlparse.urljoin(site_url.rstrip("/") + "/", output_name) if site_url else None
+        staged_total += _stage_webmentions(webmention_state, file_key, source_url, page_urls)
 
     if built == 0:
         print(f"No markdown files found in {src_dir}")
@@ -733,24 +859,35 @@ def build(
     elif config.get("rss"):
         print("Skipping RSS generation: site_url is required")
 
-    _save_webping_state(webping_state_path, webping_state)
-    return built
+    _save_webmention_state(webmention_state_path, webmention_state)
+    return built, staged_total
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build HTML files from Markdown files")
-    parser.add_argument("--src", default="src", help="Directory containing .md source files")
-    parser.add_argument("--out", default="dist", help="Directory for generated .html files")
-    parser.add_argument(
+    parser = argparse.ArgumentParser(description="Build and publish generated site artifacts")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    build_parser = subparsers.add_parser("build", help="Build HTML files and stage webmentions")
+    build_parser.add_argument("--src", default="src", help="Directory containing .md source files")
+    build_parser.add_argument("--out", default="dist", help="Directory for generated .html files")
+    build_parser.add_argument(
         "--template",
         default=None,
         help="Default template file (can be overridden in markdown front matter)",
     )
-    parser.add_argument(
+    build_parser.add_argument(
         "--site-url",
         default=None,
-        help="Public base URL used as source URL when sending webpings",
+        help="Public base URL used for staged webmention source URLs",
     )
+
+    publish_parser = subparsers.add_parser("publish", help="Send queued webmentions")
+    publish_parser.add_argument(
+        "--state-file",
+        default=str(WEBMENTION_STATE_FILE),
+        help="Webmention state file containing sent and queued mentions",
+    )
+
     return parser.parse_args()
 
 
@@ -759,17 +896,28 @@ def main() -> None:
     ensure_local_venv(root_dir)
 
     args = parse_args()
-    config = load_config(root_dir)
-    config_site_url = config.get("site_url") if isinstance(config, dict) else None
-    chosen_site_url = args.site_url or (str(config_site_url) if config_site_url else None)
 
-    build(
-        Path(args.src),
-        Path(args.out),
-        Path(args.template) if args.template else None,
-        chosen_site_url,
-        config,
-    )
+    if args.command == "build":
+        config = load_config(root_dir)
+        config_site_url = config.get("site_url") if isinstance(config, dict) else None
+        chosen_site_url = args.site_url or (str(config_site_url) if config_site_url else None)
+
+        built, staged = build(
+            Path(args.src),
+            Path(args.out),
+            Path(args.template) if args.template else None,
+            chosen_site_url,
+            config,
+        )
+        print(f"Build complete: {built} pages built, {staged} webmentions staged")
+        return
+
+    if args.command == "publish":
+        delivered, remaining = _publish_webmentions(Path(args.state_file))
+        print(f"Publish complete: {delivered} sent, {remaining} remaining in queue")
+        return
+
+    raise ValueError(f"Unsupported command: {args.command}")
 
 
 if __name__ == "__main__":
