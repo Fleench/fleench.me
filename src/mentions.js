@@ -3,8 +3,13 @@
   if (!container) return;
 
   // 1. Get the current page URL (stripping trailing slashes for consistency if needed)
-  const target = window.location.href;
+  // Add this line before your fetch
+  let target = window.location.href;
+  if (!target.endsWith('/')) {
+      target += '/';
+  }
 
+fetch(`https://webmention.io/api/mentions.jf2?target=${encodeURIComponent(target)}`)
   // 2. Fetch from Webmention.io
   fetch(`https://webmention.io/api/mentions.jf2?target=${encodeURIComponent(target)}`)
     .then(response => response.json())
