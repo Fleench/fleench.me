@@ -146,3 +146,54 @@ a:hover {
     opacity: 0.3;
   }
 }
+/* Webmentions Container */
+#webmentions {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 2px dashed var(--panel-border);
+}
+
+.mention-list {
+  list-style: none;
+  padding: 0;
+}
+
+.mention-card {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.mention-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #333;
+  padding-bottom: 0.5rem;
+}
+
+.mention-avatar {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--text);
+  image-rendering: pixelated; /* Keeps avatars crisp */
+}
+
+.mention-body {
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.mention-body a {
+  color: var(--accent);
+}
+
+.mention-date {
+  margin-left: auto;
+  color: var(--muted-text);
+  text-decoration: none;
+}
