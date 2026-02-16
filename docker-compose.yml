@@ -1,0 +1,10 @@
+services:
+  web:
+    image: httpd:alpine
+    container_name: fleench_site
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      # Maps your local 'dist' folder to Apache's serving directory
+      - ./dist:/usr/local/apache2/htdocs/
