@@ -617,7 +617,7 @@ def _send_webmention(source_url: str, target_url: str) -> bool:
     try:
         with urlrequest.urlopen(req, timeout=8) as response:
             status_code = getattr(response, "status", response.getcode())
-            if status_code == 200:
+            if status_code >= 200 and status_code <300:
                 print(f"Webmention sent: {source_url} -> {target_url}")
                 return True
             print(f"Webmention skipped for {target_url}: HTTP {status_code}")
