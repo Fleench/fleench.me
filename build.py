@@ -29,6 +29,7 @@ Blocks are rendered into matching template placeholders such as
 from __future__ import annotations
 
 import argparse
+import shutil
 from dataclasses import dataclass
 import html
 import re
@@ -284,26 +285,65 @@ def output_filename(md_file: Path, metadata: dict[str, str]) -> str:
     return f"{md_file.stem}.html"
 
 
-def build(src_dir: Path, out_dir: Path, template_path: Path) -> int:
+DEFAULT_TEMPLATE = """<!DOCTYPE html>
+<html lang=\"en\">
+  <head>
+    <meta charset=\"UTF-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
+    <title>{{ title }}</title>
+  </head>
+  <body>
+    <main>{{ content }}</main>
+  </body>
+</html>
+"""
+
+
+def _copy_static_assets(src_dir: Path, out_dir: Path) -> int:
+    copied = 0
+    for source_path in src_dir.rglob("*"):
+        if not source_path.is_file():
+            continue
+        if source_path.suffix.lower() not in {".js", ".css", ".html"}:
+            continue
+
+        relative_path = source_path.relative_to(src_dir)
+        destination_path = out_dir / relative_path
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_path, destination_path)
+        copied += 1
+        print(f"Copied: {destination_path}")
+
+    return copied
+
+
+def build(src_dir: Path, out_dir: Path, template_path: Path | None) -> int:
     if not src_dir.exists():
         raise FileNotFoundError(f"Source directory not found: {src_dir}")
 
-    if not template_path.exists():
-        raise FileNotFoundError(f"Template not found: {template_path}")
+    template_text_default = DEFAULT_TEMPLATE
+    if template_path is not None:
+        if not template_path.exists():
+            raise FileNotFoundError(f"Template not found: {template_path}")
+        template_text_default = template_path.read_text(encoding="utf-8")
 
     markdown_files = sorted(src_dir.glob("*.md"))
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    copied_assets = _copy_static_assets(src_dir, out_dir)
 
     built = 0
     for md_file in markdown_files:
         raw_text = md_file.read_text(encoding="utf-8")
         parsed = parse_front_matter(raw_text)
 
-        selected_template = resolve_template_path(parsed.metadata.get("template"), md_file, template_path)
-        if not selected_template.exists():
-            raise FileNotFoundError(f"Template not found: {selected_template}")
-        template_text = selected_template.read_text(encoding="utf-8")
+        template_text = template_text_default
+        selected_template_value = parsed.metadata.get("template")
+        if selected_template_value:
+            selected_template = resolve_template_path(selected_template_value, md_file, Path.cwd())
+            if not selected_template.exists():
+                raise FileNotFoundError(f"Template not found: {selected_template}")
+            template_text = selected_template.read_text(encoding="utf-8")
 
         blocks = parse_markdown_blocks(parsed.markdown_body)
         locations = _combine_locations(blocks)
@@ -321,6 +361,8 @@ def build(src_dir: Path, out_dir: Path, template_path: Path) -> int:
 
     if built == 0:
         print(f"No markdown files found in {src_dir}")
+    if copied_assets == 0:
+        print(f"No .js, .css, or .html files found in {src_dir}")
 
     return built
 
@@ -331,7 +373,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out", default="dist", help="Directory for generated .html files")
     parser.add_argument(
         "--template",
-        default="src/page.html.temp",
+        default=None,
         help="Default template file (can be overridden in markdown front matter)",
     )
     return parser.parse_args()
@@ -339,7 +381,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    build(Path(args.src), Path(args.out), Path(args.template))
+    build(Path(args.src), Path(args.out), Path(args.template) if args.template else None)
 
 
 if __name__ == "__main__":
