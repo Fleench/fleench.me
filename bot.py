@@ -193,7 +193,8 @@ async def _publish(path: Path, content: str, note_type: str) -> str:
     )
     await asyncio.to_thread(_run, ["git", "commit", "-m", summary])
     await asyncio.to_thread(_run, ["git", "push"])
-    return summary
+    sent, failed, _errors = await asyncio.to_thread(_publish_queued_webmentions)
+    return f"{summary} (Pings sent: {sent}, failed: {failed})"
 
 
 def _is_allowed(interaction: discord.Interaction) -> bool:
