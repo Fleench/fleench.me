@@ -29,6 +29,7 @@ TARGET_GUILD_ID = int(GUILD_ID) if GUILD_ID else None
 NOTES_ROOT = Path("src/notes")
 
 intents = discord.Intents.default()
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 groq_client = Groq(api_key=GROQ_API_KEY)
 
@@ -114,6 +115,20 @@ def _is_allowed(interaction: discord.Interaction) -> bool:
     return interaction.user.id == ALLOWED_USER_ID
 
 
+def _author_is_allowed(user_id: int) -> bool:
+    return user_id == ALLOWED_USER_ID
+
+
+async def _sync_commands() -> int:
+    if TARGET_GUILD_ID:
+        guild = discord.Object(id=TARGET_GUILD_ID)
+        synced = await bot.tree.sync(guild=guild)
+        return len(synced)
+
+    synced = await bot.tree.sync()
+    return len(synced)
+
+
 @app_commands.check(_is_allowed)
 @app_commands.command(name="note", description="Create and publish a short note")
 @app_commands.describe(content="The note content")
@@ -148,6 +163,70 @@ async def reply(interaction: discord.Interaction, url: str, content: str) -> Non
         await interaction.followup.send(f"❌ Unexpected error: {exc}", ephemeral=True)
 
 
+@app_commands.check(_is_allowed)
+@app_commands.command(name="commands", description="Force reload slash commands")
+async def reload_commands(interaction: discord.Interaction) -> None:
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    try:
+        synced_count = await _sync_commands()
+        scope = f"guild {TARGET_GUILD_ID}" if TARGET_GUILD_ID else "globally"
+        await interaction.followup.send(
+            f"✅ Reloaded {synced_count} slash command(s) {scope}.",
+            ephemeral=True,
+        )
+    except Exception as exc:
+        await interaction.followup.send(f"❌ Command reload error: {exc}", ephemeral=True)
+
+
+@bot.command(name="note")
+async def note_prefix(ctx: commands.Context, *, content: str) -> None:
+    if not _author_is_allowed(ctx.author.id):
+        await ctx.send("⛔ You are not authorized to use this command.")
+        return
+
+    try:
+        path = await asyncio.to_thread(_write_note, content, "note", "src/note.html.temp", None)
+        summary = await _publish(path, content, "note")
+        await ctx.send(f"✅ Published note: `{summary}`")
+    except subprocess.CalledProcessError as exc:
+        message = (exc.stderr or str(exc))[-1500:]
+        await ctx.send(f"❌ Git/build error: {message}")
+    except Exception as exc:
+        await ctx.send(f"❌ Unexpected error: {exc}")
+
+
+@bot.command(name="reply")
+async def reply_prefix(ctx: commands.Context, url: str, *, content: str) -> None:
+    if not _author_is_allowed(ctx.author.id):
+        await ctx.send("⛔ You are not authorized to use this command.")
+        return
+
+    try:
+        path = await asyncio.to_thread(_write_note, content, "reply", "src/reply.html.temp", url)
+        summary = await _publish(path, content, "reply")
+        await ctx.send(f"✅ Published reply: `{summary}`")
+    except subprocess.CalledProcessError as exc:
+        message = (exc.stderr or str(exc))[-1500:]
+        await ctx.send(f"❌ Git/build error: {message}")
+    except Exception as exc:
+        await ctx.send(f"❌ Unexpected error: {exc}")
+
+
+@bot.command(name="commands")
+async def commands_prefix(ctx: commands.Context) -> None:
+    if not _author_is_allowed(ctx.author.id):
+        await ctx.send("⛔ You are not authorized to use this command.")
+        return
+
+    try:
+        synced_count = await _sync_commands()
+        scope = f"guild {TARGET_GUILD_ID}" if TARGET_GUILD_ID else "globally"
+        await ctx.send(f"✅ Reloaded {synced_count} slash command(s) {scope}.")
+    except Exception as exc:
+        await ctx.send(f"❌ Command reload error: {exc}")
+
+
 @note.error
 @reply.error
 async def command_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
@@ -168,13 +247,15 @@ async def setup_hook() -> None:
         guild = discord.Object(id=TARGET_GUILD_ID)
         bot.tree.add_command(note, guild=guild)
         bot.tree.add_command(reply, guild=guild)
-        synced = await bot.tree.sync(guild=guild)
-        print(f"Synced {len(synced)} command(s) to guild {TARGET_GUILD_ID}")
+        bot.tree.add_command(reload_commands, guild=guild)
+        synced_count = await _sync_commands()
+        print(f"Synced {synced_count} command(s) to guild {TARGET_GUILD_ID}")
     else:
         bot.tree.add_command(note)
         bot.tree.add_command(reply)
-        synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} global command(s)")
+        bot.tree.add_command(reload_commands)
+        synced_count = await _sync_commands()
+        print(f"Synced {synced_count} global command(s)")
 
 
 @bot.event
