@@ -53,6 +53,17 @@ body {
   flex-wrap: wrap;
 }
 
+.top-nav-main {
+  margin-left: calc(var(--sidebar-width) + 1rem);
+  width: calc(100% - var(--sidebar-width) - 1rem);
+}
+
+
+.main-only-block {
+  margin-left: calc(var(--sidebar-width) + 1rem);
+  width: calc(100% - var(--sidebar-width) - 1rem);
+}
+
 .top-nav a {
   display: inline-block;
   padding: 0.45rem 0.85rem;
@@ -72,21 +83,51 @@ body {
 }
 
 .site-layout {
-  --center-max-width: min(92vw, calc((100vh - 230px) * 4 / 3));
-  --sidebar-width: clamp(180px, 18vw, 260px);
-  display: grid;
-  grid-template-columns: minmax(0, var(--sidebar-width)) minmax(0, var(--center-max-width)) minmax(0, var(--sidebar-width));
+  display: flex;
   justify-content: center;
-  gap: 1rem;
-  align-items: start;
 }
 
 .center-column {
-  width: min(92vw, var(--center-max-width));
+  width: min(92vw, 1100px);
 }
 
+.content-shell {
+  --sidebar-width: clamp(180px, 20vw, 260px);
+  width: 100%;
+}
+
+.content-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.sidebar-toggle-input {
+  display: none;
+}
+
+.sidebar-toggle-button {
+  display: none;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-weight: 700;
+  text-align: center;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+}
+
+.sidebar:empty {
+  display: none;
+}
+
+
 .layout {
-  display: block;
+  flex: 1;
+  min-width: 0;
 }
 
 .content {
@@ -94,22 +135,6 @@ body {
   aspect-ratio: 4 / 3;
   min-height: min(68vh, calc((100vw - 4rem) * 3 / 4));
   margin: 0 auto;
-}
-
-.sidebar {
-  display: none;
-  position: sticky;
-  top: 1rem;
-  align-self: start;
-}
-
-.sidebar:not(:empty),
-.sidebar:has(> :not(:empty)) {
-  display: block;
-}
-
-.sidebar > * {
-  margin-bottom: 1rem;
 }
 
 h1,
@@ -228,16 +253,41 @@ a:hover {
   color: var(--muted-text);
   text-decoration: none;
 }
-@media (max-width: 1024px) {
-  .site-layout {
-    grid-template-columns: 1fr;
+
+@media (max-width: 860px) {
+  .content-row {
+    flex-direction: column;
+    gap: 0.75rem;
   }
 
-  .center-column {
-    width: 100%;
+  .sidebar-toggle-button {
+    display: block;
   }
 
   .sidebar {
-    position: static;
+    width: 100%;
+    display: none;
   }
+
+  .sidebar-toggle-input:checked + .sidebar-toggle-button + .content-row .sidebar {
+    display: block;
+  }
+
+  .top-nav-main,
+  .main-only-block,
+  .layout {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .content {
+    aspect-ratio: auto;
+    min-height: auto;
+  }
+}
+
+.content-shell:has(.sidebar:empty) .top-nav-main,
+.content-shell:has(.sidebar:empty) ~ .main-only-block {
+  margin-left: 0;
+  width: 100%;
 }
