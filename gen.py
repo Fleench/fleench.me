@@ -1,932 +1,225 @@
 #!/usr/bin/env python3
-"""Simple markdown-to-HTML generator.
-
-Usage:
-  python gen.py build
-  python gen.py build --src src --out dist --template src/page.html.temp
-  python gen.py publish
-
-The generator scans for Markdown files in the source directory and writes
-matching .html files to the output directory using the provided template.
-
-Webmention flow:
-- build: builds pages and stages pending webmentions.
-- publish: sends staged webmentions and records successful deliveries.
-
-It supports YAML front matter at the top of each markdown file:
-
-  ---
-  template: src/page.html.temp
-  title: My Page Title
-  page_name: my-page
-  output: custom-name.html
-  ---
-
-It also supports block directives inside markdown files:
-
-  heading:::element_id---location
-
-Any directive part can be empty via {}.
-Blocks are rendered into matching template placeholders such as
-{{ content }}, {{ sidebar }}, {{ nav bar }}.
-"""
-
 from __future__ import annotations
 
 import argparse
-import datetime as dt
-import json
-import os
-import subprocess
-import shutil
-import sys
-from dataclasses import dataclass
 import html
-from email.utils import format_datetime
-from urllib import parse as urlparse
-from urllib import request as urlrequest
+import importlib
 import re
+from dataclasses import dataclass
 from pathlib import Path
-import venv
-import xml.etree.ElementTree as ET
+from typing import Any
 
 try:
     import markdown as md_lib  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
+except Exception:
     md_lib = None
 
 try:
     import yaml  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
+except Exception:
     yaml = None
 
-
-def _is_truthy(value: object) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "on"}
-    return bool(value)
-
-
-def _is_running_in_venv() -> bool:
-    return bool(os.environ.get("VIRTUAL_ENV")) or sys.prefix != getattr(sys, "base_prefix", sys.prefix)
+DEFAULT_CONFIG: dict[str, Any] = {
+    "src_dir": "src",
+    "out_dir": "dist",
+    "default_template": "src/page.html.temp",
+    "plugins": [],
+}
 
 
-def _load_requirements(root_dir: Path) -> list[str]:
-    requirement_files = [root_dir / "requirements.txt", root_dir / "requirements-dev.txt"]
-    packages: list[str] = []
-    for requirement_file in requirement_files:
-        if not requirement_file.exists():
+@dataclass
+class ParsedMarkdown:
+    metadata: dict[str, Any]
+    body: str
+
+
+def parse_frontmatter(raw: str) -> ParsedMarkdown:
+    if not raw.startswith("---\n"):
+        return ParsedMarkdown(metadata={}, body=raw)
+
+    marker = "\n---\n"
+    end = raw.find(marker, 4)
+    if end == -1:
+        return ParsedMarkdown(metadata={}, body=raw)
+
+    header_text = raw[4:end]
+    body = raw[end + len(marker) :]
+
+    if yaml is not None:
+        data = yaml.safe_load(header_text) or {}
+        if isinstance(data, dict):
+            return ParsedMarkdown(metadata={str(k): v for k, v in data.items()}, body=body)
+
+    metadata: dict[str, Any] = {}
+    for line in header_text.splitlines():
+        if ":" not in line:
             continue
-        for line in requirement_file.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            packages.append(stripped)
-    if packages:
-        return packages
-
-    # Fallback to known optional dependencies used by this script.
-    return ["markdown", "PyYAML"]
-
-
-def ensure_local_venv(root_dir: Path) -> None:
-    if _is_running_in_venv():
-        return
-
-    venv_dir = root_dir / ".venv"
-    created_venv = False
-    if not venv_dir.exists():
-        print(f"Creating virtual environment at {venv_dir}")
-        venv.create(venv_dir, with_pip=True)
-        created_venv = True
-
-    bin_dir = "Scripts" if os.name == "nt" else "bin"
-    python_path = venv_dir / bin_dir / ("python.exe" if os.name == "nt" else "python")
-    if not python_path.exists():
-        raise FileNotFoundError(f"Unable to locate venv python: {python_path}")
-
-    packages = _load_requirements(root_dir) if created_venv else []
-    if packages:
-        print("Installing dependencies into .venv")
-        try:
-            subprocess.run([str(python_path), "-m", "pip", "install", "--upgrade", "pip"], check=True)
-            subprocess.run([str(python_path), "-m", "pip", "install", *packages], check=True)
-        except subprocess.CalledProcessError as exc:
-            print(f"Dependency install failed, continuing with available packages: {exc}")
-
-    print("Re-running build with local virtual environment")
-    subprocess.run([str(python_path), *sys.argv], check=True)
-    raise SystemExit(0)
-
-
-def _fallback_markdown_to_html(markdown_text: str) -> str:
-    """Tiny markdown converter for environments without python-markdown."""
-    lines = markdown_text.splitlines()
-    out: list[str] = []
-    in_list = False
-
-    def close_list() -> None:
-        nonlocal in_list
-        if in_list:
-            out.append("</ul>")
-            in_list = False
-
-    for raw_line in lines:
-        line = raw_line.rstrip()
-        if not line:
-            close_list()
-            continue
-
-        heading_match = re.match(r"^(#{1,6})\s+(.*)$", line)
-        if heading_match:
-            close_list()
-            level = len(heading_match.group(1))
-            text = html.escape(heading_match.group(2).strip())
-            out.append(f"<h{level}>{text}</h{level}>")
-            continue
-
-        list_match = re.match(r"^[-*]\s+(.*)$", line)
-        if list_match:
-            if not in_list:
-                out.append("<ul>")
-                in_list = True
-            item = html.escape(list_match.group(1).strip())
-            out.append(f"  <li>{item}</li>")
-            continue
-
-        close_list()
-        paragraph = html.escape(line)
-        paragraph = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", paragraph)
-        paragraph = re.sub(r"\*(.+?)\*", r"<em>\1</em>", paragraph)
-        out.append(f"<p>{paragraph}</p>")
-
-    close_list()
-    return "\n".join(out)
+        key, value = line.split(":", 1)
+        metadata[key.strip()] = value.strip().strip('"').strip("'")
+    return ParsedMarkdown(metadata=metadata, body=body)
 
 
 def markdown_to_html(markdown_text: str) -> str:
     if md_lib is not None:
         return md_lib.markdown(markdown_text, extensions=["extra", "sane_lists"])
-    return _fallback_markdown_to_html(markdown_text)
 
-
-@dataclass
-class ContentBlock:
-    heading: str | None
-    element_id: str | None
-    location: str
-    markdown_body: str
-
-
-@dataclass
-class ParsedPage:
-    metadata: dict[str, str]
-    markdown_body: str
-
-
-_BLOCK_DIRECTIVE = re.compile(r"^(.*?):::(.*?)---(.*?)$")
-
-
-def _normalize_piece(value: str) -> str | None:
-    trimmed = value.strip()
-    if trimmed == "{}" or trimmed == "":
-        return None
-    return trimmed
-
-
-def _simple_front_matter_parse(raw: str) -> dict[str, str]:
-    result: dict[str, str] = {}
-    for line in raw.splitlines():
+    # fallback minimal markdown rendering
+    chunks: list[str] = []
+    for line in markdown_text.splitlines():
         stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
+        if not stripped:
             continue
-        if ":" not in stripped:
-            continue
-        key, value = stripped.split(":", 1)
-        result[key.strip()] = value.strip().strip('"').strip("'")
-    return result
-
-
-def parse_front_matter(markdown_text: str) -> ParsedPage:
-    """Parse optional YAML front matter and return metadata + markdown body."""
-    if not markdown_text.startswith("---\n"):
-        return ParsedPage(metadata={}, markdown_body=markdown_text)
-
-    end_match = re.search(r"\n---\s*(\n|$)", markdown_text[4:])
-    if not end_match:
-        return ParsedPage(metadata={}, markdown_body=markdown_text)
-
-    end_idx = 4 + end_match.start()
-    front_matter_raw = markdown_text[4:end_idx]
-
-    # Skip closing marker and one trailing newline if present.
-    body_start = 4 + end_match.end()
-    body = markdown_text[body_start:]
-
-    if yaml is not None:
-        loaded = yaml.safe_load(front_matter_raw) or {}
-        if not isinstance(loaded, dict):
-            loaded = {}
-        metadata = {str(k): str(v) for k, v in loaded.items()}
-    else:
-        metadata = _simple_front_matter_parse(front_matter_raw)
-
-    return ParsedPage(metadata=metadata, markdown_body=body)
-
-
-def parse_markdown_blocks(markdown_text: str) -> list[ContentBlock]:
-    blocks: list[ContentBlock] = []
-    current_heading: str | None = None
-    current_id: str | None = None
-    current_location = "content"
-    current_lines: list[str] = []
-
-    def flush_current() -> None:
-        if not current_lines and current_heading is None and current_id is None:
-            return
-        blocks.append(
-            ContentBlock(
-                heading=current_heading,
-                element_id=current_id,
-                location=current_location,
-                markdown_body="\n".join(current_lines).strip(),
-            )
-        )
-
-    for raw_line in markdown_text.splitlines():
-        match = _BLOCK_DIRECTIVE.match(raw_line.strip())
-        if match:
-            flush_current()
-            current_heading = _normalize_piece(match.group(1))
-            current_id = _normalize_piece(match.group(2))
-            current_location = _normalize_piece(match.group(3)) or "content"
-            current_lines = []
-            continue
-
-        current_lines.append(raw_line)
-
-    flush_current()
-
-    if not blocks:
-        blocks.append(
-            ContentBlock(
-                heading=None,
-                element_id=None,
-                location="content",
-                markdown_body=markdown_text,
-            )
-        )
-
-    return blocks
-
-
-def _render_block_html(block: ContentBlock) -> str:
-    parts: list[str] = []
-    if block.heading:
-        parts.append(f"<h2>{html.escape(block.heading)}</h2>")
-    if block.markdown_body:
-        parts.append(markdown_to_html(block.markdown_body))
-
-    joined = "\n".join(part for part in parts if part.strip()).strip()
-    if block.element_id:
-        return f'<div id="{html.escape(block.element_id)}">{joined}</div>'
-    return joined
-
-
-def _combine_locations(blocks: list[ContentBlock]) -> dict[str, str]:
-    rendered_by_location: dict[str, list[str]] = {}
-    for block in blocks:
-        rendered = _render_block_html(block)
-        if not rendered:
-            continue
-        rendered_by_location.setdefault(block.location, []).append(rendered)
-    return {k: "\n".join(v) for k, v in rendered_by_location.items()}
-
-
-def render(template_text: str, context: dict[str, str]) -> str:
-    def replace_placeholder(match: re.Match[str]) -> str:
-        key = match.group(1).strip()
-        return context.get(key, "")
-
-    return re.sub(r"{{\s*([^{}]+?)\s*}}", replace_placeholder, template_text)
-
-
-def derive_title(md_path: Path, metadata: dict[str, str], markdown_body: str) -> str:
-    if metadata.get("title"):
-        return metadata["title"]
-    if metadata.get("page_name"):
-        return metadata["page_name"]
-
-    for line in markdown_body.splitlines():
-        if line.startswith("# "):
-            return line[2:].strip()
-    return md_path.stem.replace("-", " ").title()
-
-
-def resolve_template_path(template_value: str | None, md_file: Path, default_template: Path) -> Path:
-    if not template_value:
-        return default_template
-
-    candidate = Path(template_value)
-    if candidate.is_absolute() and candidate.exists():
-        return candidate
-
-    relative_to_md = md_file.parent / candidate
-    if relative_to_md.exists():
-        return relative_to_md
-
-    relative_to_cwd = Path.cwd() / candidate
-    if relative_to_cwd.exists():
-        return relative_to_cwd
-
-    # Fallback to value as provided; caller will raise if not found.
-    return candidate
-
-
-def output_filename(md_file: Path, metadata: dict[str, str]) -> str:
-    explicit_output = metadata.get("output")
-    if explicit_output:
-        return explicit_output
-
-    page_name = metadata.get("page_name")
-    if page_name:
-        cleaned = page_name.strip().replace(" ", "-")
-        if cleaned.endswith(".html"):
-            return cleaned
-        return f"{cleaned}.html"
-
-    return f"{md_file.stem}.html"
-
-
-def extract_target_urls(markdown_body: str) -> list[str]:
-    found = re.findall(r"https?://[^\s)>'\"]+", markdown_body)
-    # Preserve order and drop duplicates.
-    unique: list[str] = []
-    seen: set[str] = set()
-    for url in found:
-        if url in seen:
-            continue
-        seen.add(url)
-        unique.append(url)
-    return unique
-
-
-DEFAULT_TEMPLATE = """<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ title }}</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="page-wrap">
-      <header class="marquee-frame">
-        <marquee behavior="alternate" scrollamount="6">
-          ★ Welcome to Retro Pixel Palace ★ Midnight Edition ★
-        </marquee>
-      </header>
-
-      <nav class="top-nav panel">{{ nav bar }}</nav>
-
-      <main class="layout">
-        <section class="content panel">{{ content }}</section>
-      </main>
-
-      <footer class="panel footer">
-        <p>© 2001 Retro Pixel Palace — E-mail: webmaster@pixelpalace.example</p>
-      </footer>
-    </div>
-  </body>
-</html>
-"""
-DEFAULT_TEMPLATE_PATH = Path("src/page.html.temp")
-WEBMENTION_STATE_FILE = Path(__file__).with_name(".webmention-state.json")
-
-
-def _load_webmention_state(state_path: Path) -> dict[str, object]:
-    if not state_path.exists():
-        return {"sent": {}, "queue": []}
-    try:
-        loaded = json.loads(state_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {"sent": {}, "queue": []}
-
-    if not isinstance(loaded, dict):
-        return {"sent": {}, "queue": []}
-
-    # Backwards compatibility: old format was {"file.md": ["https://target"]}
-    if "sent" not in loaded and "queue" not in loaded:
-        sent: dict[str, list[str]] = {}
-        for key, value in loaded.items():
-            if isinstance(key, str) and isinstance(value, list):
-                sent[key] = [str(item) for item in value]
-        return {"sent": sent, "queue": []}
-
-    raw_sent = loaded.get("sent")
-    raw_queue = loaded.get("queue")
-
-    sent_result: dict[str, list[str]] = {}
-    if isinstance(raw_sent, dict):
-        for key, value in raw_sent.items():
-            if isinstance(key, str) and isinstance(value, list):
-                sent_result[key] = [str(item) for item in value]
-
-    queue_result: list[dict[str, str]] = []
-    if isinstance(raw_queue, list):
-        for entry in raw_queue:
-            if not isinstance(entry, dict):
-                continue
-            file_key = entry.get("file_key")
-            source_url = entry.get("source_url")
-            target_url = entry.get("target_url")
-            if isinstance(file_key, str) and isinstance(source_url, str) and isinstance(target_url, str):
-                queue_result.append(
-                    {
-                        "file_key": file_key,
-                        "source_url": source_url,
-                        "target_url": target_url,
-                    }
-                )
-
-    return {"sent": sent_result, "queue": queue_result}
-
-
-def _save_webmention_state(state_path: Path, state: dict[str, object]) -> None:
-    state_path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
-
-
-def _normalize_queue(queue: list[dict[str, str]]) -> list[dict[str, str]]:
-    unique: list[dict[str, str]] = []
-    seen: set[tuple[str, str]] = set()
-    for entry in queue:
-        pair = (entry["source_url"], entry["target_url"])
-        if pair in seen:
-            continue
-        seen.add(pair)
-        unique.append(entry)
-    return unique
-
-
-def _stage_webmentions(
-    state: dict[str, object],
-    file_key: str,
-    source_url: str | None,
-    target_urls: list[str],
-) -> int:
-    sent = state.setdefault("sent", {})
-    queue = state.setdefault("queue", [])
-
-    if not isinstance(sent, dict) or not isinstance(queue, list):
-        raise ValueError("Webmention state is corrupted")
-
-    sent_urls = sent.setdefault(file_key, [])
-    if not isinstance(sent_urls, list):
-        sent_urls = []
-        sent[file_key] = sent_urls
-
-    sent_set = set(str(url) for url in sent_urls)
-    target_set = set(target_urls)
-
-    queue_entries: list[dict[str, str]] = [entry for entry in queue if isinstance(entry, dict)]
-    queue_entries = [
-        entry
-        for entry in queue_entries
-        if entry.get("file_key") != file_key or entry.get("target_url") in target_set
-    ]
-
-    staged_count = 0
-    if not source_url:
-        state["queue"] = _normalize_queue(queue_entries)
-        if target_urls:
-            print(f"Skipping webmention staging for {file_key}: --site-url is required")
-        return staged_count
-
-    queued_pairs = {
-        (entry.get("source_url"), entry.get("target_url"))
-        for entry in queue_entries
-        if isinstance(entry.get("source_url"), str) and isinstance(entry.get("target_url"), str)
-    }
-
-    for target_url in target_urls:
-        if target_url in sent_set:
-            continue
-        pair = (source_url, target_url)
-        if pair in queued_pairs:
-            continue
-        queue_entries.append({"file_key": file_key, "source_url": source_url, "target_url": target_url})
-        queued_pairs.add(pair)
-        staged_count += 1
-        print(f"Webmention staged: {source_url} -> {target_url}")
-
-    state["queue"] = _normalize_queue(queue_entries)
-    return staged_count
-
-
-def _publish_webmentions(state_path: Path) -> tuple[int, int]:
-    state = _load_webmention_state(state_path)
-    queue = state.get("queue")
-    sent = state.get("sent")
-    if not isinstance(queue, list) or not isinstance(sent, dict):
-        raise ValueError("Webmention state is corrupted")
-
-    delivered = 0
-    remaining: list[dict[str, str]] = []
-    for entry in queue:
-        if not isinstance(entry, dict):
-            continue
-        file_key = entry.get("file_key")
-        source_url = entry.get("source_url")
-        target_url = entry.get("target_url")
-        if not isinstance(file_key, str) or not isinstance(source_url, str) or not isinstance(target_url, str):
-            continue
-
-        sent_urls = sent.setdefault(file_key, [])
-        if not isinstance(sent_urls, list):
-            sent_urls = []
-            sent[file_key] = sent_urls
-
-        if target_url in set(str(url) for url in sent_urls):
-            continue
-
-        if _send_webmention(source_url, target_url):
-            sent_urls.append(target_url)
-            delivered += 1
-            continue
-
-        remaining.append({"file_key": file_key, "source_url": source_url, "target_url": target_url})
-
-    state["queue"] = _normalize_queue(remaining)
-    _save_webmention_state(state_path, state)
-    return delivered, len(state["queue"])
-
-
-def _discover_webmention_endpoint(target_url: str) -> str | None:
-    req = urlrequest.Request(target_url, headers={"User-Agent": "fleench-builder/1.0"})
-    with urlrequest.urlopen(req, timeout=8) as response:
-        link_header = response.headers.get("Link", "")
-        header_match = re.search(r'<([^>]+)>\s*;\s*rel="?webmention"?', link_header, flags=re.IGNORECASE)
-        if header_match:
-            return urlparse.urljoin(target_url, header_match.group(1))
-
-        body = response.read(50_000).decode("utf-8", errors="ignore")
-
-    body_match = re.search(
-        r'<link[^>]+rel=["\'][^"\']*webmention[^"\']*["\'][^>]+href=["\']([^"\']+)["\']',
-        body,
-        flags=re.IGNORECASE,
-    )
-    if body_match:
-        return urlparse.urljoin(target_url, body_match.group(1))
-
-    alt_match = re.search(
-        r'<a[^>]+rel=["\'][^"\']*webmention[^"\']*["\'][^>]+href=["\']([^"\']+)["\']',
-        body,
-        flags=re.IGNORECASE,
-    )
-    if alt_match:
-        return urlparse.urljoin(target_url, alt_match.group(1))
-
-    return None
-
-
-def _send_webmention(source_url: str, target_url: str) -> bool:
-    try:
-        endpoint = _discover_webmention_endpoint(target_url)
-    except Exception as exc:
-        print(f"Webmention discovery failed for {target_url}: {exc}")
-        return False
-
-    if not endpoint:
-        print(f"Webmention skipped (no endpoint): {target_url}")
-        return False
-
-    payload = urlparse.urlencode({"source": source_url, "target": target_url}).encode("utf-8")
-    req = urlrequest.Request(
-        endpoint,
-        data=payload,
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "fleench-builder/1.0",
-        },
-        method="POST",
-    )
-
-    try:
-        with urlrequest.urlopen(req, timeout=8) as response:
-            status_code = getattr(response, "status", response.getcode())
-            if status_code >= 200 and status_code <300:
-                print(f"Webmention sent: {source_url} -> {target_url}")
-                return True
-            print(f"Webmention skipped for {target_url}: HTTP {status_code}")
-            return False
-    except Exception as exc:
-        print(f"Webmention failed for {target_url}: {exc}")
-        return False
-
-
-def _copy_static_assets(src_dir: Path, out_dir: Path) -> int:
-    copied = 0
-    for source_path in src_dir.rglob("*"):
-        if not source_path.is_file():
-            continue
-        name_lower = source_path.name.lower()
-        if name_lower.endswith(".html.temp") or name_lower.endswith(".md"):
-            continue
-
-        relative_path = source_path.relative_to(src_dir)
-        destination_path = out_dir / relative_path
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_path, destination_path)
-        copied += 1
-        print(f"Copied: {destination_path}")
-
-    return copied
-
-
-def _simple_yaml_parse(raw: str) -> dict[str, object]:
-    root: dict[str, object] = {}
-    stack: list[tuple[int, dict[str, object]]] = [(-1, root)]
-
-    for line in raw.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-
-        indent = len(line) - len(line.lstrip(" "))
-        if ":" not in stripped:
-            continue
-
-        key, value = stripped.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-
-        while stack and indent <= stack[-1][0]:
-            stack.pop()
-        parent = stack[-1][1] if stack else root
-
-        if value == "":
-            nested: dict[str, object] = {}
-            parent[key] = nested
-            stack.append((indent, nested))
-            continue
-
-        normalized = value.strip('"').strip("'")
-        if normalized.lower() in {"true", "false"}:
-            parent[key] = normalized.lower() == "true"
+        heading = re.match(r"^(#{1,6})\s+(.*)$", stripped)
+        if heading:
+            level = len(heading.group(1))
+            chunks.append(f"<h{level}>{html.escape(heading.group(2))}</h{level}>")
         else:
-            parent[key] = normalized
+            chunks.append(f"<p>{html.escape(stripped)}</p>")
+    return "\n".join(chunks)
 
-    return root
+
+def render_template(template_text: str, context: dict[str, Any]) -> str:
+    rendered = template_text
+    for key, value in context.items():
+        rendered = rendered.replace(f"{{{{ {key} }}}}", str(value))
+    return rendered
 
 
-def load_config(root_dir: Path) -> dict[str, object]:
-    config_path = root_dir / "config.yml"
+def clean_output_path(src_file: Path, src_dir: Path, out_dir: Path) -> Path:
+    relative = src_file.relative_to(src_dir)
+    if relative.as_posix() == "index.md":
+        return out_dir / "index.html"
+
+    page_dir = relative.with_suffix("")
+    return out_dir / page_dir / "index.html"
+
+
+def derive_title(src_file: Path, parsed: ParsedMarkdown) -> str:
+    explicit = parsed.metadata.get("title")
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip()
+    if src_file.stem.lower() == "index":
+        return "Home"
+    return src_file.stem.replace("-", " ").replace("_", " ").title()
+
+
+def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dict[str, Any]) -> int:
+    if not src_dir.exists():
+        raise FileNotFoundError(f"Source directory not found: {src_dir}")
+
+    if not default_template.exists():
+        raise FileNotFoundError(f"Default template not found: {default_template}")
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    default_template_text = default_template.read_text(encoding="utf-8")
+
+    built = 0
+    for md_file in sorted(src_dir.rglob("*.md")):
+        parsed = parse_frontmatter(md_file.read_text(encoding="utf-8"))
+
+        selected_template = parsed.metadata.get("template")
+        template_path = Path(str(selected_template)) if selected_template else default_template
+        if not template_path.is_absolute():
+            template_path = Path.cwd() / template_path
+        template_text = template_path.read_text(encoding="utf-8") if template_path.exists() else default_template_text
+
+        body_html = markdown_to_html(parsed.body)
+        output_path = clean_output_path(md_file, src_dir, out_dir)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        rel_url = "/" + output_path.relative_to(out_dir).as_posix()
+        if rel_url.endswith("/index.html"):
+            rel_url = rel_url[: -len("index.html")]
+
+        escaped_meta = {k: html.escape(str(v)) for k, v in parsed.metadata.items()}
+        context = {
+            "title": html.escape(derive_title(md_file, parsed)),
+            "content": body_html,
+            "date": html.escape(str(parsed.metadata.get("date", ""))),
+            "output": rel_url,
+            **escaped_meta,
+        }
+        output_path.write_text(render_template(template_text, context), encoding="utf-8")
+        built += 1
+
+    for asset in src_dir.rglob("*"):
+        if not asset.is_file() or asset.suffix.lower() == ".md":
+            continue
+        destination = out_dir / asset.relative_to(src_dir)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(asset.read_bytes())
+
+    run_plugins(src_dir, out_dir, config)
+    return built
+
+
+def run_plugins(src_dir: Path, out_dir: Path, config: dict[str, Any]) -> None:
+    plugins = config.get("plugins", [])
+    if not isinstance(plugins, list):
+        return
+
+    for plugin_name in plugins:
+        if not isinstance(plugin_name, str) or not plugin_name.strip():
+            continue
+        module = importlib.import_module(plugin_name)
+        main = getattr(module, "main", None)
+        if callable(main):
+            main(src_dir, out_dir, config)
+
+
+
+
+def _simple_yaml_parse(raw: str) -> dict[str, Any]:
+    data: dict[str, Any] = {}
+    current_list_key: str | None = None
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#'):
+            continue
+        if stripped.startswith('- ') and current_list_key:
+            data.setdefault(current_list_key, []).append(stripped[2:].strip().strip('"').strip("'"))
+            continue
+        if ':' in line:
+            key, value = line.split(':', 1)
+            key = key.strip()
+            value = value.strip()
+            if value == '':
+                data[key] = []
+                current_list_key = key
+            else:
+                current_list_key = None
+                data[key] = value.strip('"').strip("'")
+    return data
+
+def load_config(config_path: Path) -> dict[str, Any]:
+    data = dict(DEFAULT_CONFIG)
     if not config_path.exists():
-        return {}
+        return data
 
     raw = config_path.read_text(encoding="utf-8")
     if yaml is not None:
         loaded = yaml.safe_load(raw) or {}
-        if isinstance(loaded, dict):
-            return loaded
-        return {}
+    else:
+        loaded = _simple_yaml_parse(raw)
 
-    print("PyYAML not installed; using limited config parser")
-    return _simple_yaml_parse(raw)
-
-
-def _extract_post_date(md_path: Path, metadata: dict[str, str]) -> dt.datetime:
-    for key in ("date", "published", "pub_date"):
-        value = metadata.get(key)
-        if not value:
-            continue
-        cleaned = value.strip()
-        try:
-            parsed = dt.datetime.fromisoformat(cleaned.replace("Z", "+00:00"))
-            if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=dt.timezone.utc)
-            return parsed
-        except ValueError:
-            pass
-
-    filename_match = re.match(r"(\d{4}-\d{2}-\d{2})", md_path.stem)
-    if filename_match:
-        parsed = dt.datetime.fromisoformat(filename_match.group(1))
-        return parsed.replace(tzinfo=dt.timezone.utc)
-
-    modified = dt.datetime.fromtimestamp(md_path.stat().st_mtime, tz=dt.timezone.utc)
-    return modified
-
-
-def _extract_description(markdown_body: str) -> str:
-    for line in markdown_body.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        if stripped.startswith("#"):
-            continue
-        return stripped[:240]
-    return ""
-
-
-def _generate_rss_feed(src_dir: Path, out_dir: Path, site_url: str, config: dict[str, object]) -> Path | None:
-    rss_config = config.get("rss")
-    if not isinstance(rss_config, dict) or not _is_truthy(rss_config.get("enabled", False)):
-        return None
-
-    content_dir_name = str(rss_config.get("content_dir", "blog"))
-    feed_path = str(rss_config.get("feed_path", "feed.xml"))
-    content_dir = src_dir / content_dir_name
-    if not content_dir.exists():
-        print(f"RSS skipped: content directory not found ({content_dir})")
-        return None
-
-    entries: list[tuple[dt.datetime, Path, ParsedPage]] = []
-    for md_path in sorted(content_dir.rglob("*.md")):
-        raw_text = md_path.read_text(encoding="utf-8")
-        parsed = parse_front_matter(raw_text)
-        published = _extract_post_date(md_path, parsed.metadata)
-        entries.append((published, md_path, parsed))
-
-    if not entries:
-        print(f"RSS skipped: no markdown files in {content_dir}")
-        return None
-
-    entries.sort(key=lambda item: item[0], reverse=True)
-    now = dt.datetime.now(tz=dt.timezone.utc)
-
-    rss_el = ET.Element("rss", attrib={"version": "2.0"})
-    channel = ET.SubElement(rss_el, "channel")
-    ET.SubElement(channel, "title").text = str(config.get("site_title") or site_url)
-    ET.SubElement(channel, "link").text = site_url.rstrip("/") + "/"
-    ET.SubElement(channel, "description").text = str(config.get("site_title") or "Site feed")
-    ET.SubElement(channel, "lastBuildDate").text = format_datetime(now)
-
-    for published, md_path, parsed in entries:
-        item = ET.SubElement(channel, "item")
-        title = derive_title(md_path, parsed.metadata, parsed.markdown_body)
-        rel_path = md_path.relative_to(src_dir).with_suffix(".html")
-        link = urlparse.urljoin(site_url.rstrip("/") + "/", str(rel_path).replace("\\", "/"))
-        description = parsed.metadata.get("description") or _extract_description(parsed.markdown_body)
-
-        ET.SubElement(item, "title").text = title
-        ET.SubElement(item, "link").text = link
-        ET.SubElement(item, "guid").text = link
-        ET.SubElement(item, "pubDate").text = format_datetime(
-            published if published.tzinfo else published.replace(tzinfo=dt.timezone.utc)
-        )
-        ET.SubElement(item, "description").text = description
-
-    output_path = out_dir / feed_path
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    tree = ET.ElementTree(rss_el)
-    tree.write(output_path, encoding="utf-8", xml_declaration=True)
-    print(f"Generated RSS: {output_path}")
-    return output_path
-
-
-def build(
-    src_dir: Path,
-    out_dir: Path,
-    template_path: Path | None,
-    site_url: str | None,
-    config: dict[str, object] | None = None,
-) -> tuple[int, int]:
-    config = config or {}
-    if not src_dir.exists():
-        raise FileNotFoundError(f"Source directory not found: {src_dir}")
-
-    template_text_default = DEFAULT_TEMPLATE
-    resolved_default_template = template_path
-    if resolved_default_template is None and DEFAULT_TEMPLATE_PATH.exists():
-        resolved_default_template = DEFAULT_TEMPLATE_PATH
-
-    if resolved_default_template is not None:
-        if not resolved_default_template.exists():
-            raise FileNotFoundError(f"Template not found: {resolved_default_template}")
-        template_text_default = resolved_default_template.read_text(encoding="utf-8")
-
-    markdown_files = sorted(src_dir.glob("*.md"))
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-    copied_assets = _copy_static_assets(src_dir, out_dir)
-    webmention_state_path = WEBMENTION_STATE_FILE
-    webmention_state = _load_webmention_state(webmention_state_path)
-
-    built = 0
-    staged_total = 0
-    for md_file in markdown_files:
-        file_key = str(md_file.relative_to(src_dir))
-        raw_text = md_file.read_text(encoding="utf-8")
-        parsed = parse_front_matter(raw_text)
-
-        template_text = template_text_default
-        selected_template_value = parsed.metadata.get("template")
-        if selected_template_value:
-            selected_template = resolve_template_path(selected_template_value, md_file, Path.cwd())
-            if not selected_template.exists():
-                raise FileNotFoundError(f"Template not found: {selected_template}")
-            template_text = selected_template.read_text(encoding="utf-8")
-
-        blocks = parse_markdown_blocks(parsed.markdown_body)
-        locations = _combine_locations(blocks)
-        title = derive_title(md_file, parsed.metadata, parsed.markdown_body)
-
-        output_name = output_filename(md_file, parsed.metadata)
-        published_dt = _extract_post_date(md_file, parsed.metadata)
-        published_iso = published_dt.date().isoformat()
-
-        escaped_meta = {k: html.escape(v) for k, v in parsed.metadata.items()}
-        context = {
-            "title": html.escape(title),
-            "output": html.escape(output_name),
-            "date": html.escape(parsed.metadata.get("date", published_iso)),
-            **escaped_meta,
-            **locations,
-        }
-        full_html = render(template_text, context)
-
-        output_path = out_dir / output_name
-        output_path.write_text(full_html, encoding="utf-8")
-        built += 1
-        print(f"Built: {output_path}")
-
-        page_urls = extract_target_urls(parsed.markdown_body)
-        source_url = urlparse.urljoin(site_url.rstrip("/") + "/", output_name) if site_url else None
-        staged_total += _stage_webmentions(webmention_state, file_key, source_url, page_urls)
-
-    if built == 0:
-        print(f"No markdown files found in {src_dir}")
-    if copied_assets == 0:
-        print(f"No static assets copied from {src_dir}")
-
-    if site_url:
-        _generate_rss_feed(src_dir, out_dir, site_url, config)
-    elif config.get("rss"):
-        print("Skipping RSS generation: site_url is required")
-
-    _save_webmention_state(webmention_state_path, webmention_state)
-    return built, staged_total
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build and publish generated site artifacts")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    build_parser = subparsers.add_parser("build", help="Build HTML files and stage webmentions")
-    build_parser.add_argument("--src", default="src", help="Directory containing .md source files")
-    build_parser.add_argument("--out", default="dist", help="Directory for generated .html files")
-    build_parser.add_argument(
-        "--template",
-        default=None,
-        help="Default template file (can be overridden in markdown front matter)",
-    )
-    build_parser.add_argument(
-        "--site-url",
-        default=None,
-        help="Public base URL used for staged webmention source URLs",
-    )
-
-    publish_parser = subparsers.add_parser("publish", help="Send queued webmentions")
-    publish_parser.add_argument(
-        "--state-file",
-        default=str(WEBMENTION_STATE_FILE),
-        help="Webmention state file containing sent and queued mentions",
-    )
-
-    return parser.parse_args()
+    if isinstance(loaded, dict):
+        data.update(loaded)
+    return data
 
 
 def main() -> None:
-    root_dir = Path(__file__).resolve().parent
-    ensure_local_venv(root_dir)
+    parser = argparse.ArgumentParser(description="Build static site with clean URLs and plugins")
+    parser.add_argument("command", nargs="?", default="build", choices=["build"])
+    parser.add_argument("--config", default="config.yml")
+    args = parser.parse_args()
 
-    args = parse_args()
+    config = load_config(Path(args.config))
+    src_dir = Path(str(config.get("src_dir", "src")))
+    out_dir = Path(str(config.get("out_dir", "dist")))
+    template_path = Path(str(config.get("default_template", "src/page.html.temp")))
 
-    if args.command == "build":
-        config = load_config(root_dir)
-        config_site_url = config.get("site_url") if isinstance(config, dict) else None
-        chosen_site_url = args.site_url or (str(config_site_url) if config_site_url else None)
-
-        built, staged = build(
-            Path(args.src),
-            Path(args.out),
-            Path(args.template) if args.template else None,
-            chosen_site_url,
-            config,
-        )
-        print(f"Build complete: {built} pages built, {staged} webmentions staged")
-        return
-
-    if args.command == "publish":
-        delivered, remaining = _publish_webmentions(Path(args.state_file))
-        print(f"Publish complete: {delivered} sent, {remaining} remaining in queue")
-        return
-
-    raise ValueError(f"Unsupported command: {args.command}")
+    built = build_site(src_dir, out_dir, template_path, config)
+    print(f"Built {built} markdown page(s)")
 
 
 if __name__ == "__main__":

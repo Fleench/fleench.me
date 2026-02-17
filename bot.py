@@ -1,7 +1,5 @@
 import asyncio
-import json
 import os
-import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -12,155 +10,176 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from groq import Groq
 
-
 load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GUILD_ID = os.getenv("GUILD_ID")
 MY_DISCORD_ID = os.getenv("MY_DISCORD_ID")
+GUILD_ID = os.getenv("GUILD_ID")
 
 if not DISCORD_TOKEN:
     raise RuntimeError("DISCORD_TOKEN is required in .env")
 if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY is required in .env")
-if not GUILD_ID:
-    raise RuntimeError("GUILD_ID is required in .env")
 if not MY_DISCORD_ID:
     raise RuntimeError("MY_DISCORD_ID is required in .env")
 
-
 ALLOWED_USER_ID = int(MY_DISCORD_ID)
-TARGET_GUILD_ID = int(GUILD_ID)
-NOTES_DIR = Path("./src/notes")
-SYSTEM_PROMPT = (
-    "You are a helpful assistant that summarizes short notes into a clean, "
-    "3-5 word URL-friendly slug and a concise Git commit message. "
-    "Return only a JSON object with keys 'slug' and 'summary'."
-)
-
+TARGET_GUILD_ID = int(GUILD_ID) if GUILD_ID else None
+NOTES_ROOT = Path("src/notes")
 
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
 groq_client = Groq(api_key=GROQ_API_KEY)
 
 
-def _sanitize_slug(raw_slug: str) -> str:
-    cleaned = re.sub(r"[^a-zA-Z0-9-]+", "-", raw_slug.strip().lower())
-    cleaned = re.sub(r"-+", "-", cleaned).strip("-")
-    return cleaned or "note"
-
-
-def _run_subprocess(cmd: list[str]) -> None:
+def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True, capture_output=True, text=True)
 
 
-def _build_note_file(content: str, slug: str) -> tuple[Path, str]:
-    NOTES_DIR.mkdir(parents=True, exist_ok=True)
+def _note_path(now: datetime) -> Path:
+    day_dir = NOTES_ROOT / now.strftime("%Y-%m-%d")
+    day_dir.mkdir(parents=True, exist_ok=True)
 
+    candidate = day_dir / f"{now.strftime('%H%M')}.md"
+    if not candidate.exists():
+        return candidate
+    return day_dir / f"{now.strftime('%H%M%S')}.md"
+
+
+def _write_note(content: str, note_type: str, template: str, reply_to: str | None = None) -> Path:
     now = datetime.now()
-    date_part = now.strftime("%Y-%m-%d")
-    filename = f"{date_part}-{slug}.md"
-    file_path = NOTES_DIR / filename
+    path = _note_path(now)
 
-    title = slug.replace("-", " ").title()
-    frontmatter = (
-        "---\n"
-        f"date: {date_part}\n"
-        f'title: "{title}"\n'
-        "---\n\n"
-    )
+    frontmatter_lines = [
+        "---",
+        f"date: {now.isoformat(timespec='minutes')}",
+        f"type: {note_type}",
+        f"template: {template}",
+    ]
+    if reply_to:
+        frontmatter_lines.append(f"reply_to: \"{reply_to}\"")
+    frontmatter_lines.append("---")
+    frontmatter = "\n".join(frontmatter_lines)
 
-    file_path.write_text(frontmatter + content.strip() + "\n", encoding="utf-8")
-    return file_path, title
+    path.write_text(f"{frontmatter}\n\n{content.strip()}\n", encoding="utf-8")
+    return path
 
 
-def _generate_slug_and_summary(note_content: str) -> tuple[str, str]:
+def _commit_summary(content: str, note_type: str) -> str:
     completion = groq_client.chat.completions.create(
         model="llama3-8b-8192",
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": note_content},
+            {
+                "role": "system",
+                "content": (
+                    "Create a concise 3-5 word summary for a git commit message. "
+                    "Return only the summary text without punctuation."
+                ),
+            },
+            {"role": "user", "content": f"Type: {note_type}\nContent: {content}"},
         ],
         temperature=0.2,
     )
-
-    raw_text = completion.choices[0].message.content.strip()
-
-    parsed = json.loads(raw_text)
-    slug = _sanitize_slug(parsed.get("slug", "note"))
-    summary = parsed.get("summary", "Add note").strip() or "Add note"
-    return slug, summary
+    summary = (completion.choices[0].message.content or "").strip().splitlines()[0]
+    words = summary.split()
+    if len(words) < 3 or len(words) > 5:
+        return f"add {note_type} update"
+    return " ".join(words)
 
 
-@app_commands.check(lambda interaction: interaction.user.id == ALLOWED_USER_ID)
-@bot.tree.command(
-    name="note",
-    description="Create a note, rebuild site, and push changes.",
-    guild=discord.Object(id=TARGET_GUILD_ID),
-)
-@app_commands.describe(content="Note content to publish")
+async def _publish(path: Path, content: str, note_type: str) -> str:
+    summary = await asyncio.to_thread(_commit_summary, content, note_type)
+    await asyncio.to_thread(_run, ["python3", "gen.py", "build"])
+    await asyncio.to_thread(
+        _run,
+        [
+            "git",
+            "add",
+            str(path),
+            "dist",
+            "src/note.html.temp",
+            "src/reply.html.temp",
+            "config.yml",
+            "gen.py",
+            "scripts/build_notes.py",
+        ],
+    )
+    await asyncio.to_thread(_run, ["git", "commit", "-m", summary])
+    await asyncio.to_thread(_run, ["git", "push"])
+    return summary
+
+
+def _is_allowed(interaction: discord.Interaction) -> bool:
+    return interaction.user.id == ALLOWED_USER_ID
+
+
+@app_commands.check(_is_allowed)
+@app_commands.command(name="note", description="Create and publish a short note")
+@app_commands.describe(content="The note content")
 async def note(interaction: discord.Interaction, content: str) -> None:
-    await interaction.response.defer(thinking=True)
+    await interaction.response.defer(ephemeral=True, thinking=True)
 
     try:
-        slug, summary = await asyncio.to_thread(_generate_slug_and_summary, content)
-        await asyncio.to_thread(_build_note_file, content, slug)
-
-        await asyncio.to_thread(_run_subprocess, ["python3", "gen.py"])
-        await asyncio.to_thread(_run_subprocess, ["git", "add", "."])
-        await asyncio.to_thread(_run_subprocess, ["git", "commit", "-m", summary])
-        await asyncio.to_thread(_run_subprocess, ["git", "push"])
-
-        await interaction.followup.send(
-            f"✅ Note '{summary}' processed. Site rebuilt and pushed.",
-            ephemeral=True,
-        )
+        path = await asyncio.to_thread(_write_note, content, "note", "src/note.html.temp", None)
+        summary = await _publish(path, content, "note")
+        await interaction.followup.send(f"✅ Published note: `{summary}`", ephemeral=True)
     except subprocess.CalledProcessError as exc:
-        stderr = (exc.stderr or "").strip()
-        message = stderr[-1500:] if stderr else str(exc)
-        await interaction.followup.send(
-            f"❌ Build or git operation failed: {message}",
-            ephemeral=True,
-        )
-    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-        await interaction.followup.send(
-            f"❌ Groq response parsing failed: {exc}",
-            ephemeral=True,
-        )
+        message = (exc.stderr or str(exc))[-1500:]
+        await interaction.followup.send(f"❌ Git/build error: {message}", ephemeral=True)
     except Exception as exc:
-        await interaction.followup.send(
-            f"❌ Unexpected error: {exc}",
-            ephemeral=True,
-        )
+        await interaction.followup.send(f"❌ Unexpected error: {exc}", ephemeral=True)
+
+
+@app_commands.check(_is_allowed)
+@app_commands.command(name="reply", description="Create and publish a reply note")
+@app_commands.describe(url="The URL you are replying to", content="Your reply content")
+async def reply(interaction: discord.Interaction, url: str, content: str) -> None:
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    try:
+        path = await asyncio.to_thread(_write_note, content, "reply", "src/reply.html.temp", url)
+        summary = await _publish(path, content, "reply")
+        await interaction.followup.send(f"✅ Published reply: `{summary}`", ephemeral=True)
+    except subprocess.CalledProcessError as exc:
+        message = (exc.stderr or str(exc))[-1500:]
+        await interaction.followup.send(f"❌ Git/build error: {message}", ephemeral=True)
+    except Exception as exc:
+        await interaction.followup.send(f"❌ Unexpected error: {exc}", ephemeral=True)
 
 
 @note.error
-async def note_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+@reply.error
+async def command_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     if isinstance(error, app_commands.CheckFailure):
-        if interaction.response.is_done():
-            await interaction.followup.send(
-                "⛔ You are not authorized to use this command.",
-                ephemeral=True,
-            )
-        else:
-            await interaction.response.send_message(
-                "⛔ You are not authorized to use this command.",
-                ephemeral=True,
-            )
+        message = "⛔ You are not authorized to use this command."
     else:
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Command error: {error}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Command error: {error}", ephemeral=True)
+        message = f"❌ Command error: {error}"
+
+    if interaction.response.is_done():
+        await interaction.followup.send(message, ephemeral=True)
+    else:
+        await interaction.response.send_message(message, ephemeral=True)
+
+
+@bot.event
+async def setup_hook() -> None:
+    if TARGET_GUILD_ID:
+        guild = discord.Object(id=TARGET_GUILD_ID)
+        bot.tree.add_command(note, guild=guild)
+        bot.tree.add_command(reply, guild=guild)
+        synced = await bot.tree.sync(guild=guild)
+        print(f"Synced {len(synced)} command(s) to guild {TARGET_GUILD_ID}")
+    else:
+        bot.tree.add_command(note)
+        bot.tree.add_command(reply)
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} global command(s)")
 
 
 @bot.event
 async def on_ready() -> None:
-    guild = discord.Object(id=TARGET_GUILD_ID)
-    synced = await bot.tree.sync(guild=guild)
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
-    print(f"Synced {len(synced)} command(s) to guild {TARGET_GUILD_ID}")
 
 
 if __name__ == "__main__":

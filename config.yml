@@ -1,0 +1,5 @@
+src_dir: src
+out_dir: dist
+default_template: src/page.html.temp
+plugins:
+  - scripts.build_notes
