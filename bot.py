@@ -1,6 +1,10 @@
 import asyncio
+import json
 import os
 import subprocess
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -27,6 +31,8 @@ if not MY_DISCORD_ID:
 ALLOWED_USER_ID = int(MY_DISCORD_ID)
 TARGET_GUILD_ID = int(GUILD_ID) if GUILD_ID else None
 NOTES_ROOT = Path("src/notes")
+WEBMENTION_STATE_PATH = Path(".webmention-state.json")
+FED_BRIDGY_ENDPOINT = "https://fed.brid.gy/webmention"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -89,6 +95,84 @@ def _commit_summary(content: str, note_type: str) -> str:
     return " ".join(words)
 
 
+def _load_webmention_state() -> dict:
+    if not WEBMENTION_STATE_PATH.exists():
+        return {"version": 1, "queue": [], "published": []}
+
+    try:
+        raw = json.loads(WEBMENTION_STATE_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {"version": 1, "queue": [], "published": []}
+
+    if not isinstance(raw, dict):
+        return {"version": 1, "queue": [], "published": []}
+
+    raw.setdefault("version", 1)
+    raw.setdefault("queue", [])
+    raw.setdefault("published", [])
+    return raw
+
+
+def _save_webmention_state(state: dict) -> None:
+    WEBMENTION_STATE_PATH.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _queue_status_message() -> str:
+    state = _load_webmention_state()
+    queue = [item for item in state.get("queue", []) if isinstance(item, dict)]
+    published = [item for item in state.get("published", []) if isinstance(item, dict)]
+
+    lines = [
+        f"Queued webmentions: {len(queue)}",
+        f"Published webmentions: {len(published)}",
+    ]
+
+    if queue:
+        lines.append("\nNext queued items:")
+        for item in queue[:10]:
+            source = str(item.get("source", ""))
+            target = str(item.get("target", ""))
+            lines.append(f"- {source} -> {target}")
+
+    return "\n".join(lines)
+
+
+def _publish_queued_webmentions() -> tuple[int, int, list[str]]:
+    state = _load_webmention_state()
+    queue = [item for item in state.get("queue", []) if isinstance(item, dict)]
+    published = [item for item in state.get("published", []) if isinstance(item, dict)]
+
+    sent = 0
+    failed = 0
+    errors: list[str] = []
+    remaining: list[dict] = []
+
+    for item in queue:
+        source = str(item.get("source", "")).strip()
+        target = str(item.get("target", "")).strip()
+        if not source or not target:
+            continue
+
+        payload = urllib.parse.urlencode({"source": source, "target": target}).encode("utf-8")
+        request = urllib.request.Request(FED_BRIDGY_ENDPOINT, data=payload, method="POST")
+        request.add_header("Content-Type", "application/x-www-form-urlencoded")
+
+        try:
+            with urllib.request.urlopen(request, timeout=15):
+                sent += 1
+                item["published_at"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+                published.append(item)
+        except urllib.error.URLError as exc:
+            failed += 1
+            remaining.append(item)
+            errors.append(f"{source} -> {target}: {exc}")
+
+    state["queue"] = remaining
+    state["published"] = published
+    _save_webmention_state(state)
+    return sent, failed, errors
+
+
 async def _publish(path: Path, content: str, note_type: str) -> str:
     summary = await asyncio.to_thread(_commit_summary, content, note_type)
     await asyncio.to_thread(_run, ["python3", "gen.py", "build"])
@@ -104,6 +188,7 @@ async def _publish(path: Path, content: str, note_type: str) -> str:
             "config.yml",
             "gen.py",
             "scripts/build_notes.py",
+            ".webmention-state.json",
         ],
     )
     await asyncio.to_thread(_run, ["git", "commit", "-m", summary])
@@ -164,6 +249,27 @@ async def reply(interaction: discord.Interaction, url: str, content: str) -> Non
 
 
 @app_commands.check(_is_allowed)
+@app_commands.command(name="queue", description="Show queued webmentions")
+async def queue(interaction: discord.Interaction) -> None:
+    await interaction.response.defer(ephemeral=True, thinking=True)
+    message = await asyncio.to_thread(_queue_status_message)
+    await interaction.followup.send(f"```\n{message[:1800]}\n```", ephemeral=True)
+
+
+@app_commands.check(_is_allowed)
+@app_commands.command(name="publish", description="Publish queued webmentions to fed.brid.gy")
+async def publish(interaction: discord.Interaction) -> None:
+    await interaction.response.defer(ephemeral=True, thinking=True)
+    sent, failed, errors = await asyncio.to_thread(_publish_queued_webmentions)
+    response = [f"Sent: {sent}", f"Failed: {failed}"]
+    if errors:
+        response.append("\nFailures:")
+        response.extend([f"- {err}" for err in errors[:8]])
+    body = '\n'.join(response)[:1800]
+    await interaction.followup.send(f"```\n{body}\n```", ephemeral=True)
+
+
+@app_commands.check(_is_allowed)
 @app_commands.command(name="commands", description="Force reload slash commands")
 async def reload_commands(interaction: discord.Interaction) -> None:
     await interaction.response.defer(ephemeral=True, thinking=True)
@@ -213,6 +319,29 @@ async def reply_prefix(ctx: commands.Context, url: str, *, content: str) -> None
         await ctx.send(f"❌ Unexpected error: {exc}")
 
 
+@bot.command(name="queue")
+async def queue_prefix(ctx: commands.Context) -> None:
+    if not _author_is_allowed(ctx.author.id):
+        await ctx.send("⛔ You are not authorized to use this command.")
+        return
+    message = await asyncio.to_thread(_queue_status_message)
+    await ctx.send(f"```\n{message[:1800]}\n```")
+
+
+@bot.command(name="publish")
+async def publish_prefix(ctx: commands.Context) -> None:
+    if not _author_is_allowed(ctx.author.id):
+        await ctx.send("⛔ You are not authorized to use this command.")
+        return
+    sent, failed, errors = await asyncio.to_thread(_publish_queued_webmentions)
+    response = [f"Sent: {sent}", f"Failed: {failed}"]
+    if errors:
+        response.append("\nFailures:")
+        response.extend([f"- {err}" for err in errors[:8]])
+    body = '\n'.join(response)[:1800]
+    await ctx.send(f"```\n{body}\n```")
+
+
 @bot.command(name="commands")
 async def commands_prefix(ctx: commands.Context) -> None:
     if not _author_is_allowed(ctx.author.id):
@@ -229,6 +358,8 @@ async def commands_prefix(ctx: commands.Context) -> None:
 
 @note.error
 @reply.error
+@queue.error
+@publish.error
 async def command_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     if isinstance(error, app_commands.CheckFailure):
         message = "⛔ You are not authorized to use this command."
@@ -247,12 +378,16 @@ async def setup_hook() -> None:
         guild = discord.Object(id=TARGET_GUILD_ID)
         bot.tree.add_command(note, guild=guild)
         bot.tree.add_command(reply, guild=guild)
+        bot.tree.add_command(queue, guild=guild)
+        bot.tree.add_command(publish, guild=guild)
         bot.tree.add_command(reload_commands, guild=guild)
         synced_count = await _sync_commands()
         print(f"Synced {synced_count} command(s) to guild {TARGET_GUILD_ID}")
     else:
         bot.tree.add_command(note)
         bot.tree.add_command(reply)
+        bot.tree.add_command(queue)
+        bot.tree.add_command(publish)
         bot.tree.add_command(reload_commands)
         synced_count = await _sync_commands()
         print(f"Synced {synced_count} global command(s)")
@@ -260,8 +395,7 @@ async def setup_hook() -> None:
 
 @bot.event
 async def on_ready() -> None:
-    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    print(f"Logged in as {bot.user} (id={bot.user.id if bot.user else 'unknown'})")
 
 
-if __name__ == "__main__":
-    bot.run(DISCORD_TOKEN)
+bot.run(DISCORD_TOKEN)
