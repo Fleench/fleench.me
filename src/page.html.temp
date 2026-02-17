@@ -17,31 +17,46 @@
       </header>
 
       <div class="site-layout">
-        <aside class="sidebar sidebar-left">{{ left sidebar }}</aside>
-
         <div class="center-column">
-          <nav class="top-nav panel">{{ nav bar }}</nav>
+          <div class="content-shell">
+            <input
+              class="sidebar-toggle-input"
+              type="checkbox"
+              id="sidebar-toggle"
+              aria-controls="left-sidebar"
+            />
+            <label class="sidebar-toggle-button panel" for="sidebar-toggle">
+              Toggle sidebar
+            </label>
 
-          <main class="layout h-entry">
-            <section class="content panel">
-              <div class="e-content">{{ content }}</div>
-              <div style="display:none;">
-                <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
-                <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
-                <div class="p-author h-card">
-                  <a class="u-url n" href="https://flench.me">Glenn Sutherland</a>
-                </div>
-              </div>
-            </section>
-          </main>
-          <div id="webmentions"></div>
-          <script src="mentions.js"></script>
-          <footer class="panel footer">
-            <p>© 2001 Retro Pixel Palace — E-mail: webmaster@pixelpalace.example</p>
-          </footer>
+            <nav class="top-nav panel top-nav-main">{{ nav bar }}</nav>
+
+            <div class="content-row">
+              <aside class="sidebar sidebar-left panel" id="left-sidebar">{{ left sidebar }}</aside>
+
+              <main class="layout h-entry">
+                <section class="content panel">
+                  <div class="e-content">{{ content }}</div>
+                  <div style="display:none;">
+                    <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
+                    <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
+                    <div class="p-author h-card">
+                      <a class="u-url n" href="https://flench.me">Glenn Sutherland</a>
+                    </div>
+                  </div>
+                  </section>
+              </main>
+            </div>
+          </div>
+
+          <div class="main-only-block">
+            <div id="webmentions"></div>
+            <script src="mentions.js"></script>
+            <footer class="panel footer">
+              <p>© 2001 Retro Pixel Palace — E-mail: webmaster@pixelpalace.example</p>
+            </footer>
+          </div>
         </div>
-
-        <aside class="sidebar sidebar-right">{{ right sidebar }}</aside>
       </div>
     </div>
   </body>
