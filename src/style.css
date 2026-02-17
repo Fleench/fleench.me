@@ -109,10 +109,7 @@ body {
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
-}
-
-.sidebar:empty {
-  display: none;
+  min-height: 1px;
 }
 
 .layout {
@@ -259,7 +256,12 @@ a:hover {
   }
 
   .sidebar {
+    display: block;
     width: 100%;
+  }
+
+  .sidebar[hidden] {
+    display: none;
   }
 
   .top-nav-main,
@@ -274,7 +276,9 @@ a:hover {
   }
 }
 
-.content-shell:has(.sidebar:empty) .top-nav-main {
-  margin-left: 0;
-  width: 100%;
+@media (min-width: 861px) {
+  .sidebar[hidden] {
+    display: block !important;
+    visibility: hidden;
+  }
 }
