@@ -58,12 +58,6 @@ body {
   width: calc(100% - var(--sidebar-width) - 1rem);
 }
 
-
-.main-only-block {
-  margin-left: calc(var(--sidebar-width) + 1rem);
-  width: calc(100% - var(--sidebar-width) - 1rem);
-}
-
 .top-nav a {
   display: inline-block;
   padding: 0.45rem 0.85rem;
@@ -102,10 +96,6 @@ body {
   gap: 1rem;
 }
 
-.sidebar-toggle-input {
-  display: none;
-}
-
 .sidebar-toggle-button {
   display: none;
   margin-bottom: 0.75rem;
@@ -113,6 +103,7 @@ body {
   text-transform: uppercase;
   font-weight: 700;
   text-align: center;
+  width: 100%;
 }
 
 .sidebar {
@@ -124,7 +115,6 @@ body {
   display: none;
 }
 
-
 .layout {
   flex: 1;
   min-width: 0;
@@ -135,6 +125,10 @@ body {
   aspect-ratio: 4 / 3;
   min-height: min(68vh, calc((100vw - 4rem) * 3 / 4));
   margin: 0 auto;
+}
+
+.main-extras {
+  margin-top: 1rem;
 }
 
 h1,
@@ -202,7 +196,7 @@ a:hover {
     opacity: 0.3;
   }
 }
-/* Webmentions Container */
+
 #webmentions {
   margin-top: 2rem;
   padding-top: 1rem;
@@ -235,7 +229,7 @@ a:hover {
   width: 32px;
   height: 32px;
   border: 1px solid var(--text);
-  image-rendering: pixelated; /* Keeps avatars crisp */
+  image-rendering: pixelated;
 }
 
 .mention-body {
@@ -266,15 +260,9 @@ a:hover {
 
   .sidebar {
     width: 100%;
-    display: none;
-  }
-
-  .sidebar-toggle-input:checked + .sidebar-toggle-button + .content-row .sidebar {
-    display: block;
   }
 
   .top-nav-main,
-  .main-only-block,
   .layout {
     margin-left: 0;
     width: 100%;
@@ -286,8 +274,7 @@ a:hover {
   }
 }
 
-.content-shell:has(.sidebar:empty) .top-nav-main,
-.content-shell:has(.sidebar:empty) ~ .main-only-block {
+.content-shell:has(.sidebar:empty) .top-nav-main {
   margin-left: 0;
   width: 100%;
 }

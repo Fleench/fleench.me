@@ -6,6 +6,8 @@
     <title>The Void</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="webmention" href="https://webmention.io/flench.me/webmention" />
+    <script src="layout.js" defer></script>
+    <script src="mentions.js" defer></script>
   </head>
   <body>
     <div class="page-wrap">
@@ -18,15 +20,15 @@
       <div class="site-layout">
         <div class="center-column">
           <div class="content-shell">
-            <input
-              class="sidebar-toggle-input"
-              type="checkbox"
-              id="sidebar-toggle"
+            <button
+              class="sidebar-toggle-button panel"
+              type="button"
               aria-controls="left-sidebar"
-            />
-            <label class="sidebar-toggle-button panel" for="sidebar-toggle">
+              aria-expanded="false"
+              hidden
+            >
               Toggle sidebar
-            </label>
+            </button>
 
             <nav class="top-nav panel top-nav-main" aria-label="Primary navigation">
               <a href="/">Home</a>
@@ -37,37 +39,36 @@
 
               <main class="layout">
                 <section class="content panel">
-                    <h1>Welcome to my void!</h1>
-                    <p>
-                      You have found yourself some how in my void. It shouldn't be possible for 2 people to be here.
-                      But then again the void has wierd rules.
-                      We are still working out many kinks so expect lots of changes.
-                    </p>
+                  <h1>Welcome to my void!</h1>
+                  <p>
+                    You have found yourself some how in my void. It shouldn't be possible for 2 people to be here.
+                    But then again the void has wierd rules.
+                    We are still working out many kinks so expect lots of changes.
+                  </p>
 
-                    <div class="blink">Webmention support added</div>
-                    <p> Powered by webmentions.io</p>
-                    <p> Link to https://flench.me </p>
-                    <h3>Updates</h3>
-                    <ul>
-                      <li>[2/16/2026] Added Webmention Support</li>
-                      <li>[2/16/2026] Built the site</li>
-                    </ul>
+                  <div class="blink">Webmention support added</div>
+                  <p> Powered by webmentions.io</p>
+                  <p> Link to https://flench.me </p>
+                  <h3>Updates</h3>
+                  <ul>
+                    <li>[2/16/2026] Added Webmention Support</li>
+                    <li>[2/16/2026] Built the site</li>
+                  </ul>
 
-                    <div class="buttons-row">
-                      <span class="button-88x31">Made with HTML</span>
-                    </div>
-                  </section>
+                  <div class="buttons-row">
+                    <span class="button-88x31">Made with HTML</span>
+                  </div>
+                </section>
+
+                <section class="main-extras">
+                  <div id="webmentions"></div>
+                  <footer class="panel footer">
+                    <p>© 2026 The void — E-mail: webmaster@flench.me</p>
+                    <a href="https://github.com/Fleench" rel="me">GitHub</a>
+                  </footer>
+                </section>
               </main>
             </div>
-          </div>
-
-          <div class="main-only-block">
-            <div id="webmentions"></div>
-            <script src="mentions.js"></script>
-            <footer class="panel footer">
-              <p>© 2026 The void — E-mail: webmaster@flench.me</p>
-              <a href="https://github.com/Fleench" rel="me">GitHub</a>
-            </footer>
           </div>
         </div>
       </div>
