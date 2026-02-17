@@ -75,7 +75,7 @@ def _write_note(content: str, note_type: str, template: str, reply_to: str | Non
 
 def _commit_summary(content: str, note_type: str) -> str:
     completion = groq_client.chat.completions.create(
-        model="llama3-8b-8192",
+        model="llama-3.1-8b-instant",
         messages=[
             {
                 "role": "system",
