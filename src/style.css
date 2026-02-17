@@ -282,3 +282,31 @@ a:hover {
     visibility: hidden;
   }
 }
+
+
+.notes-index {
+  min-height: auto;
+  aspect-ratio: auto;
+}
+
+.notes-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.note-item {
+  margin: 0;
+}
+
+.note-permalink {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.note-meta {
+  margin-top: 0.35rem;
+  margin-bottom: 0.8rem;
+  color: var(--muted-text);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
