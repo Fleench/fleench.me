@@ -197,3 +197,8 @@ a:hover {
   color: var(--muted-text);
   text-decoration: none;
 }
+main {
+  max-width: 75vh; /* or a specific pixel value */
+  margin: 0 auto;
+  aspect-ratio: 4 / 3;
+}
