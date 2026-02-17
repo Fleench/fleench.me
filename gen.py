@@ -24,6 +24,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "out_dir": "dist",
     "default_template": "src/page.html.temp",
     "plugins": [],
+    "site_url": "https://flench.me",
 }
 
 
@@ -118,7 +119,12 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
         parsed = parse_frontmatter(md_file.read_text(encoding="utf-8"))
 
         selected_template = parsed.metadata.get("template")
-        template_path = Path(str(selected_template)) if selected_template else default_template
+        if selected_template:
+            template_path = Path(str(selected_template))
+        elif md_file.is_relative_to(src_dir / "notes"):
+            template_path = Path.cwd() / src_dir / "note.html.temp"
+        else:
+            template_path = default_template
         if not template_path.is_absolute():
             template_path = Path.cwd() / template_path
         template_text = template_path.read_text(encoding="utf-8") if template_path.exists() else default_template_text
@@ -203,7 +209,13 @@ def load_config(config_path: Path) -> dict[str, Any]:
         loaded = _simple_yaml_parse(raw)
 
     if isinstance(loaded, dict):
-        data.update(loaded)
+        normalized = dict(loaded)
+        if "site_url" not in normalized:
+            for alias in ("site-url", "--site-url"):
+                if alias in normalized:
+                    normalized["site_url"] = normalized[alias]
+                    break
+        data.update(normalized)
     return data
 
 
