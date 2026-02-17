@@ -4,8 +4,13 @@ from __future__ import annotations
 import argparse
 import html
 import importlib
+import json
 import re
+import urllib.error
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +31,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "plugins": [],
     "site_url": "https://flench.me",
 }
+
+WEBMENTION_STATE_PATH = Path(".webmention-state.json")
+FED_BRIDGY_ENDPOINT = "https://fed.brid.gy/webmention"
 
 
 @dataclass
@@ -64,7 +72,6 @@ def markdown_to_html(markdown_text: str) -> str:
     if md_lib is not None:
         return md_lib.markdown(markdown_text, extensions=["extra", "sane_lists"])
 
-    # fallback minimal markdown rendering
     chunks: list[str] = []
     for line in markdown_text.splitlines():
         stripped = line.strip()
@@ -173,29 +180,28 @@ def run_plugins(src_dir: Path, out_dir: Path, config: dict[str, Any]) -> None:
             main(src_dir, out_dir, config)
 
 
-
-
 def _simple_yaml_parse(raw: str) -> dict[str, Any]:
     data: dict[str, Any] = {}
     current_list_key: str | None = None
     for line in raw.splitlines():
         stripped = line.strip()
-        if not stripped or stripped.startswith('#'):
+        if not stripped or stripped.startswith("#"):
             continue
-        if stripped.startswith('- ') and current_list_key:
+        if stripped.startswith("- ") and current_list_key:
             data.setdefault(current_list_key, []).append(stripped[2:].strip().strip('"').strip("'"))
             continue
-        if ':' in line:
-            key, value = line.split(':', 1)
+        if ":" in line:
+            key, value = line.split(":", 1)
             key = key.strip()
             value = value.strip()
-            if value == '':
+            if value == "":
                 data[key] = []
                 current_list_key = key
             else:
                 current_list_key = None
                 data[key] = value.strip('"').strip("'")
     return data
+
 
 def load_config(config_path: Path) -> dict[str, Any]:
     data = dict(DEFAULT_CONFIG)
@@ -219,11 +225,79 @@ def load_config(config_path: Path) -> dict[str, Any]:
     return data
 
 
+def _load_webmention_state() -> dict[str, Any]:
+    if not WEBMENTION_STATE_PATH.exists():
+        return {"version": 1, "queue": [], "published": []}
+    try:
+        data = json.loads(WEBMENTION_STATE_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {"version": 1, "queue": [], "published": []}
+    if not isinstance(data, dict):
+        return {"version": 1, "queue": [], "published": []}
+    data.setdefault("version", 1)
+    data.setdefault("queue", [])
+    data.setdefault("published", [])
+    return data
+
+
+def _save_webmention_state(state: dict[str, Any]) -> None:
+    WEBMENTION_STATE_PATH.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def publish_webmentions(dry_run: bool = False) -> tuple[int, int]:
+    state = _load_webmention_state()
+    queue = [item for item in state.get("queue", []) if isinstance(item, dict)]
+    published = [item for item in state.get("published", []) if isinstance(item, dict)]
+
+    sent = 0
+    failed = 0
+    remaining: list[dict[str, Any]] = []
+
+    for item in queue:
+        source = str(item.get("source", "")).strip()
+        target = str(item.get("target", "")).strip()
+        if not source or not target:
+            continue
+
+        if dry_run:
+            print(f"DRY RUN publish {source} -> {target}")
+            remaining.append(item)
+            continue
+
+        payload = urllib.parse.urlencode({"source": source, "target": target}).encode("utf-8")
+        request = urllib.request.Request(FED_BRIDGY_ENDPOINT, data=payload, method="POST")
+        request.add_header("Content-Type", "application/x-www-form-urlencoded")
+        try:
+            with urllib.request.urlopen(request, timeout=15):
+                sent += 1
+                published.append(
+                    {
+                        **item,
+                        "published_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    }
+                )
+        except urllib.error.URLError as exc:
+            failed += 1
+            remaining.append(item)
+            print(f"Failed publishing {source} -> {target}: {exc}")
+
+    state["queue"] = remaining
+    state["published"] = published
+    _save_webmention_state(state)
+    return sent, failed
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build static site with clean URLs and plugins")
-    parser.add_argument("command", nargs="?", default="build", choices=["build"])
+    parser.add_argument("command", nargs="?", default="build", choices=["build", "publish"])
     parser.add_argument("--config", default="config.yml")
+    parser.add_argument("--dry-run", action="store_true", help="Print publish actions without sending webmentions")
     args = parser.parse_args()
+
+    if args.command == "publish":
+        sent, failed = publish_webmentions(dry_run=args.dry_run)
+        print(f"Published {sent} webmention(s); {failed} failed")
+        return
 
     config = load_config(Path(args.config))
     src_dir = Path(str(config.get("src_dir", "src")))
