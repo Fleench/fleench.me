@@ -30,8 +30,7 @@
               Toggle sidebar
             </button>
 
-            ~{src/.elements/marquee.element}~
-
+            
             <div class="content-row">
               <aside class="sidebar sidebar-left panel" id="left-sidebar">
                 <h2>About</h2>
