@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import html
 import importlib
+import importlib.util
 import json
 import re
 import xml.etree.ElementTree as ET
@@ -91,30 +92,93 @@ def markdown_to_html(markdown_text: str) -> str:
 
 
 
-def inject_elements(template_text: str, template_path: Path) -> str:
-    pattern = re.compile(r"~\{([^{}]+)\}~")
+def _resolve_element_file(raw_path: str, template_path: Path) -> Path | None:
+    candidate = Path(raw_path)
+    search_paths: list[Path] = []
+    if candidate.is_absolute():
+        search_paths.append(candidate)
+    else:
+        search_paths.append(Path.cwd() / candidate)
+        search_paths.append(template_path.parent / candidate)
 
-    def replace(match: re.Match[str]) -> str:
+    for path in search_paths:
+        if path.exists() and path.is_file():
+            return path
+    return None
+
+
+def _run_dynamic_element(path: Path, render_context: dict[str, Any]) -> str:
+    module_name = f"_gen2_dynamic_{hash(path.resolve()) & 0xFFFFFFFF:x}_{path.stat().st_mtime_ns}"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        return ""
+
+    module = importlib.util.module_from_spec(spec)
+    loader = spec.loader
+    try:
+        loader.exec_module(module)
+    except Exception:
+        return ""
+
+    rendered: Any = ""
+    renderer = getattr(module, "render", None)
+    if not callable(renderer):
+        renderer = getattr(module, "main", None)
+
+    if callable(renderer):
+        try:
+            rendered = renderer(**render_context)
+        except TypeError:
+            try:
+                rendered = renderer()
+            except Exception:
+                return ""
+        except Exception:
+            return ""
+    else:
+        html_value = getattr(module, "HTML", "")
+        rendered = html_value
+
+    if rendered is None:
+        return ""
+    return str(rendered)
+
+
+def inject_elements(template_text: str, template_path: Path, render_context: dict[str, Any] | None = None) -> str:
+    static_pattern = re.compile(r"~\{([^{}]+)\}~")
+    dynamic_pattern = re.compile(r":\{([^{}]+\.py)\}:")
+    context = render_context or {}
+
+    def replace_static(match: re.Match[str]) -> str:
         raw_path = match.group(1).strip()
         if not raw_path:
             return ""
 
-        candidate = Path(raw_path)
-        search_paths = []
-        if candidate.is_absolute():
-            search_paths.append(candidate)
-        else:
-            search_paths.append(Path.cwd() / candidate)
-            search_paths.append(template_path.parent / candidate)
-
-        for path in search_paths:
-            if path.exists() and path.is_file():
-                return path.read_text(encoding="utf-8")
+        path = _resolve_element_file(raw_path, template_path)
+        if path is not None:
+            return path.read_text(encoding="utf-8")
         return ""
+
+    def replace_dynamic(match: re.Match[str]) -> str:
+        raw_path = match.group(1).strip()
+        if not raw_path:
+            return ""
+
+        path = _resolve_element_file(raw_path, template_path)
+        if path is None:
+            return ""
+
+        run_context = {
+            "template_path": template_path,
+            "project_root": Path.cwd(),
+            **context,
+        }
+        return _run_dynamic_element(path, run_context)
 
     rendered = template_text
     for _ in range(10):
-        updated = pattern.sub(replace, rendered)
+        updated = static_pattern.sub(replace_static, rendered)
+        updated = dynamic_pattern.sub(replace_dynamic, updated)
         if updated == rendered:
             return rendered
         rendered = updated
@@ -170,7 +234,16 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
         if not template_path.is_absolute():
             template_path = Path.cwd() / template_path
         template_text = template_path.read_text(encoding="utf-8") if template_path.exists() else default_template_text
-        template_text = inject_elements(template_text, template_path)
+        template_text = inject_elements(
+            template_text,
+            template_path,
+            render_context={
+                "src_dir": src_dir,
+                "out_dir": out_dir,
+                "config": config,
+                "current_markdown": md_file,
+            },
+        )
 
         body_html = markdown_to_html(parsed.body)
         output_path = clean_output_path(md_file, src_dir, out_dir)
