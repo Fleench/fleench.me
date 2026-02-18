@@ -9,3 +9,4 @@ ENV/
 # Local state for the build script
 .webmention-state.json
 .env
+.webmention-state.json
