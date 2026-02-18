@@ -244,6 +244,42 @@ def _save_webmention_state(state: dict[str, Any]) -> None:
     WEBMENTION_STATE_PATH.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def queue_bridgy_webping_for_notes(src_dir: Path, out_dir: Path, site_url: str) -> int:
+    site_url_clean = site_url.rstrip("/")
+    notes_dir = src_dir / "notes"
+    if not notes_dir.exists() or not site_url_clean:
+        return 0
+
+    state = _load_webmention_state()
+    queue = [item for item in state.get("queue", []) if isinstance(item, dict)]
+    published = [item for item in state.get("published", []) if isinstance(item, dict)]
+
+    existing = {
+        (str(item.get("source", "")).strip(), str(item.get("target", "")).strip())
+        for item in [*queue, *published]
+    }
+
+    queued_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    added = 0
+
+    for md_file in sorted(notes_dir.rglob("*.md")):
+        output_path = clean_output_path(md_file, src_dir, out_dir)
+        rel_url = "/" + output_path.relative_to(out_dir).as_posix()
+        if rel_url.endswith("/index.html"):
+            rel_url = rel_url[: -len("index.html")]
+        source = f"{site_url_clean}{rel_url}"
+        key = (source, FED_BRIDGY_ENDPOINT)
+        if key in existing:
+            continue
+        queue.append({"source": source, "target": FED_BRIDGY_ENDPOINT, "queued_at": queued_at})
+        existing.add(key)
+        added += 1
+
+    state["queue"] = queue
+    _save_webmention_state(state)
+    return added
+
+
 def publish_webmentions(dry_run: bool = False) -> tuple[int, int]:
     state = _load_webmention_state()
     queue = [item for item in state.get("queue", []) if isinstance(item, dict)]
@@ -305,7 +341,10 @@ def main() -> None:
     template_path = Path(str(config.get("default_template", "src/page.html.temp")))
 
     built = build_site(src_dir, out_dir, template_path, config)
+    queued = queue_bridgy_webping_for_notes(src_dir, out_dir, str(config.get("site_url", "https://flench.me")))
     print(f"Built {built} markdown page(s)")
+    if queued:
+        print(f"Queued {queued} Bridgy Fed webping(s)")
 
 
 if __name__ == "__main__":
