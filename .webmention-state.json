@@ -71,29 +71,38 @@
       "queued_at": "2026-02-18T01:54:56+00:00",
       "source": "https://flench.me/notes/2026-02-17/2054/",
       "target": "https://fed.brid.gy/webmention"
-    }
-  ],
-  "queue": [
+    },
     {
+      "published_at": "2026-02-18T17:35:36+00:00",
       "queued_at": "2026-02-18T02:25:51+00:00",
       "source": "https://flench.me/notes/2026-02-17/2125/",
       "target": "https://fed.brid.gy/"
     },
     {
+      "published_at": "2026-02-18T17:35:37+00:00",
       "queued_at": "2026-02-18T02:25:51+00:00",
       "source": "https://flench.me/notes/2026-02-17/2125/",
       "target": "https://fed.brid.gy/webmention"
     },
     {
+      "published_at": "2026-02-18T17:35:37+00:00",
       "queued_at": "2026-02-18T05:00:52+00:00",
       "source": "https://flench.me/notes/2026-02-18/0000/",
       "target": "https://fed.brid.gy/"
     },
     {
+      "published_at": "2026-02-18T17:35:37+00:00",
       "queued_at": "2026-02-18T05:00:52+00:00",
       "source": "https://flench.me/notes/2026-02-18/0000/",
       "target": "https://fed.brid.gy/webmention"
+    },
+    {
+      "published_at": "2026-02-18T17:35:38+00:00",
+      "queued_at": "2026-02-18T17:35:28+00:00",
+      "source": "https://flench.me/",
+      "target": "https://github.com/fleench"
     }
   ],
+  "queue": [],
   "version": 1
 }
