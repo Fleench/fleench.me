@@ -1,0 +1,4 @@
+<nav class="top-nav panel" aria-label="Primary navigation">
+  <a href="/">Home</a>
+  <a href="/notes/">Notes</a>
+</nav>
