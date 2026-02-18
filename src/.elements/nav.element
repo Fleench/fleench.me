@@ -1,4 +1,5 @@
-<nav class="top-nav panel" aria-label="Primary navigation">
-  <a href="/">Home</a>
-  <a href="/notes/">Notes</a>
+<nav class="top-nav panel top-nav-main" aria-label="Primary navigation">
+              <a href="/">Home</a>
+              <a href="/notes/">Notes</a>
+              <a href="/rss.xml">RSS</a>
 </nav>
