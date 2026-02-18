@@ -1,12 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    ~{src/.elements/head.element}~
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="style.css" />
     <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
+    <script src="layout.js" defer></script>
+    <script src="mentions.js" defer></script>
   </head>
   <body>
     <div class="page-wrap">
-      ~{src/.elements/marquee.element}~
+      <header class="marquee-frame">
+        <marquee behavior="alternate" scrollamount="6">
+          ★ Welcome to Retro Pixel Palace ★ Midnight Edition ★
+        </marquee>
+      </header>
 
       <div class="site-layout">
         <div class="center-column">
@@ -21,7 +30,7 @@
               Toggle sidebar
             </button>
 
-            ~{src/.elements/nav.element}~
+            <nav class="top-nav panel top-nav-main">{{ nav bar }}</nav>
 
             <div class="content-row">
               <aside class="sidebar sidebar-left panel" id="left-sidebar">{{ left sidebar }}</aside>
