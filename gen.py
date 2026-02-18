@@ -6,11 +6,13 @@ import html
 import importlib
 import json
 import re
+import xml.etree.ElementTree as ET
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +32,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "default_template": "src/page.html.temp",
     "plugins": [],
     "site_url": "https://flench.me",
+    "rss": False,
 }
 
 WEBMENTION_STATE_PATH = Path(".webmention-state.json")
@@ -163,6 +166,8 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
         destination.write_bytes(asset.read_bytes())
 
     run_plugins(src_dir, out_dir, config)
+    if _is_enabled(config.get("rss")):
+        build_combined_rss_feed(out_dir, str(config.get("site_url", "https://flench.me")))
     return built
 
 
@@ -178,6 +183,75 @@ def run_plugins(src_dir: Path, out_dir: Path, config: dict[str, Any]) -> None:
         main = getattr(module, "main", None)
         if callable(main):
             main(src_dir, out_dir, config)
+
+
+def _is_enabled(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return False
+
+
+def build_combined_rss_feed(out_dir: Path, site_url: str) -> bool:
+    rss_files = sorted(path for path in out_dir.rglob("*.xml") if path.relative_to(out_dir).as_posix() != "rss.xml")
+    if not rss_files:
+        return False
+
+    items_by_key: dict[str, dict[str, Any]] = {}
+
+    for rss_file in rss_files:
+        try:
+            root = ET.fromstring(rss_file.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+
+        channel = root.find("channel")
+        if channel is None:
+            continue
+
+        for item in channel.findall("item"):
+            link = (item.findtext("link") or "").strip()
+            guid = (item.findtext("guid") or "").strip()
+            title = (item.findtext("title") or "").strip()
+            key = guid or link or title
+            if not key:
+                continue
+
+            pub_date = (item.findtext("pubDate") or "").strip()
+            sort_key = datetime.min.replace(tzinfo=timezone.utc)
+            if pub_date:
+                try:
+                    parsed = parsedate_to_datetime(pub_date)
+                    sort_key = parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+                except Exception:
+                    pass
+
+            item_xml = ET.tostring(item, encoding="unicode")
+            existing = items_by_key.get(key)
+            if existing is None or sort_key > existing["sort_key"]:
+                items_by_key[key] = {"sort_key": sort_key, "xml": item_xml}
+
+    if not items_by_key:
+        return False
+
+    ordered_items = [entry["xml"] for entry in sorted(items_by_key.values(), key=lambda value: value["sort_key"], reverse=True)]
+    site_root = site_url.rstrip("/")
+    feed_xml = "\n".join(
+        [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<rss version="2.0">',
+            '  <channel>',
+            '    <title>Site Feed</title>',
+            f'    <link>{html.escape(site_root + "/")}</link>',
+            '    <description>Latest updates from across the site</description>',
+            *[f"    {item_xml}" for item_xml in ordered_items],
+            '  </channel>',
+            '</rss>',
+        ]
+    )
+    (out_dir / "rss.xml").write_text(feed_xml + "\n", encoding="utf-8")
+    return True
 
 
 def _simple_yaml_parse(raw: str) -> dict[str, Any]:
