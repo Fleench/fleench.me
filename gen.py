@@ -166,8 +166,7 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
         destination.write_bytes(asset.read_bytes())
 
     run_plugins(src_dir, out_dir, config)
-    if _is_enabled(config.get("rss")):
-        build_combined_rss_feed(out_dir, str(config.get("site_url", "https://flench.me")))
+    build_combined_rss_feed(out_dir, str(config.get("site_url", "https://flench.me")))
     return built
 
 
