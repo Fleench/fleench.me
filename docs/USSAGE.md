@@ -18,12 +18,19 @@ python3 gen.py build
 python3 gen.py publish
 ```
 
-## Runtime modulation (what changed conceptually)
+5. Alternative generator path:
 
-The project works as a **modulated publishing pipeline** with three independently runnable layers:
+```bash
+python3 gen2.py build
+python3 gen2.py publish --dry-run
+```
+
+## Runtime modulation
+
+The project works as a modulated publishing pipeline with three independently runnable layers:
 
 - **Content modulation**: Markdown notes/replies are source-of-truth content.
-- **Build modulation**: `gen.py` transforms content + templates into `dist/` output.
+- **Build modulation**: `gen.py` or `gen2.py` transforms content + templates into `dist/` output.
 - **Automation modulation**: `bot.py` orchestrates note creation, build, git commit/push, and webmention publishing.
 
 This modulation means each layer can be run independently for debugging and also chained for production publishing.
@@ -44,41 +51,6 @@ This modulation means each layer can be run independently for debugging and also
 - `!queue`
 - `!publish`
 
-## CLI usage
-
-### Build static site
-
-```bash
-python3 gen.py build
-```
-
-### Publish queue
-
-```bash
-python3 gen.py publish
-```
-
-### Dry run publish
-
-```bash
-python3 gen.py publish --dry-run
-```
-
 ## Queue + state file
 
-Webmention queue state is persisted in:
-
-- `.webmention-state.json`
-
-The state tracks:
-
-- `queue`: discovered but unsent webmentions.
-- `published`: successfully sent webmentions.
-
-## Recommended operator loop
-
-1. Post content via Discord (`/note` or `/reply`) or write Markdown manually.
-2. Run build (`gen.py build`) if working outside Discord.
-3. Check queue (`/queue` or `!queue`).
-4. Publish (`/publish` or `gen.py publish`).
-5. Verify generated output in `dist/` and git history.
+Webmention queue state is persisted in `.webmention-state.json`.
