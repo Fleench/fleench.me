@@ -76,7 +76,8 @@
                 <section class="main-extras">
                   <div id="webmentions"></div>
                   <footer class="panel footer">
-                    <p>© 2001 Retro Pixel Palace — E-mail: webmaster@pixelpalace.example</p>
+                  <a rel="Github" class="Link--primary" href="https://github.com/fleench">Github</a>
+                    <p>© 2026 The Void — E-mail: webmaster@flench.me</p>
                   </footer>
                 </section>
               </main>
