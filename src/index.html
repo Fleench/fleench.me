@@ -6,6 +6,7 @@
     <title>The Void</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="webmention" href="https://webmention.io/flench.me/webmention" />
+    <link rel="alternate" type="application/rss+xml" title="Notes RSS" href="/notes/rss.xml" />
     <script src="layout.js" defer></script>
     <script src="mentions.js" defer></script>
   </head>
@@ -62,9 +63,13 @@
 
                 <section class="main-extras">
                   <div id="webmentions"></div>
-                  <footer class="panel footer">
-                    <p>© 2026 The void — E-mail: webmaster@flench.me</p>
-                    <a href="https://github.com/Fleench" rel="me">GitHub</a>
+                  <footer class="panel footer h-card">
+                    <div style="display:none;">
+                      <a class="p-name u-url u-uid" href="https://flench.me">Glenn Sutherland</a>
+                      <img class="u-photo" src="/profile.png" alt="Glenn" />
+                    </div>
+                    <p>© 2026 The void — E-mail: <a class="u-email" href="mailto:webmaster@flench.me">webmaster@flench.me</a></p>
+                    <a href="https://github.com/Fleench" rel="me" class="u-url">GitHub</a>
                   </footer>
                 </section>
               </main>
