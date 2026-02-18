@@ -22,7 +22,10 @@
             <main class="layout h-entry">
               <section class="content panel note-page">
                 <h1>{{ title }}</h1>
-                <div class="e-content">{{ content }}</div>
+                <div class="e-content">
+                  {{ content }}
+                  <a class="bridgy-fed-webping" href="https://fed.brid.gy/">Bridgy Fed</a>
+                </div>
                 <p><a class="u-url" href="{{ output }}">Permalink</a></p>
                 <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
               </section>
