@@ -1,6 +1,6 @@
 # Using the Discord Publishing Bot
 
-This guide explains the everyday commands you can run from Discord.
+This guide explains the everyday commands you can run from Discord and the equivalent CLI actions.
 
 ## Post a note
 
@@ -19,7 +19,7 @@ Example:
 What happens after you submit the command:
 
 1. The bot creates a Markdown note file.
-2. It runs the site build.
+2. It runs the site build (`python3 gen.py build`).
 3. It stages generated files and your new note in Git.
 4. It creates a commit message summary.
 5. It commits and pushes to your remote repository.
@@ -40,6 +40,33 @@ Example:
 ```
 
 This creates a reply note that records the URL you are responding to, then follows the same automatic build/commit/push flow.
+
+## Queue and publish commands
+
+### Slash commands
+
+- `/queue` — show queued + published webmention counts.
+- `/publish` — publish queued mentions now.
+
+### Prefix aliases
+
+- `!queue`
+- `!publish`
+
+## CLI equivalents
+
+```bash
+python3 gen.py build
+python3 gen.py publish
+python3 gen.py publish --dry-run
+```
+
+Alternative pipeline:
+
+```bash
+python3 gen2.py build
+python3 gen2.py publish --dry-run
+```
 
 ## What is automated for you
 

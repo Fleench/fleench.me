@@ -25,11 +25,11 @@ When a queued mention is published, the system sends an HTTP POST with `source` 
 
 ## Workflow
 
-1. `gen.py build` renders site output.
-2. During build, note-link discovery queues webmention candidates into `.webmention-state.json`.
+1. `gen.py build` (or `gen2.py build`) renders site output.
+2. During build, link discovery queues webmention candidates into `.webmention-state.json`.
 3. Publishing sends queued mentions to fed.brid.gy.
-   - You can do this manually with the publish path.
-   - The bot now also runs this automatically immediately after Git push in its publish workflow.
+   - You can do this manually with the publish command.
+   - The bot also runs this automatically after Git push in its publish workflow.
 
 Important distinction:
 
@@ -37,8 +37,6 @@ Important distinction:
 - **Publish step** actually sends network requests.
 
 ## Troubleshooting when a mention does not appear
-
-If a mention is missing downstream:
 
 1. Check queue status via Discord `/queue`.
    - If items are queued, they have not successfully sent yet.

@@ -4,7 +4,8 @@ This document explains how the Python codebase works and how modules interact.
 
 ## Top-level modules
 
-- `gen.py`: static-site generator + webmention queue/publish CLI.
+- `gen.py`: primary static-site generator + webmention queue/publish CLI.
+- `gen2.py`: alternative generator with dynamic template elements and combined feed assembly.
 - `bot.py`: Discord orchestration layer for creating notes/replies and shipping updates.
 - `scripts/build_notes.py`: build helper for notes index/feed and link discovery support.
 
@@ -13,13 +14,13 @@ This document explains how the Python codebase works and how modules interact.
 1. **Input creation**
    - A note/reply is authored (via Discord command or direct Markdown editing).
 2. **Build phase**
-   - `gen.py build` reads source Markdown + templates.
+   - `gen.py build` (or `gen2.py build`) reads source Markdown + templates.
    - HTML is rendered into `dist/`.
    - non-Markdown assets are copied.
    - plugins run (including note/feed generation logic where configured).
    - outbound links are discovered and added to `.webmention-state.json` queue.
 3. **Publish phase**
-   - `gen.py publish` or bot `/publish` POSTs queued entries to fed.brid.gy webmention endpoint.
+   - `gen.py publish` / `gen2.py publish` or bot `/publish` POSTs queued entries to fed.brid.gy webmention endpoint.
    - success entries move from `queue` to `published`.
 
 ## `gen.py` design detail
@@ -35,11 +36,20 @@ This document explains how the Python codebase works and how modules interact.
 - Execute plugin hooks.
 - Queue/publish webmentions.
 
+## `gen2.py` design detail
+
+### Responsibilities
+
+- Includes all core `gen.py` build/publish responsibilities.
+- Adds static + dynamic template element expansion (`~{...}~`, `:{...py}:`).
+- Builds a combined root RSS feed from discovered sub-feeds.
+- Queues Bridgy Fed pings for note pages after build.
+
 ### Notable implementation patterns
 
-- **Graceful fallback parsing** when optional dependencies are missing.
-- **Template fallback precedence** if per-page template is missing.
-- **Idempotent queueing** by deduplicating `(source, target)` pairs across queue and published arrays.
+- Runtime-loaded dynamic template modules via `importlib.util`.
+- Layered rendering with recursive element expansion limits.
+- Feed de-duplication by `guid`/`link`/`title` and newest `pubDate` wins.
 
 ## `bot.py` design detail
 
@@ -52,12 +62,6 @@ This document explains how the Python codebase works and how modules interact.
 - Summarize commit message text using Groq model output with fallback rules.
 - Publish queued webmentions and report counts/errors in command response.
 
-### Reliability conventions
-
-- Environment validation at startup (required secrets/IDs).
-- Queue state read/write helpers with shape defaults.
-- Network exception capture for publish attempts with failed items preserved.
-
 ## `scripts/build_notes.py` design detail
 
 ### Responsibilities
@@ -67,14 +71,7 @@ This document explains how the Python codebase works and how modules interact.
 - Parse and normalize links from Markdown + HTML.
 - Assist webmention queue discovery with canonical source URL handling.
 
-### HTML/RSS safety
-
-- Uses escaping helpers to avoid malformed XML/HTML serialization.
-- Ensures predictable permalink generation for notes routes.
-
-## Data contracts
-
-## `.webmention-state.json`
+## Data contract: `.webmention-state.json`
 
 Expected structure:
 
@@ -97,10 +94,3 @@ Expected structure:
   ]
 }
 ```
-
-## Operational notes for maintainers
-
-- Keep build deterministic (same source => same output).
-- Preserve queue idempotency and append-only publish history semantics.
-- If changing command behavior, keep slash and prefix command parity.
-- Validate state file writes in tests to avoid data shape regressions.
