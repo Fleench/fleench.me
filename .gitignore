@@ -7,4 +7,5 @@ venv/
 ENV/
 
 # Local state for the build script
-.webping-state.json
+.webmention-state.json
+.env
