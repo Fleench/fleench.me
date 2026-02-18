@@ -12,7 +12,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
-from groq import Groq
 
 load_dotenv()
 
@@ -37,7 +36,6 @@ FED_BRIDGY_ENDPOINT = "https://fed.brid.gy/webmention"
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
-groq_client = Groq(api_key=GROQ_API_KEY)
 
 
 def _run(cmd: list[str]) -> None:
@@ -74,25 +72,17 @@ def _write_note(content: str, note_type: str, template: str, reply_to: str | Non
 
 
 def _commit_summary(content: str, note_type: str) -> str:
-    completion = groq_client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Create a concise 3-5 word summary for a git commit message. "
-                    "Return only the summary text without punctuation."
-                ),
-            },
-            {"role": "user", "content": f"Type: {note_type}\nContent: {content}"},
-        ],
-        temperature=0.2,
-    )
-    summary = (completion.choices[0].message.content or "").strip().splitlines()[0]
-    words = summary.split()
-    if len(words) < 3 or len(words) > 5:
+    words = [
+        "".join(ch for ch in token if ch.isalnum() or ch in "-_")
+        for token in content.lower().split()
+    ]
+    words = [word for word in words if word]
+
+    if not words:
         return f"add {note_type} update"
-    return " ".join(words)
+
+    summary_words = ["add", note_type, *words[:3]]
+    return " ".join(summary_words[:5])
 
 
 def _load_webmention_state() -> dict:
