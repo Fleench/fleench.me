@@ -40,9 +40,7 @@
 
                 <section class="main-extras">
                   <div id="webmentions"></div>
-                  <footer class="panel footer">
-                    <p>© 2001 Retro Pixel Palace — E-mail: webmaster@pixelpalace.example</p>
-                  </footer>
+                   ~{src/.elements/footer.element}~
                 </section>
               </main>
             </div>

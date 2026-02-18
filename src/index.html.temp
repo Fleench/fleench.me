@@ -75,10 +75,7 @@
 
                 <section class="main-extras">
                   <div id="webmentions"></div>
-                  <footer class="panel footer">
-                  <a rel="me" class="Link--primary" href="https://github.com/fleench">Fleench on Github</a>
-                    <p>© 2026 The Void — E-mail: webmaster@flench.me</p>
-                  </footer>
+                  ~{src/.elements/footer.element}~
                 </section>
               </main>
             </div>
