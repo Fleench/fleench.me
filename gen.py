@@ -199,7 +199,21 @@ def build_combined_rss_feed(out_dir: Path, site_url: str) -> bool:
 
     items_by_key: dict[str, dict[str, Any]] = {}
 
+    def infer_category(rss_file: Path) -> str | None:
+        rel = rss_file.relative_to(out_dir)
+        parts = rel.parts
+        if len(parts) >= 2 and parts[-1] == "rss.xml":
+            group = parts[-2].strip().lower()
+            if group.endswith("s") and len(group) > 1:
+                return group[:-1]
+            return group or None
+        if parts and parts[-1].lower().endswith(".xml"):
+            name = Path(parts[-1]).stem.strip().lower()
+            return name or None
+        return None
+
     for rss_file in rss_files:
+        category = infer_category(rss_file)
         try:
             root = ET.fromstring(rss_file.read_text(encoding="utf-8"))
         except Exception:
@@ -210,14 +224,21 @@ def build_combined_rss_feed(out_dir: Path, site_url: str) -> bool:
             continue
 
         for item in channel.findall("item"):
-            link = (item.findtext("link") or "").strip()
-            guid = (item.findtext("guid") or "").strip()
-            title = (item.findtext("title") or "").strip()
+            item_copy = ET.fromstring(ET.tostring(item, encoding="unicode"))
+            if category:
+                category_node = item_copy.find("category")
+                if category_node is None:
+                    category_node = ET.SubElement(item_copy, "category")
+                category_node.text = category
+
+            link = (item_copy.findtext("link") or "").strip()
+            guid = (item_copy.findtext("guid") or "").strip()
+            title = (item_copy.findtext("title") or "").strip()
             key = guid or link or title
             if not key:
                 continue
 
-            pub_date = (item.findtext("pubDate") or "").strip()
+            pub_date = (item_copy.findtext("pubDate") or "").strip()
             sort_key = datetime.min.replace(tzinfo=timezone.utc)
             if pub_date:
                 try:
@@ -226,7 +247,7 @@ def build_combined_rss_feed(out_dir: Path, site_url: str) -> bool:
                 except Exception:
                     pass
 
-            item_xml = ET.tostring(item, encoding="unicode")
+            item_xml = ET.tostring(item_copy, encoding="unicode")
             existing = items_by_key.get(key)
             if existing is None or sort_key > existing["sort_key"]:
                 items_by_key[key] = {"sort_key": sort_key, "xml": item_xml}
