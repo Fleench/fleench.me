@@ -78,6 +78,13 @@
                   ~{src/.elements/footer.element}~
                 </section>
               </main>
+              <aside class="sidebar sidebar-left panel" id="right-sidebar">
+              <h1>
+              Add my button
+              </h1>
+              <p>Download the provide gif and then when adding it please link to https://flench.me</p>
+              <a href="https://flench.me"><image src="/theme/button.gif"></image></a>
+              </aside>
             </div>
           </div>
         </div>
