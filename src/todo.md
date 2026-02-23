@@ -3,6 +3,5 @@
 - Improve About Me
 - Create section for my games
 - Fix navbar length on only 1 sidebar
-- Fix generation issue when left or right sidebar are not set
 - Switch from flexbox to grid
 - Update CMS bot to allow me to easily edit the todo list as I get ideas

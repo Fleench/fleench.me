@@ -1,7 +1,15 @@
 (function () {
   const sidebar = document.getElementById('left-sidebar');
+  const rsidebar = document.getElementById('right-sidebar');
   const toggleButton = document.querySelector('.sidebar-toggle-button');
-
+  if (rsidebar.innerText == "{{ right sidebar }}") {
+      rsidebar.style.display = "None"
+  }
+  if (sidebar.innerText == "{{ left sidebar }}") {
+      sidebar.style.display = "None"
+      toggleButton.style.display = "None"
+      return;
+  }
   if (!sidebar || !toggleButton) {
     return;
   }
