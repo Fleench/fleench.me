@@ -43,6 +43,8 @@
                    ~{src/.elements/footer.element}~
                 </section>
               </main>
+<aside class="sidebar sidebar-left panel" id="right-sidebar">
+              {{ right sidebar }}
             </div>
           </div>
         </div>
