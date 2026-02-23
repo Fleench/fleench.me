@@ -2,18 +2,30 @@
   const sidebar = document.getElementById('left-sidebar');
   const rsidebar = document.getElementById('right-sidebar');
   const toggleButton = document.querySelector('.sidebar-toggle-button');
-  if (rsidebar.innerText == "{{ right sidebar }}") {
-      rsidebar.style.display = "None"
+  const nav = document.getElementById("NAV");
+  if (!rsidebar) {
+      nav.style.marginRight = "0";
   }
-  if (sidebar.innerText == "{{ left sidebar }}") {
-      sidebar.style.display = "None"
-      toggleButton.style.display = "None"
+  else if (rsidebar.innerText == "{{ right sidebar }}") {
+      rsidebar.style.display = "None";
+      nav.style.marginRight = "0";
+  }
+  if (!sidebar) {
+    console.log("No Left Sidebar");
+    toggleButton.style.display = "None";
+    nav.style.marginLeft = "0";
+  }
+  else if (sidebar.innerText == "{{ left sidebar }}" ) {
+
+      sidebar.style.display = "None";
+      toggleButton.style.display = "None";
+      nav.style.marginLeft = "0";
       return;
   }
   if (!sidebar || !toggleButton) {
     return;
   }
-
+  
   const mobileQuery = window.matchMedia('(max-width: 860px)');
 
   const setSidebarState = () => {

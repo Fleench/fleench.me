@@ -1,4 +1,4 @@
-<nav class="top-nav panel top-nav-main" aria-label="Primary navigation">
+<nav class="top-nav panel top-nav-main" aria-label="Primary navigation" id="NAV">
               <a href="/">Home</a>
               <a href="/notes/">Notes</a>
               <a href="/rss.xml">RSS</a>
