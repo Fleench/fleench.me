@@ -21,7 +21,7 @@ try:
     import markdown as md_lib  # type: ignore
 except Exception:
     md_lib = None
-
+    print("No md_lib found")
 try:
     import yaml  # type: ignore
 except Exception:
@@ -171,6 +171,7 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
         run_context = {
             "template_path": template_path,
             "project_root": Path.cwd(),
+            "md": md_lib,
             **context,
         }
         return _run_dynamic_element(path, run_context)
@@ -222,6 +223,8 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
 
     built = 0
     for md_file in sorted(src_dir.rglob("*.md")):
+        if "---" in md_file.name:
+            continue
         parsed = parse_frontmatter(md_file.read_text(encoding="utf-8"))
 
         selected_template = parsed.metadata.get("template")

@@ -24,7 +24,8 @@
             ~{src/.elements/nav.element}~
 
             <div class="content-row">
-              
+              <aside class="sidebar sidebar-left panel" id="left-sidebar">:{src/left-side.py}:</aside>
+
               <main class="layout h-entry">
                 <section class="content panel">
                   <div class="e-content">{{ content }}</div>
