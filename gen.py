@@ -264,7 +264,8 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
         for block in blocks:
             parts = block[0].split("---")
             if len(parts) > 1 and parts[1]!="{}":
-                x = "# " + parts[0] + "\n".join(block[1])
+                x = "# " + parts[0] +"\n" + "\n".join(block[1])
+                print(x)
                 locs[parts[1]] = markdown_to_html(x)
             else:
                 body = body + markdown_to_html(block[0] + "\n" + "\n".join(block[1]))
