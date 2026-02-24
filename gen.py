@@ -268,7 +268,8 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
                 #print(x)
                 locs[parts[1]] = markdown_to_html(x)
             else:
-                body = body + markdown_to_html(block[0] + "\n" + "\n".join(block[1]))
+                body = body + "\n" + markdown_to_html(block[0] + "\n" + "\n".join(block[1]))
+        #print(f"{md_file.name} ::: {body}")#rm
         # OG CODE
         # body_html = markdown_to_html(parsed.body)
         output_path = clean_output_path(md_file, src_dir, out_dir)
