@@ -1,3 +1,4 @@
+<2026-Feb-24> Update static site generator to propertly use the location tags of the .html.temp files when in a .md file.
 <2026-Feb-23> As a temporary fix use dynampic python for custom content locations
 <2026-Feb-23> Fix navbar length on only 1 sidebar
 <2026-Feb-23> Fix generation issue when left or right sidebar are not set
