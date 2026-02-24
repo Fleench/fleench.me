@@ -4,4 +4,5 @@
 - Create section for my games
 - Switch from flexbox to grid
 - Update CMS bot to allow me to easily edit the todo list as I get ideas
-- Update static site generator to propertly use the location tags of the .html.temp files when in a .md file.
+- Update static site generator to propertly use the css class and id property of blocks in the .md files
+- Update static site generator to support not making an h1 block for empty labeled headings
