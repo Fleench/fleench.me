@@ -189,7 +189,7 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
 def render_template(template_text: str, context: dict[str, Any]) -> str:
     rendered = template_text
     for key, value in context.items():
-        print(f"Replacing {key}") # RM
+        #print(f"Replacing {key}") # RM
         rendered = rendered.replace(f"{{{{ {key} }}}}", str(value))
     return rendered
 
@@ -265,7 +265,7 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
             parts = block[0].split("---")
             if len(parts) > 1 and parts[1]!="{}":
                 x = "# " + parts[0] +"\n" + "\n".join(block[1])
-                print(x)
+                #print(x)
                 locs[parts[1]] = markdown_to_html(x)
             else:
                 body = body + markdown_to_html(block[0] + "\n" + "\n".join(block[1]))
@@ -287,7 +287,7 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
             **locs,
             **escaped_meta,
         }
-        print(context) # RM
+        #print(context) # RM
         output_path.write_text(render_template(template_text, context), encoding="utf-8")
         built += 1
 
