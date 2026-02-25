@@ -248,7 +248,7 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
                 "current_markdown": md_file,
             },
         )
-        # Might need the changes here for dynamic locations
+        # Need the changes here for dynamic locations
         # for headings place location as 2nd item seprated by a ---.
         groups = parsed.body.split("\n# ")
         headings = []
@@ -263,12 +263,33 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
         body = ""
         for block in blocks:
             parts = block[0].split("---")
-            if len(parts) > 1 and parts[1]!="{}":
-                x = "# " + parts[0] +"\n" + "\n".join(block[1])
-                #print(x)
-                locs[parts[1]] = markdown_to_html(x)
+            lef = ""
+            rig = ""
+            if len(parts)>3 and parts[2]!="{}":
+                lef = f"<div class={parts[2]} id={parts[3]}>"
+                rig = "</div>"
+            elif len(parts)>3 and parts[2]=="{}":
+                lef = f"<div  id={parts[3]}>"
+                rig = "</div>"
+            elif len(parts)>2 and parts[2]!="{}":
+                lef = f"<div class={parts[2]}>"
+                rig = "</div>"
+            if len(parts) > 1 and parts[1] != "{}":
+                #print(parts)#rm
+                if ("{}") not in parts[0]:
+                    x = "# " + parts[0] +"\n" + "\n".join(block[1])
+                else:
+                    x = "\n".join(block[1])
+                #print(x) #RM
+                if parts[1] not in locs.keys():
+                    locs[parts[1]] = ""
+                locs[parts[1]] += "\n" + lef + markdown_to_html(x) + rig
             else:
-                body = body + markdown_to_html(block[0] + "\n" + "\n".join(block[1]))
+                if ("{}") not in parts[0]:
+                    x = "# " + parts[0] +"\n" + "\n".join(block[1])
+                else:
+                    x = "\n".join(block[1])
+                body = body + (lef + markdown_to_html(x)+rig)
         # OG CODE
         # body_html = markdown_to_html(parsed.body)
         output_path = clean_output_path(md_file, src_dir, out_dir)
