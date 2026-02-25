@@ -1,6 +1,6 @@
 <nav class="top-nav panel top-nav-main" aria-label="Primary navigation" id="NAV">
               <a href="/">Home</a>
-              <a href="/test"</a>
+              <a href="/changelog">Changelog</a>
               <a href="/notes/">Notes</a>
               <a href="/rss.xml">RSS</a>
 </nav>
