@@ -155,7 +155,7 @@ a:hover {
   
 }
 #changes ul {
-	display: none
+	list-style-type: none
 }
 .blink {
   margin: 1rem 0;
@@ -304,7 +304,7 @@ a:hover {
 
 .note-permalink {
   font-weight: 700;
-  text-decoration: none;
+  text-decoration: underline;
 }
 
 .note-meta {
