@@ -157,6 +157,9 @@ a:hover {
 #changes ul {
 	list-style-type: none
 }
+#changes li {
+	margin-bottom: 7px;	
+}
 .blink {
   margin: 1rem 0;
   color: var(--warning);
