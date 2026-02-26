@@ -84,44 +84,44 @@ def _to_rfc2822(date_text: str) -> str:
 def _notes_page(items: list[str]) -> str:
     return "\n".join(
         [
-            "<!DOCTYPE html>",
-            '<html lang="en">',
-            "<head>",
-            '  <meta charset="UTF-8">',
-            '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
-            "  <title>Notes</title>",
-            '  <link rel="stylesheet" href="/style.css">',
-            '  <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml">',
-            '  <script src="/layout.js" defer></script>',
-            '  <script src="/mentions.js" defer></script>',
-            "</head>",
-            "<body>",
-            '  <div class="page-wrap">',
-            '    <div class="site-layout">',
-            '      <div class="center-column">',
-            '        <div class="content-shell">',
-            '          <nav class="top-nav panel" aria-label="Primary navigation">',
-            '            <a href="/">Home</a>',
-            '            <a href="/notes/">Notes</a>',
-            "          </nav>",
-            '          <main class="layout">',
-            '            <section class="content panel notes-index">',
-            "              <h1>Notes</h1>",
-            '              <p><a href="/rss.xml">Subscribe via RSS</a></p>',
-            '              <div class="notes-list">',
+            #"<!DOCTYPE html>",
+            #'<html lang="en">',
+            #"<head>",
+            #'  <meta charset="UTF-8">',
+            #'  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+            #"  <title>Notes</title>",
+            #'  <link rel="stylesheet" href="/style.css">',
+            #'  <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml">',
+            #'  <script src="/layout.js" defer></script>',
+            #'  <script src="/mentions.js" defer></script>',
+            #"</head>",
+            #"<body>",
+            #'  <div class="page-wrap">',
+            #'    <div class="site-layout">',
+            #'      <div class="center-column">',
+            #'        <div class="content-shell">',
+            #'          <nav class="top-nav panel" aria-label="Primary navigation">',
+            #'            <a href="/">Home</a>',
+            #'            <a href="/notes/">Notes</a>',
+            #"          </nav>",
+            #'          <main class="layout">',
+            #'            <section class="content panel notes-index">',
+            #"              <h1>Notes</h1>",
+            #'              <p><a href="/rss.xml">Subscribe via RSS</a></p>',
+            #'              <div class="notes-list">',
             *[f"                {item}" for item in items],
-            "              </div>",
-            "            </section>",
-            '            <section class="main-extras">',
-            '              <div id="webmentions"></div>',
-            "            </section>",
-            "          </main>",
-            "        </div>",
-            "      </div>",
-            "    </div>",
-            "  </div>",
-            "</body>",
-            "</html>",
+            #"              </div>",
+            #"            </section>",
+            #'            <section class="main-extras">',
+            #'              <div id="webmentions"></div>',
+            #"            </section>",
+            #"          </main>",
+            #"        </div>",
+            #"      </div>",
+            #"    </div>",
+            #"  </div>",
+            #"</body>",
+            #"</html>",
         ]
     )
 
@@ -258,11 +258,16 @@ def _queue_discovered_links(src_dir: Path, out_dir: Path, site_url: str) -> int:
     return added
 
 
-def main(src_dir: Path, out_dir: Path, config: dict[str, Any]) -> None:
+def main(**context) -> None:
+    print("start")#RM
+    src_dir = context["project_root"] / "src"
+    print("SRC")
     notes_dir = src_dir / "notes"
+    out_dir = Path()
     notes = sorted(notes_dir.rglob("*.md"), reverse=True) if notes_dir.exists() else []
     rendered: list[str] = []
     feed_entries: list[dict[str, str]] = []
+    print("Finished Setups")#RM
     for note_file in notes:
         metadata, body = _parse_frontmatter(note_file.read_text(encoding="utf-8"))
         relative = note_file.relative_to(src_dir).with_suffix("").as_posix()
@@ -290,12 +295,17 @@ def main(src_dir: Path, out_dir: Path, config: dict[str, Any]) -> None:
             }
         )
 
+        #print(rendered)
     notes_output = out_dir / "notes" / "index.html"
     notes_output.parent.mkdir(parents=True, exist_ok=True)
-    notes_output.write_text(_notes_page(rendered), encoding="utf-8")
+    #notes_output.write_text(_notes_page(rendered), encoding="utf-8")
 
-    site_url = str(config.get("site_url", "https://flench.me"))
+    site_url = "https://flench.me"
     rss_output = out_dir / "notes" / "rss.xml"
     rss_output.write_text(_notes_rss(site_url, feed_entries), encoding="utf-8")
 
     _queue_discovered_links(src_dir, out_dir, site_url)
+    print("Returned")#RM
+    return str(_notes_page(rendered))
+if __name__ == "__main__":
+    main(Path(),"")

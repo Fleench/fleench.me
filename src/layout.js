@@ -6,7 +6,7 @@
   if (!rsidebar) {
       nav.style.marginRight = "0";
   }
-  else if (rsidebar.innerText == "{{ right sidebar }}") {
+  else if (rsidebar.innerText == "") {
       rsidebar.style.display = "None";
       nav.style.marginRight = "0";
   }
@@ -15,7 +15,7 @@
     toggleButton.style.display = "None";
     nav.style.marginLeft = "0";
   }
-  else if (sidebar.innerText == "{{ left sidebar }}" ) {
+  else if (sidebar.innerText == "" ) {
 
       sidebar.style.display = "None";
       toggleButton.style.display = "None";

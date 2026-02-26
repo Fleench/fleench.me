@@ -108,17 +108,18 @@ def _resolve_element_file(raw_path: str, template_path: Path) -> Path | None:
 
 
 def _run_dynamic_element(path: Path, render_context: dict[str, Any]) -> str:
+    print(f"Loading Module at {path.name}")#rm
     module_name = f"_gen2_dynamic_{hash(path.resolve()) & 0xFFFFFFFF:x}_{path.stat().st_mtime_ns}"
     spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
-        return ""
+        return "no module"
 
     module = importlib.util.module_from_spec(spec)
     loader = spec.loader
     try:
         loader.exec_module(module)
-    except Exception:
-        return ""
+    except Exception as e:
+        return e
 
     rendered: Any = ""
     renderer = getattr(module, "render", None)
@@ -130,26 +131,29 @@ def _run_dynamic_element(path: Path, render_context: dict[str, Any]) -> str:
             rendered = renderer(**render_context)
         except TypeError:
             try:
+                print("EEEE")#RM
                 rendered = renderer()
-            except Exception:
-                return ""
-        except Exception:
-            return ""
+            except Exception as e:
+                return e
+        except Exception as e:
+            return e
     else:
         html_value = getattr(module, "HTML", "")
         rendered = html_value
 
     if rendered is None:
-        return ""
+        return "Error"
     return str(rendered)
 
 
 def inject_elements(template_text: str, template_path: Path, render_context: dict[str, Any] | None = None) -> str:
+    print("Called")#rm
     static_pattern = re.compile(r"~\{([^{}]+)\}~")
     dynamic_pattern = re.compile(r":\{([^{}]+\.py)\}:")
     context = render_context or {}
 
     def replace_static(match: re.Match[str]) -> str:
+        print("HEHE")#RM
         raw_path = match.group(1).strip()
         if not raw_path:
             return ""
@@ -160,6 +164,7 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
         return ""
 
     def replace_dynamic(match: re.Match[str]) -> str:
+        print("Here")#rm
         raw_path = match.group(1).strip()
         if not raw_path:
             return ""
@@ -175,7 +180,6 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
             **context,
         }
         return _run_dynamic_element(path, run_context)
-
     rendered = template_text
     for _ in range(10):
         updated = static_pattern.sub(replace_static, rendered)
@@ -227,6 +231,7 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
 
     built = 0
     for md_file in sorted(src_dir.rglob("*.md")):
+        print(md_file.name)#RM
         if "---" in md_file.name:
             continue
         parsed = parse_frontmatter(md_file.read_text(encoding="utf-8"))
