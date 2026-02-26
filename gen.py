@@ -191,6 +191,9 @@ def render_template(template_text: str, context: dict[str, Any]) -> str:
     for key, value in context.items():
         #print(f"Replacing {key}") # RM
         rendered = rendered.replace(f"{{{{ {key} }}}}", str(value))
+    #NEW
+    rendered = re.sub(r'\{\{.*\}\}',"",rendered) 
+    #END NEW
     return rendered
 
 

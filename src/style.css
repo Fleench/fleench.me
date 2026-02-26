@@ -152,8 +152,11 @@ a:hover {
 .content ul {
   margin: 0.5rem 0 0;
   padding-left: 1.25rem;
+  
 }
-
+#changes ul {
+	list-style-type: none
+}
 .blink {
   margin: 1rem 0;
   color: var(--warning);
@@ -301,7 +304,7 @@ a:hover {
 
 .note-permalink {
   font-weight: 700;
-  text-decoration: none;
+  text-decoration: underline;
 }
 
 .note-meta {

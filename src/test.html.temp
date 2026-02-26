@@ -5,6 +5,7 @@
     <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
   </head>
   <body>
+  	{{ top }}
     <div class="page-wrap">
       ~{src/.elements/marquee.element}~
 
