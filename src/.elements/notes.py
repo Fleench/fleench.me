@@ -263,7 +263,7 @@ def main(**context) -> None:
     src_dir = context["project_root"] / "src"
     print("SRC")
     notes_dir = src_dir / "notes"
-    out_dir = Path()
+    out_dir = src_dir
     notes = sorted(notes_dir.rglob("*.md"), reverse=True) if notes_dir.exists() else []
     rendered: list[str] = []
     feed_entries: list[dict[str, str]] = []
