@@ -9,4 +9,3 @@
 - Update CMS bot to allow me to easily edit the todo list as I get ideas
 - Update static site generator to support diffrent lengths of logging
 # Issues
-- Fix RSS Generation

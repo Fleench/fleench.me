@@ -1,5 +1,6 @@
 # {} ---{}---{}---changes
 - #### [View roadmap](/todo)
+- <2026-Feb-26> Fixed RSS Generation
 - <2026-Feb-26> Update notes page styling to follow more of the site wide theme
 - <2026-Feb-25> Added Changelog to nav
 - <2026-Feb-25> Update static site generator to support class and id tags in the .md files. See the new changes on the test page. If you can find it.
