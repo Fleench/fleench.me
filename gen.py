@@ -6,6 +6,7 @@ import html
 import importlib
 import importlib.util
 import json
+import logging
 import re
 import xml.etree.ElementTree as ET
 import urllib.error
@@ -27,6 +28,11 @@ try:
 except Exception:
     yaml = None
 
+try:
+    import indieweb_utils  # type: ignore
+except Exception:
+    indieweb_utils = None
+
 DEFAULT_CONFIG: dict[str, Any] = {
     "src_dir": "src",
     "out_dir": "dist",
@@ -38,6 +44,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
 
 WEBMENTION_STATE_PATH = Path(".webmention-state.json")
 FED_BRIDGY_ENDPOINT = "https://fed.brid.gy/webmention"
+LOGGER = logging.getLogger("gen")
 
 
 @dataclass
@@ -70,6 +77,29 @@ def parse_frontmatter(raw: str) -> ParsedMarkdown:
         key, value = line.split(":", 1)
         metadata[key.strip()] = value.strip().strip('"').strip("'")
     return ParsedMarkdown(metadata=metadata, body=body)
+
+
+def configure_logging(level_name: str, json_logs: bool = False) -> None:
+    level = getattr(logging, level_name.upper(), logging.INFO)
+    if json_logs:
+        class JsonFormatter(logging.Formatter):
+            def format(self, record: logging.LogRecord) -> str:
+                payload = {
+                    "level": record.levelname,
+                    "message": record.getMessage(),
+                    "logger": record.name,
+                }
+                return json.dumps(payload, ensure_ascii=False)
+
+        handler = logging.StreamHandler()
+        handler.setFormatter(JsonFormatter())
+        root = logging.getLogger()
+        root.handlers.clear()
+        root.addHandler(handler)
+        root.setLevel(level)
+        return
+
+    logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
 
 
 def markdown_to_html(markdown_text: str) -> str:
@@ -108,7 +138,7 @@ def _resolve_element_file(raw_path: str, template_path: Path) -> Path | None:
 
 
 def _run_dynamic_element(path: Path, render_context: dict[str, Any]) -> str:
-    print(f"Loading Module at {path.name}")#rm
+    LOGGER.debug("Loading dynamic module: %s", path.name)
     module_name = f"_gen2_dynamic_{hash(path.resolve()) & 0xFFFFFFFF:x}_{path.stat().st_mtime_ns}"
     spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
@@ -131,7 +161,7 @@ def _run_dynamic_element(path: Path, render_context: dict[str, Any]) -> str:
             rendered = renderer(**render_context)
         except TypeError:
             try:
-                print("EEEE")#RM
+                LOGGER.debug("Dynamic module renderer rejected kwargs; retrying without context")
                 rendered = renderer()
             except Exception as e:
                 return e
@@ -147,13 +177,12 @@ def _run_dynamic_element(path: Path, render_context: dict[str, Any]) -> str:
 
 
 def inject_elements(template_text: str, template_path: Path, render_context: dict[str, Any] | None = None) -> str:
-    print("Called")#rm
+    LOGGER.debug("Injecting template elements from %s", template_path)
     static_pattern = re.compile(r"~\{([^{}]+)\}~")
     dynamic_pattern = re.compile(r":\{([^{}]+\.py)\}:")
     context = render_context or {}
 
     def replace_static(match: re.Match[str]) -> str:
-        print("HEHE")#RM
         raw_path = match.group(1).strip()
         if not raw_path:
             return ""
@@ -164,7 +193,6 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
         return ""
 
     def replace_dynamic(match: re.Match[str]) -> str:
-        print("Here")#rm
         raw_path = match.group(1).strip()
         if not raw_path:
             return ""
@@ -231,7 +259,7 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
 
     built = 0
     for md_file in sorted(src_dir.rglob("*.md")):
-        print(md_file.name)#RM
+        LOGGER.debug("Rendering markdown file: %s", md_file)
         if "---" in md_file.name:
             continue
         parsed = parse_frontmatter(md_file.read_text(encoding="utf-8"))
@@ -500,11 +528,56 @@ def _save_webmention_state(state: dict[str, Any]) -> None:
     WEBMENTION_STATE_PATH.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def queue_bridgy_webping_for_notes(src_dir: Path, out_dir: Path, site_url: str) -> int:
-    site_url_clean = site_url.rstrip("/")
-    notes_dir = src_dir / "notes"
-    if not notes_dir.exists() or not site_url_clean:
+def _html_source_url(out_dir: Path, html_file: Path, site_url: str) -> str:
+    relative = html_file.relative_to(out_dir).as_posix()
+    if relative == "index.html":
+        return f"{site_url.rstrip('/')}/"
+    if relative.endswith("/index.html"):
+        return f"{site_url.rstrip('/')}/{relative[:-len('index.html')]}"
+    return f"{site_url.rstrip('/')}/{relative}"
+
+
+def _extract_links_from_markdown(markdown_text: str) -> set[str]:
+    links = set(re.findall(r"\[[^\]]+\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)", markdown_text))
+    links.update(re.findall(r"<((?:https?://)[^>]+)>", markdown_text))
+    return {link.strip() for link in links if link.strip()}
+
+
+def _extract_links_from_html(html_text: str) -> set[str]:
+    links = set(re.findall(r"(?:href|src)=['\"]([^'\"]+)['\"]", html_text))
+    return {link.strip() for link in links if link.strip()}
+
+
+def _is_http_external(link: str, site_host: str) -> bool:
+    parsed = urllib.parse.urlparse(link)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return False
+    return parsed.netloc != site_host
+
+
+def queue_discovered_webmentions(src_dir: Path, out_dir: Path, site_url: str) -> int:
+    site_host = urllib.parse.urlparse(site_url).netloc
+    if not site_host:
         return 0
+
+    discovered: set[tuple[str, str]] = set()
+    for md_file in sorted(src_dir.rglob("*.md")):
+        parsed = parse_frontmatter(md_file.read_text(encoding="utf-8"))
+        output_path = clean_output_path(md_file, src_dir, out_dir)
+        rel_url = "/" + output_path.relative_to(out_dir).as_posix()
+        if rel_url.endswith("/index.html"):
+            rel_url = rel_url[: -len("index.html")]
+        source = f"{site_url.rstrip('/')}{rel_url}"
+        for link in _extract_links_from_markdown(parsed.body):
+            if _is_http_external(link, site_host):
+                discovered.add((source, link))
+
+    for html_file in sorted(out_dir.rglob("*.html")):
+        source = _html_source_url(out_dir, html_file, site_url)
+        html_text = html_file.read_text(encoding="utf-8")
+        for link in _extract_links_from_html(html_text):
+            if _is_http_external(link, site_host):
+                discovered.add((source, link))
 
     state = _load_webmention_state()
     queue = [item for item in state.get("queue", []) if isinstance(item, dict)]
@@ -518,22 +591,32 @@ def queue_bridgy_webping_for_notes(src_dir: Path, out_dir: Path, site_url: str) 
     queued_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     added = 0
 
-    for md_file in sorted(notes_dir.rglob("*.md")):
-        output_path = clean_output_path(md_file, src_dir, out_dir)
-        rel_url = "/" + output_path.relative_to(out_dir).as_posix()
-        if rel_url.endswith("/index.html"):
-            rel_url = rel_url[: -len("index.html")]
-        source = f"{site_url_clean}{rel_url}"
-        key = (source, FED_BRIDGY_ENDPOINT)
+    for source, target in sorted(discovered):
+        key = (source, target)
         if key in existing:
             continue
-        queue.append({"source": source, "target": FED_BRIDGY_ENDPOINT, "queued_at": queued_at})
+        queue.append({"source": source, "target": target, "queued_at": queued_at})
         existing.add(key)
         added += 1
 
     state["queue"] = queue
     _save_webmention_state(state)
     return added
+
+
+def _send_with_legacy_http(source: str, target: str) -> None:
+    payload = urllib.parse.urlencode({"source": source, "target": target}).encode("utf-8")
+    request = urllib.request.Request(FED_BRIDGY_ENDPOINT, data=payload, method="POST")
+    request.add_header("Content-Type", "application/x-www-form-urlencoded")
+    with urllib.request.urlopen(request, timeout=15):
+        return
+
+
+def _send_webmention(source: str, target: str) -> None:
+    if indieweb_utils is not None:
+        indieweb_utils.send_webmention(source, target)
+        return
+    _send_with_legacy_http(source, target)
 
 
 def publish_webmentions(dry_run: bool = False) -> tuple[int, int]:
@@ -556,22 +639,24 @@ def publish_webmentions(dry_run: bool = False) -> tuple[int, int]:
             remaining.append(item)
             continue
 
-        payload = urllib.parse.urlencode({"source": source, "target": target}).encode("utf-8")
-        request = urllib.request.Request(FED_BRIDGY_ENDPOINT, data=payload, method="POST")
-        request.add_header("Content-Type", "application/x-www-form-urlencoded")
         try:
-            with urllib.request.urlopen(request, timeout=15):
-                sent += 1
-                published.append(
-                    {
-                        **item,
-                        "published_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                    }
-                )
+            _send_webmention(source, target)
+            sent += 1
+            LOGGER.info("Published webmention %s -> %s", source, target)
+            published.append(
+                {
+                    **item,
+                    "published_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                }
+            )
         except urllib.error.URLError as exc:
             failed += 1
             remaining.append(item)
-            print(f"Failed publishing {source} -> {target}: {exc}")
+            LOGGER.error("Failed publishing %s -> %s: %s", source, target, exc)
+        except Exception as exc:
+            failed += 1
+            remaining.append(item)
+            LOGGER.error("Failed publishing %s -> %s: %s", source, target, exc)
 
     state["queue"] = remaining
     state["published"] = published
@@ -584,11 +669,14 @@ def main() -> None:
     parser.add_argument("command", nargs="?", default="build", choices=["build", "publish"])
     parser.add_argument("--config", default="config.yml")
     parser.add_argument("--dry-run", action="store_true", help="Print publish actions without sending webmentions")
+    parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
+    parser.add_argument("--json-logs", action="store_true")
     args = parser.parse_args()
+    configure_logging(args.log_level, json_logs=args.json_logs)
 
     if args.command == "publish":
         sent, failed = publish_webmentions(dry_run=args.dry_run)
-        print(f"Published {sent} webmention(s); {failed} failed")
+        LOGGER.info("Published %s webmention(s); %s failed", sent, failed)
         return
 
     config = load_config(Path(args.config))
@@ -597,10 +685,10 @@ def main() -> None:
     template_path = Path(str(config.get("default_template", "src/page.html.temp")))
 
     built = build_site(src_dir, out_dir, template_path, config)
-    queued = queue_bridgy_webping_for_notes(src_dir, out_dir, str(config.get("site_url", "https://flench.me")))
-    print(f"Built {built} markdown page(s)")
+    queued = queue_discovered_webmentions(src_dir, out_dir, str(config.get("site_url", "https://flench.me")))
+    LOGGER.info("Built %s markdown page(s)", built)
     if queued:
-        print(f"Queued {queued} Bridgy Fed webping(s)")
+        LOGGER.info("Queued %s webmention(s)", queued)
 
 
 if __name__ == "__main__":

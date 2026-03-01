@@ -20,7 +20,7 @@ The bot now includes commands to inspect and publish the queue:
 ### Slash commands
 
 - `/queue` — show queued + published counts and preview queued items.
-- `/publish` — send queued webmentions to `https://fed.brid.gy/webmention`.
+- `/publish` — send queued webmentions using the configured sender flow (prefers `indieweb_utils`).
 
 ### Prefix commands
 
@@ -39,5 +39,11 @@ The bot now includes commands to inspect and publish the queue:
 
 You can now publish queued webmentions directly from `gen.py`:
 
-- `python3 gen.py publish` — sends queued webmentions to `https://fed.brid.gy/webmention`
+- `python3 gen.py publish` — sends queued webmentions using `indieweb_utils` when available (with legacy fallback)
 - `python3 gen.py publish --dry-run` — shows what would be sent without making network requests
+
+
+## Logging
+
+- `python3 gen.py build --log-level DEBUG` — verbose build diagnostics
+- `python3 gen.py publish --json-logs` — structured JSON log output
