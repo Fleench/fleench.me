@@ -4,22 +4,27 @@
   const toggleButton = document.querySelector('.sidebar-toggle-button');
   const nav = document.getElementById("NAV");
   if (!rsidebar) {
-      nav.style.marginRight = "0";
+      nav.style.marginRight = "0px";
   }
   else if (rsidebar.innerText == "") {
       rsidebar.style.display = "None";
-      nav.style.marginRight = "0";
+      nav.style.marginRight = "0px";
   }
   if (!sidebar) {
-    console.log("No Left Sidebar");
-    toggleButton.style.display = "None";
-    nav.style.marginLeft = "0";
+	console.log("No Left Sidebar");
+	if (toggleButton) {
+	    toggleButton.style.display = "None";
+	    }
+	console.log("Issue Here")
+    nav.style.marginLeft = "0px";
   }
   else if (sidebar.innerText == "" ) {
 
       sidebar.style.display = "None";
-      toggleButton.style.display = "None";
-      nav.style.marginLeft = "0";
+      if (toggleButton) {
+          toggleButton.style.display = "None";
+          }
+      nav.style.marginLeft = "0px";
       return;
   }
   if (!sidebar || !toggleButton) {

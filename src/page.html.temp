@@ -33,7 +33,7 @@
                     <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
                     <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
                     <div class="p-author h-card">
-                      <a class="u-url n" href="https://flench.me">Glenn Sutherland</a>
+                      <a class="u-url n" href="https://flench.me">Flench04</a>
                     </div>
                   </div>
                 </section>

@@ -5,7 +5,6 @@
     <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
   </head>
   <body>
-  	{{ top }}
     <div class="page-wrap">
       ~{src/.elements/marquee.element}~
 
@@ -25,7 +24,7 @@
             ~{src/.elements/nav.element}~
 
             <div class="content-row">
-              <aside class="sidebar sidebar-left panel" id="left-sidebar">{{ left }}</aside>
+              <aside class="sidebar sidebar-left panel" id="left-sidebar"><div id="webmentions"></div></aside>
 
               <main class="layout h-entry">
                 <section class="content panel">
@@ -34,21 +33,22 @@
                     <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
                     <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
                     <div class="p-author h-card">
-                      <a class="u-url n" href="https://flench.me">Flench04</a>
+                      <a class="u-url n" href="https://flench.me">Glenn Sutherland</a>
                     </div>
                   </div>
                 </section>
 
                 <section class="main-extras">
-                  <div id="webmentions"></div>
+                  
                    ~{src/.elements/footer.element}~
                 </section>
               </main>
+<aside class="sidebar sidebar-left panel" id="right-sidebar">
+              ~{src/.elements/author.element}~ 
             </div>
           </div>
         </div>
       </div>
     </div>
-    {{ test }}
   </body>
 </html>
