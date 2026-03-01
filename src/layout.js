@@ -2,35 +2,48 @@
   const sidebar = document.getElementById('left-sidebar');
   const rsidebar = document.getElementById('right-sidebar');
   const toggleButton = document.querySelector('.sidebar-toggle-button');
-  const nav = document.getElementById("NAV");
-  if (!rsidebar) {
-      nav.style.marginRight = "0px";
-  }
-  else if (rsidebar.innerText == "") {
-      rsidebar.style.display = "None";
-      nav.style.marginRight = "0px";
-  }
-  if (!sidebar) {
-	console.log("No Left Sidebar");
-	if (toggleButton) {
-	    toggleButton.style.display = "None";
-	    }
-	console.log("Issue Here")
-    nav.style.marginLeft = "0px";
-  }
-  else if (sidebar.innerText == "" ) {
+  const nav = document.getElementById('NAV');
 
-      sidebar.style.display = "None";
+  const isTrulyEmpty = (element) => {
+    if (!element) {
+      return true;
+    }
+
+    for (const node of element.childNodes) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        return false;
+      }
+      if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== '') {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  if (nav) {
+    if (!rsidebar || isTrulyEmpty(rsidebar)) {
+      if (rsidebar) {
+        rsidebar.style.display = 'none';
+      }
+      nav.style.marginRight = '0px';
+    }
+
+    if (!sidebar || isTrulyEmpty(sidebar)) {
+      if (sidebar) {
+        sidebar.style.display = 'none';
+      }
       if (toggleButton) {
-          toggleButton.style.display = "None";
-          }
-      nav.style.marginLeft = "0px";
-      return;
+        toggleButton.style.display = 'none';
+      }
+      nav.style.marginLeft = '0px';
+    }
   }
-  if (!sidebar || !toggleButton) {
+
+  if (!sidebar || !toggleButton || isTrulyEmpty(sidebar)) {
     return;
   }
-  
+
   const mobileQuery = window.matchMedia('(max-width: 860px)');
 
   const setSidebarState = () => {

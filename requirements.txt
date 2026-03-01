@@ -1,0 +1,5 @@
+markdown
+PyYAML
+discord.py
+python-dotenv
+indieweb-utils

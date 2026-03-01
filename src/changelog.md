@@ -1,5 +1,6 @@
 # {} ---{}---{}---changes
 - #### [View roadmap](/todo)
+- <2026-Mar-01> Added requirements.txt, fixed layout.js empty-sidebar detection, and updated project notes
 - <2026-Feb-26> Fixed RSS Generation
 - <2026-Feb-26> Update notes page styling to follow more of the site wide theme
 - <2026-Feb-25> Added Changelog to nav
