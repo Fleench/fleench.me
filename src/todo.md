@@ -10,4 +10,4 @@
 - Update static site generator to support diffrent lengths of logging
 - Fix webmentions to work for all links
 # Site Issues
-- Fix layout.js removing some sidebars when they have elements
+- Add and maintain requirements.txt
