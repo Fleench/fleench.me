@@ -1,5 +1,6 @@
 # {} ---{}---{}---changes
 - #### [View roadmap](/todo)
+- <2026-Mar-02> Switched back to flexbox from grid
 - <2026-Mar-02> Fixed broken layout on lack of sidebars
 - <2026-Mar-01> Fixed webmention sending and receiving
 - <2026-Mar-01> Fixed layout.js empty-sidebar detection
