@@ -209,16 +209,17 @@ def _source_fingerprint(content: str) -> str:
 
 def _load_webmention_state() -> dict[str, Any]:
     if not WEBMENTION_STATE_PATH.exists():
-        return {"version": 1, "queue": [], "published": []}
+        return {"version": 1, "queue": [], "published": [], "current_links": {}}
     try:
         data = json.loads(WEBMENTION_STATE_PATH.read_text(encoding="utf-8"))
     except Exception:
-        return {"version": 1, "queue": [], "published": []}
+        return {"version": 1, "queue": [], "published": [], "current_links": {}}
     if not isinstance(data, dict):
-        return {"version": 1, "queue": [], "published": []}
+        return {"version": 1, "queue": [], "published": [], "current_links": {}}
     data.setdefault("version", 1)
     data.setdefault("queue", [])
     data.setdefault("published", [])
+    data.setdefault("current_links", {})
     return data
 
 
@@ -228,6 +229,14 @@ def _queue_discovered_links(src_dir: Path, out_dir: Path, site_url: str) -> int:
         return 0
 
     discovered: dict[tuple[str, str], str] = {}
+    current_links: dict[str, set[str]] = {}
+
+    def record_discovery(source: str, target: str, source_hash: str) -> None:
+        discovered.setdefault((source, target), source_hash)
+        current_links.setdefault(source, set()).add(target)
+
+    def removed_source_hash(source: str, targets: set[str]) -> str:
+        return _source_fingerprint(f"{source}\nremoved\n" + "\n".join(sorted(targets)))
 
     for md_file in sorted(src_dir.rglob("*.md")):
         _, body = _parse_frontmatter(md_file.read_text(encoding="utf-8"))
@@ -235,7 +244,7 @@ def _queue_discovered_links(src_dir: Path, out_dir: Path, site_url: str) -> int:
         source = _markdown_source_url(src_dir, md_file, site_url)
         for link in _extract_links_from_markdown(body):
             if _is_http_external(link, site_host):
-                discovered.setdefault((source, link), source_hash)
+                record_discovery(source, link, source_hash)
 
     for html_file in sorted(out_dir.rglob("*.html")):
         source = _html_source_url(out_dir, html_file, site_url)
@@ -243,17 +252,26 @@ def _queue_discovered_links(src_dir: Path, out_dir: Path, site_url: str) -> int:
         source_hash = _source_fingerprint(html_text)
         for link in _extract_links_from_html(html_text):
             if _is_http_external(link, site_host):
-                discovered.setdefault((source, link), source_hash)
+                record_discovery(source, link, source_hash)
 
     state = _load_webmention_state()
     queue = state.get("queue", [])
     published = state.get("published", [])
+    previous_current_links_raw = state.get("current_links", {})
+    previous_current_links: dict[str, set[str]] = {}
+    if isinstance(previous_current_links_raw, dict):
+        for source, targets in previous_current_links_raw.items():
+            if not isinstance(source, str):
+                continue
+            if isinstance(targets, list):
+                previous_current_links[source] = {str(target).strip() for target in targets if str(target).strip()}
 
     existing = {
         (
             str(item.get("source", "")).strip(),
             str(item.get("target", "")).strip(),
             str(item.get("source_hash", "")).strip(),
+            str(item.get("event", "added") or "added").strip(),
         )
         for item in [*queue, *published]
         if isinstance(item, dict)
@@ -262,14 +280,28 @@ def _queue_discovered_links(src_dir: Path, out_dir: Path, site_url: str) -> int:
     now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     added = 0
     for (source, target), source_hash in sorted(discovered.items()):
-        key = (source, target, source_hash)
+        key = (source, target, source_hash, "added")
         if key in existing:
             continue
-        queue.append({"source": source, "target": target, "source_hash": source_hash, "queued_at": now})
+        queue.append({"source": source, "target": target, "source_hash": source_hash, "event": "added", "queued_at": now})
         existing.add(key)
         added += 1
 
+    for source, previous_targets in previous_current_links.items():
+        removed_targets = previous_targets - current_links.get(source, set())
+        if not removed_targets:
+            continue
+        removal_hash = removed_source_hash(source, removed_targets)
+        for target in sorted(removed_targets):
+            key = (source, target, removal_hash, "removed")
+            if key in existing:
+                continue
+            queue.append({"source": source, "target": target, "source_hash": removal_hash, "event": "removed", "queued_at": now})
+            existing.add(key)
+            added += 1
+
     state["queue"] = queue
+    state["current_links"] = {source: sorted(targets) for source, targets in sorted(current_links.items())}
     WEBMENTION_STATE_PATH.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if added:
         print(f"Queued {added} webmention(s) in {WEBMENTION_STATE_PATH.name}")
