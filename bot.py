@@ -87,19 +87,20 @@ def _commit_summary(content: str, note_type: str) -> str:
 
 def _load_webmention_state() -> dict:
     if not WEBMENTION_STATE_PATH.exists():
-        return {"version": 1, "queue": [], "published": []}
+        return {"version": 1, "queue": [], "published": [], "current_links": {}}
 
     try:
         raw = json.loads(WEBMENTION_STATE_PATH.read_text(encoding="utf-8"))
     except Exception:
-        return {"version": 1, "queue": [], "published": []}
+        return {"version": 1, "queue": [], "published": [], "current_links": {}}
 
     if not isinstance(raw, dict):
-        return {"version": 1, "queue": [], "published": []}
+        return {"version": 1, "queue": [], "published": [], "current_links": {}}
 
     raw.setdefault("version", 1)
     raw.setdefault("queue", [])
     raw.setdefault("published", [])
+    raw.setdefault("current_links", {})
     return raw
 
 
@@ -143,6 +144,8 @@ def _publish_queued_webmentions() -> tuple[int, int, list[str]]:
         if not source or not target:
             continue
 
+        event = str(item.get("event", "added") or "added").strip()
+
         payload = urllib.parse.urlencode({"source": source, "target": target}).encode("utf-8")
         request = urllib.request.Request(FED_BRIDGY_ENDPOINT, data=payload, method="POST")
         request.add_header("Content-Type", "application/x-www-form-urlencoded")
@@ -150,12 +153,13 @@ def _publish_queued_webmentions() -> tuple[int, int, list[str]]:
         try:
             with urllib.request.urlopen(request, timeout=15):
                 sent += 1
+                item["event"] = event
                 item["published_at"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
                 published.append(item)
         except urllib.error.URLError as exc:
             failed += 1
             remaining.append(item)
-            errors.append(f"{source} -> {target}: {exc}")
+            errors.append(f"[{event}] {source} -> {target}: {exc}")
 
     state["queue"] = remaining
     state["published"] = published
