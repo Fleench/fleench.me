@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import importlib
 import importlib.util
@@ -555,14 +556,24 @@ def _is_http_external(link: str, site_host: str) -> bool:
     return parsed.netloc != site_host
 
 
+def _normalize_for_hash(content: str) -> str:
+    return " ".join(content.split())
+
+
+def _source_fingerprint(content: str) -> str:
+    normalized = _normalize_for_hash(content)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
 def queue_discovered_webmentions(src_dir: Path, out_dir: Path, site_url: str) -> int:
     site_host = urllib.parse.urlparse(site_url).netloc
     if not site_host:
         return 0
 
-    discovered: set[tuple[str, str]] = set()
+    discovered: dict[tuple[str, str], str] = {}
     for md_file in sorted(src_dir.rglob("*.md")):
         parsed = parse_frontmatter(md_file.read_text(encoding="utf-8"))
+        source_hash = _source_fingerprint(parsed.body)
         output_path = clean_output_path(md_file, src_dir, out_dir)
         rel_url = "/" + output_path.relative_to(out_dir).as_posix()
         if rel_url.endswith("/index.html"):
@@ -570,32 +581,44 @@ def queue_discovered_webmentions(src_dir: Path, out_dir: Path, site_url: str) ->
         source = f"{site_url.rstrip('/')}{rel_url}"
         for link in _extract_links_from_markdown(parsed.body):
             if _is_http_external(link, site_host):
-                discovered.add((source, link))
+                discovered.setdefault((source, link), source_hash)
 
     for html_file in sorted(out_dir.rglob("*.html")):
         source = _html_source_url(out_dir, html_file, site_url)
         html_text = html_file.read_text(encoding="utf-8")
+        source_hash = _source_fingerprint(html_text)
         for link in _extract_links_from_html(html_text):
             if _is_http_external(link, site_host):
-                discovered.add((source, link))
+                discovered.setdefault((source, link), source_hash)
 
     state = _load_webmention_state()
     queue = [item for item in state.get("queue", []) if isinstance(item, dict)]
     published = [item for item in state.get("published", []) if isinstance(item, dict)]
 
     existing = {
-        (str(item.get("source", "")).strip(), str(item.get("target", "")).strip())
+        (
+            str(item.get("source", "")).strip(),
+            str(item.get("target", "")).strip(),
+            str(item.get("source_hash", "")).strip(),
+        )
         for item in [*queue, *published]
     }
 
     queued_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     added = 0
 
-    for source, target in sorted(discovered):
-        key = (source, target)
+    for (source, target), source_hash in sorted(discovered.items()):
+        key = (source, target, source_hash)
         if key in existing:
             continue
-        queue.append({"source": source, "target": target, "queued_at": queued_at})
+        queue.append(
+            {
+                "source": source,
+                "target": target,
+                "source_hash": source_hash,
+                "queued_at": queued_at,
+            }
+        )
         existing.add(key)
         added += 1
 

@@ -18,7 +18,7 @@ This document explains how the Python codebase works and how modules interact.
    - HTML is rendered into `dist/`.
    - non-Markdown assets are copied.
    - plugins run (including note/feed generation logic where configured).
-   - outbound links are discovered and added to `.webmention-state.json` queue.
+   - outbound links are discovered and added to `.webmention-state.json` queue using a content fingerprint (`source_hash`) for resend decisions.
 3. **Publish phase**
    - `gen.py publish` / `gen2.py publish` or bot `/publish` POSTs queued entries to fed.brid.gy webmention endpoint.
    - success entries move from `queue` to `published`.
@@ -82,6 +82,7 @@ Expected structure:
     {
       "source": "https://site.example/notes/.../",
       "target": "https://external.example/post",
+      "source_hash": "sha256-hex-of-normalized-source",
       "queued_at": "2026-02-18T10:12:00+00:00"
     }
   ],
@@ -94,3 +95,10 @@ Expected structure:
   ]
 }
 ```
+
+
+## Resend behavior
+
+Queue de-duplication key is `(source, target, source_hash)`, not only `(source, target)`.
+That means edited source pages re-queue webmentions to the same target, while unchanged content does not generate duplicates.
+Published history remains append-only for auditability.
