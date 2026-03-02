@@ -120,7 +120,7 @@ body {
 
 .content {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: auto; /*was 4/3*/ 
   min-height: min(68vh, calc((100vw - 4rem) * 3 / 4));
   margin: 0 auto;
 }

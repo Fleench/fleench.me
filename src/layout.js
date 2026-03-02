@@ -3,8 +3,9 @@
   const rsidebar = document.getElementById('right-sidebar');
   const toggleButton = document.querySelector('.sidebar-toggle-button');
   const nav = document.getElementById('NAV');
-
+  const main = document.querySelector('.content-shell')
   const isTrulyEmpty = (element) => {
+  x = 0;
     if (!element) {
       return true;
     }
@@ -25,6 +26,7 @@
     if (!rsidebar || isTrulyEmpty(rsidebar)) {
       if (rsidebar) {
         rsidebar.style.display = 'none';
+        x+=1;
       }
       nav.style.marginRight = '0px';
     }
@@ -32,6 +34,7 @@
     if (!sidebar || isTrulyEmpty(sidebar)) {
       if (sidebar) {
         sidebar.style.display = 'none';
+		x+=1;
       }
       if (toggleButton) {
         toggleButton.style.display = 'none';
@@ -39,7 +42,9 @@
       nav.style.marginLeft = '0px';
     }
   }
-
+  if (x>=2) {
+  	main.style.setProperty('--sidebar-width','100%');
+  }
   if (!sidebar || !toggleButton || isTrulyEmpty(sidebar)) {
     return;
   }
