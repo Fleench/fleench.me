@@ -26,6 +26,7 @@
     if (!rsidebar || isTrulyEmpty(rsidebar)) {
       if (rsidebar) {
         rsidebar.style.display = 'none';
+        
         x+=1;
       }
       nav.style.marginRight = '0px';
