@@ -19,31 +19,60 @@
   }
 
   function buildTargets() {
+    const targets = new Set();
+
+    function addVariant(url) {
+      const normalized = normalizeUrl(url?.toString?.() || url);
+      if (!normalized) return;
+
+      const parsed = new URL(normalized);
+      parsed.hash = '';
+      targets.add(parsed.toString());
+
+      const pathHasTrailingSlash = parsed.pathname.endsWith('/');
+      const isRootPath = parsed.pathname === '/';
+      const isIndexHtml = parsed.pathname.endsWith('/index.html') || parsed.pathname === '/index.html';
+
+      if (!isRootPath) {
+        const slashVariant = new URL(parsed.toString());
+        if (pathHasTrailingSlash) {
+          slashVariant.pathname = slashVariant.pathname.replace(/\/+$/, '') || '/';
+        } else {
+          slashVariant.pathname = `${slashVariant.pathname}/`;
+        }
+        targets.add(slashVariant.toString());
+      }
+
+      if (!isIndexHtml) {
+        const withIndex = new URL(parsed.toString());
+        withIndex.pathname = withIndex.pathname.endsWith('/')
+          ? `${withIndex.pathname}index.html`
+          : `${withIndex.pathname}/index.html`;
+        targets.add(withIndex.toString());
+      } else {
+        const withoutIndex = new URL(parsed.toString());
+        withoutIndex.pathname = withoutIndex.pathname.replace(/\/index\.html$/, '') || '/';
+        targets.add(withoutIndex.toString());
+      }
+
+      if (parsed.hostname.startsWith('www.')) {
+        const withoutWww = new URL(parsed.toString());
+        withoutWww.hostname = withoutWww.hostname.replace(/^www\./, '');
+        addVariant(withoutWww);
+      } else if (parsed.hostname.split('.').length > 1) {
+        const withWww = new URL(parsed.toString());
+        withWww.hostname = `www.${withWww.hostname}`;
+        addVariant(withWww);
+      }
+    }
+
     const candidates = [
       window.location.href,
       window.location.origin + window.location.pathname,
       canonicalHref,
     ];
 
-    const targets = new Set();
-
-    candidates
-      .map(normalizeUrl)
-      .filter(Boolean)
-      .forEach((value) => {
-        const url = new URL(value);
-        targets.add(url.toString());
-
-        if (url.pathname !== '/') {
-          if (url.pathname.endsWith('/')) {
-            url.pathname = url.pathname.replace(/\/+$/, '');
-            targets.add(url.toString());
-          } else {
-            url.pathname = `${url.pathname}/`;
-            targets.add(url.toString());
-          }
-        }
-      });
+    candidates.forEach(addVariant);
 
     return Array.from(targets);
   }
@@ -53,6 +82,7 @@
   }
 
   const targets = buildTargets();
+  console.debug('Webmention targets:', targets);
 
   Promise.all(
     targets.map((target) =>
