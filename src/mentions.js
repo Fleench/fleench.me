@@ -21,6 +21,18 @@
   function buildTargets() {
     const targets = new Set();
 
+    function addProtocolVariants(url, { includeRootWithoutSlash = false } = {}) {
+      ['https:', 'http:'].forEach((protocol) => {
+        const variant = new URL(url.toString());
+        variant.protocol = protocol;
+        targets.add(variant.toString());
+
+        if (includeRootWithoutSlash && variant.pathname === '/' && !variant.search) {
+          targets.add(`${variant.protocol}//${variant.host}`);
+        }
+      });
+    }
+
     function addVariant(url) {
       const normalized = normalizeUrl(url?.toString?.() || url);
       if (!normalized) return;
@@ -31,7 +43,7 @@
       parsed.hash = '';
       const canonical = parsed.toString();
       if (targets.has(canonical)) return;
-      targets.add(canonical);
+      addProtocolVariants(parsed, { includeRootWithoutSlash: parsed.pathname === '/' });
 
       const pathHasTrailingSlash = parsed.pathname.endsWith('/');
       const isRootPath = parsed.pathname === '/';
@@ -44,7 +56,7 @@
         } else {
           slashVariant.pathname = `${slashVariant.pathname}/`;
         }
-        targets.add(slashVariant.toString());
+        addProtocolVariants(slashVariant);
       }
 
       if (!isIndexHtml) {
@@ -52,11 +64,11 @@
         withIndex.pathname = withIndex.pathname.endsWith('/')
           ? `${withIndex.pathname}index.html`
           : `${withIndex.pathname}/index.html`;
-        targets.add(withIndex.toString());
+        addProtocolVariants(withIndex);
       } else {
         const withoutIndex = new URL(parsed.toString());
         withoutIndex.pathname = withoutIndex.pathname.replace(/\/index\.html$/, '') || '/';
-        targets.add(withoutIndex.toString());
+        addProtocolVariants(withoutIndex, { includeRootWithoutSlash: withoutIndex.pathname === '/' });
       }
 
       if (parsed.hostname.startsWith('www.')) {
