@@ -336,12 +336,15 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
         if rel_url.endswith("/index.html"):
             rel_url = rel_url[: -len("index.html")]
 
+        canonical = f"{str(config.get('site_url', 'https://flench.me')).rstrip('/')}{rel_url}"
+
         escaped_meta = {k: html.escape(str(v)) for k, v in parsed.metadata.items()}
         context = {
             "title": html.escape(derive_title(md_file, parsed)),
             "content": body,
             "date": html.escape(str(parsed.metadata.get("date", ""))),
             "output": rel_url,
+            "canonical": html.escape(canonical),
             **locs,
             **escaped_meta,
         }
