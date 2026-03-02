@@ -25,9 +25,13 @@
       const normalized = normalizeUrl(url?.toString?.() || url);
       if (!normalized) return;
 
+      if (targets.has(normalized)) return;
+
       const parsed = new URL(normalized);
       parsed.hash = '';
-      targets.add(parsed.toString());
+      const canonical = parsed.toString();
+      if (targets.has(canonical)) return;
+      targets.add(canonical);
 
       const pathHasTrailingSlash = parsed.pathname.endsWith('/');
       const isRootPath = parsed.pathname === '/';
