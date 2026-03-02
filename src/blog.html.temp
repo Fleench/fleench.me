@@ -4,6 +4,7 @@
     ~{src/.elements/head.element}~
     <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
   </head>
+  
   <body>
     <div class="page-wrap">
       ~{src/.elements/marquee.element}~
@@ -26,7 +27,7 @@
             <div class="content-row">
               <aside class="sidebar sidebar-left panel" id="left-sidebar"><div id="webmentions"></div></aside>
 
-              <main class="layout h-entry">
+              <main class="layout blog h-entry">
                 <section class="content panel">
                   <div class="e-content">{{ content }}</div>
                   <div style="display:none;">
