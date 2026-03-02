@@ -39,3 +39,12 @@ Important distinction:
    - Errors usually include source/target and the transport issue.
 4. Confirm your generated source page is live and accessible by URL.
    - Bridgy must be able to fetch the source URL.
+
+
+## Resend semantics after source edits
+
+Webmention queueing uses a deterministic `source_hash` fingerprint of each source page content.
+
+- If a `(source, target)` pair has already been published with the same `source_hash`, it is skipped.
+- If the source page content changes, the hash changes, and the same `(source, target)` is queued again for resend.
+- Older queue/published records are retained for history and auditability.
