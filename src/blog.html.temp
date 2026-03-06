@@ -27,9 +27,9 @@
             <div class="content-row">
               <aside class="sidebar sidebar-left panel" id="left-sidebar"><div id="webmentions"></div></aside>
 
-              <main class="layout blog h-entry">
+              <main class="layout h-entry">
                 <section class="content panel">
-                  <div class="e-content">{{ content }}</div>
+                  <div class="blog e-content">{{ content }}</div>
                   <div style="display:none;">
                     <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
                     <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
