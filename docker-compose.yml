@@ -8,3 +8,12 @@ services:
     volumes:
       # Maps your local 'dist' folder to Apache's serving directory
       - ./dist:/usr/local/apache2/htdocs/
+  mobile-web:
+    image: httpd:alpine
+    container_name: fleench_site_mobile
+    restart: unless-stopped
+    ports:
+      - "8085:80"
+    volumes:
+      # Maps your local 'dist/mobile' folder to Apache's serving directory
+      - ./dist/mobile:/usr/local/apache2/htdocs/

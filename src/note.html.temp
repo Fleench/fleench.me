@@ -21,8 +21,15 @@
                 </div>
                 <p><a class="u-url" href="{{ output }}">Permalink</a></p>
                 <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
+                <div style="display:none;">
+                                    <a class="u-url p-name" href="/">Home</a>
+                                    <div class="p-author h-card">
+                                      <a class="u-url n" href="https://flench.me">Flench04</a>
+                                      <img class="u-photo" src="/profile.png"/>
+                                    </div>
+                                  </div>
               </section>
-
+				
               <section class="main-extras">
                 <div id="webmentions"></div>
               </section>

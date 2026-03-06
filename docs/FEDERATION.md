@@ -13,21 +13,15 @@ Queued webmentions are stored in a local JSON state file (`.webmention-state.jso
 
 This gives you durable local state across builds and bot runs.
 
-### The Bridge (fed.brid.gy)
+### Sender behavior
 
-The bridge endpoint is:
-
-```text
-https://fed.brid.gy/webmention
-```
-
-When a queued mention is published, the system sends an HTTP POST with `source` and `target` to this endpoint.
+Publishing prefers `indieweb_utils.send_webmention(source, target)` to discover and submit to target endpoints. If the library is unavailable, the legacy Bridgy fallback transport is used.
 
 ## Workflow
 
 1. `gen.py build` (or `gen2.py build`) renders site output.
 2. During build, link discovery queues webmention candidates into `.webmention-state.json`.
-3. Publishing sends queued mentions to fed.brid.gy.
+3. Publishing sends queued mentions via the sender abstraction (library-first, fallback transport).
    - You can do this manually with the publish command.
    - The bot also runs this automatically after Git push in its publish workflow.
 
@@ -45,3 +39,12 @@ Important distinction:
    - Errors usually include source/target and the transport issue.
 4. Confirm your generated source page is live and accessible by URL.
    - Bridgy must be able to fetch the source URL.
+
+
+## Resend semantics after source edits
+
+Webmention queueing uses a deterministic `source_hash` fingerprint of each source page content.
+
+- If a `(source, target)` pair has already been published with the same `source_hash`, it is skipped.
+- If the source page content changes, the hash changes, and the same `(source, target)` is queued again for resend.
+- Older queue/published records are retained for history and auditability.

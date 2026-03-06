@@ -3,7 +3,7 @@ template: src/test.html.temp
 ---
 # HI THERE
 ### Test Ping
-I am testing my [homepage](https://flench.me/)
+I am testing more
 
 And now my blog [test page](https://flench.me/blogs/test/)
 But I think it is [broken](https://flench.me/blogs/test)
