@@ -4,3 +4,6 @@ default_template: src/page.html.temp
 plugins:
   - scripts.mobile
 site_url: https://flench.me
+mobile:
+  test:
+    - nope
