@@ -297,8 +297,6 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
     built = 0
     for md_file in sorted(src_dir.rglob("*.md")):
         LOGGER.debug("Rendering markdown file: %s", md_file)
-        if "---" in md_file.name:
-            continue
         parsed = parse_frontmatter(md_file.read_text(encoding="utf-8"))
 
         selected_template = parsed.metadata.get("template")
