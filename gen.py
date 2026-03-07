@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# pylint: disable=C0301,E0401,E1102,W0718
+# pylint: disable=C0301,E0401,E1102,W0718,C0303
 """
 Author: Flench04
 Date: 3/7/2026
@@ -56,11 +56,17 @@ LOGGER = logging.getLogger("gen")
 
 @dataclass
 class ParsedMarkdown:
+    """
+    Stores Parsed Markdown files allowing for easy access to the 2 chunks generated.
+    """
     metadata: dict[str, Any]
     body: str
 
 
 def parse_frontmatter(raw: str) -> ParsedMarkdown:
+    """
+    Parse the front matter of a markdown file for metadata on the page to generate
+    """
     if not raw.startswith("---\n"):
         return ParsedMarkdown(metadata={}, body=raw)
 
@@ -87,6 +93,9 @@ def parse_frontmatter(raw: str) -> ParsedMarkdown:
 
 
 def configure_logging(level_name: str, json_logs: bool = False) -> None:
+    """
+    Set up the logger for logging
+    """
     level = getattr(logging, level_name.upper(), logging.INFO)
     if json_logs:
         class JsonFormatter(logging.Formatter):
