@@ -26,19 +26,19 @@ from pathlib import Path
 from typing import Any
 
 try:
-    import markdown as md_lib  # type: ignore
+    import markdown as MD_LIB  # type: ignore
 except Exception:
-    md_lib = None
-    print("No md_lib found")
+    MD_LIB = None
+    print("No MD_LIB found")
 try:
-    import yaml  # type: ignore
+    import YAML  # type: ignore
 except Exception:
-    yaml = None
+    YAML = None
 
 try:
-    import indieweb_utils  # type: ignore
+    import INDIEWEB_UTILS  # type: ignore
 except Exception:
-    indieweb_utils = None
+    INDIEWEB_UTILS = None
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "src_dir": "src",
@@ -72,8 +72,8 @@ def parse_frontmatter(raw: str) -> ParsedMarkdown:
     header_text = raw[4:end]
     body = raw[end + len(marker) :]
 
-    if yaml is not None:
-        data = yaml.safe_load(header_text) or {}
+    if YAML is not None:
+        data = YAML.safe_load(header_text) or {}
         if isinstance(data, dict):
             return ParsedMarkdown(metadata={str(k): v for k, v in data.items()}, body=body)
 
@@ -110,8 +110,8 @@ def configure_logging(level_name: str, json_logs: bool = False) -> None:
 
 
 def markdown_to_html(markdown_text: str) -> str:
-    if md_lib is not None:
-        return md_lib.markdown(markdown_text, extensions=["extra", "sane_lists"])
+    if MD_LIB is not None:
+        return MD_LIB.markdown(markdown_text, extensions=["extra", "sane_lists"])
 
     chunks: list[str] = []
     for line in markdown_text.splitlines():
@@ -211,7 +211,7 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
         run_context = {
             "template_path": template_path,
             "project_root": Path.cwd(),
-            "md": md_lib,
+            "md": MD_LIB,
             **context,
         }
         return _run_dynamic_element(path, run_context)
@@ -474,7 +474,7 @@ def build_combined_rss_feed(out_dir: Path, site_url: str) -> bool:
     return True
 
 
-def _simple_yaml_parse(raw: str) -> dict[str, Any]:
+def _simple_YAML_parse(raw: str) -> dict[str, Any]:
     data: dict[str, Any] = {}
     current_list_key: str | None = None
     for line in raw.splitlines():
@@ -503,10 +503,10 @@ def load_config(config_path: Path) -> dict[str, Any]:
         return data
 
     raw = config_path.read_text(encoding="utf-8")
-    if yaml is not None:
-        loaded = yaml.safe_load(raw) or {}
+    if YAML is not None:
+        loaded = YAML.safe_load(raw) or {}
     else:
-        loaded = _simple_yaml_parse(raw)
+        loaded = _simple_YAML_parse(raw)
 
     if isinstance(loaded, dict):
         normalized = dict(loaded)
@@ -686,8 +686,8 @@ def _send_with_legacy_http(source: str, target: str) -> None:
 
 
 def _send_webmention(source: str, target: str) -> None:
-    if indieweb_utils is not None:
-        indieweb_utils.send_webmention(source, target)
+    if INDIEWEB_UTILS is not None:
+        INDIEWEB_UTILS.send_webmention(source, target)
         return
     _send_with_legacy_http(source, target)
 
