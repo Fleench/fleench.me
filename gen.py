@@ -261,6 +261,8 @@ def render_template(template_text: str, context: dict[str, Any]) -> str:
 def clean_output_path(build_vars) -> Path:
     """
     Ensure pages are not .html but thier own folder
+
+    build_vars must have: md_file, src_dir, out_dir
     """
     relative = build_vars["md_file"].relative_to(build_vars["src_dir"])
     if relative.as_posix() == "index.md":
@@ -273,6 +275,7 @@ def clean_output_path(build_vars) -> Path:
 def derive_title(build_vars) -> str:
     """
     Get the proper tile for a page from the markdown file
+    build_vars must have: parsed, md_file
     """
     explicit = build_vars["parsed"].metadata.get("title")
     if isinstance(explicit, str) and explicit.strip():
@@ -281,12 +284,18 @@ def derive_title(build_vars) -> str:
         return "Home"
     return build_vars["md_file"].stem.replace("-", " ").replace("_", " ").title()
 def _build_paths_exist(build_vars):
+    """
+    build_vars must have: src_dir, default_template
+    """
     if not build_vars["src_dir"].exists():
         raise FileNotFoundError(f"Source directory not found: {build_vars["src_dir"]}")
 
     if not build_vars["default_template"].exists():
         raise FileNotFoundError(f"Default template not found: {build_vars["default_template"]}")
 def _prep_template(build_vars):
+    """
+    build_vars must have: md_file, src_dir, default_template, default_template_text
+    """
     parsed = parse_frontmatter(build_vars["md_file"].read_text(encoding="utf-8"))
     selected_template = parsed.metadata.get("template")
     if selected_template:
@@ -304,6 +313,7 @@ def _prep_template(build_vars):
 def parse_content(build_vars):
     """
     Parse the body content of a markdown file to enable setting of class and id values of divs we create
+    build_vars must have: parsed
     """
     #pylint: disable=R0912
     # Need the changes here for dynamic locations
@@ -351,6 +361,9 @@ def parse_content(build_vars):
     build_vars["body"] = body
     build_vars["locs"] = locs
 def _derive_path(build_vars):
+    """
+    build_vars must have: md_file, src_dir, out_dir, config
+    """
     output_path = clean_output_path(build_vars)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -363,6 +376,9 @@ def _derive_path(build_vars):
     build_vars["rel_url"] = rel_url
     build_vars["canonical"] = canonical
 def _write_page(build_vars):
+    """
+    build_vars must have: parsed, body, cononical, locs, output_path, template_text
+    """
     escaped_meta = {k: html.escape(str(v)) for k, v in build_vars["parsed"].metadata.items()}
     context = {
         "title": html.escape(derive_title(build_vars)),
