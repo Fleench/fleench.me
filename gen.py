@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# pylint: disable=C0301,E0401,E1102,W0718,C0303
+# pylint: disable=C0301,E0401,E1102,W0718,C0303,C0103
 """
 Author: Flench04
 Date: 3/7/2026
@@ -99,6 +99,9 @@ def configure_logging(level_name: str, json_logs: bool = False) -> None:
     level = getattr(logging, level_name.upper(), logging.INFO)
     if json_logs:
         class JsonFormatter(logging.Formatter):
+            """
+            Basic Frontmatter in json
+            """
             def format(self, record: logging.LogRecord) -> str:
                 payload = {
                     "level": record.levelname,
@@ -119,6 +122,9 @@ def configure_logging(level_name: str, json_logs: bool = False) -> None:
 
 
 def markdown_to_html(markdown_text: str) -> str:
+    """
+    Converts markdown provided into useable html
+    """
     if MD_LIB is not None:
         return MD_LIB.markdown(markdown_text, extensions=["extra", "sane_lists"])
 
@@ -193,6 +199,9 @@ def _run_dynamic_element(path: Path, render_context: dict[str, Any]) -> str:
 
 
 def inject_elements(template_text: str, template_path: Path, render_context: dict[str, Any] | None = None) -> str:
+    """
+    Inject static and Dynamic elemnts into the provided html template text
+    """
     LOGGER.debug("Injecting template elements from %s", template_path)
     static_pattern = re.compile(r"~\{([^{}]+)\}~")
     dynamic_pattern = re.compile(r":\{([^{}]+\.py)\}:")
@@ -235,6 +244,9 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
 
 
 def render_template(template_text: str, context: dict[str, Any]) -> str:
+    """
+    Fill in the {{ target }} blocks with target from the markdown file
+    """
     rendered = template_text
     for key, value in context.items():
         #print(f"Replacing {key}") # RM
@@ -246,6 +258,9 @@ def render_template(template_text: str, context: dict[str, Any]) -> str:
 
 
 def clean_output_path(src_file: Path, src_dir: Path, out_dir: Path) -> Path:
+    """
+    Ensure pages are not .html but thier own folder
+    """
     relative = src_file.relative_to(src_dir)
     if relative.as_posix() == "index.md":
         return out_dir / "index.html"
@@ -255,6 +270,9 @@ def clean_output_path(src_file: Path, src_dir: Path, out_dir: Path) -> Path:
 
 
 def derive_title(src_file: Path, parsed: ParsedMarkdown) -> str:
+    """
+    Get the proper tile for a page from the markdown file
+    """
     explicit = parsed.metadata.get("title")
     if isinstance(explicit, str) and explicit.strip():
         return explicit.strip()
@@ -264,6 +282,9 @@ def derive_title(src_file: Path, parsed: ParsedMarkdown) -> str:
 
 
 def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dict[str, Any]) -> int:
+    """
+    Build the site from the provided input path to the provided output path.
+    """
     if not src_dir.exists():
         raise FileNotFoundError(f"Source directory not found: {src_dir}")
 
@@ -303,7 +324,7 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
         # Need the changes here for dynamic locations
         # for headings place location as 2nd item seprated by a ---.
         groups = parsed.body.split("\n# ")
-        headings = []
+        #headings = []
         blocks = []
         for block in groups:
             lines = block.split("\n")
@@ -333,7 +354,7 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
                 else:
                     x = "\n".join(block[1])
                 #print(x) #RM
-                if parts[1] not in locs.keys():
+                if parts[1] not in locs:
                     locs[parts[1]] = ""
                 locs[parts[1]] += "\n" + lef + markdown_to_html(x) + rig
             else:
@@ -380,6 +401,9 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
 
 
 def run_plugins(src_dir: Path, out_dir: Path, config: dict[str, Any]) -> None:
+    """
+    Run any user provided plugins
+    """
     plugins = config.get("plugins", [])
     if not isinstance(plugins, list):
         return
@@ -388,9 +412,9 @@ def run_plugins(src_dir: Path, out_dir: Path, config: dict[str, Any]) -> None:
         if not isinstance(plugin_name, str) or not plugin_name.strip():
             continue
         module = importlib.import_module(plugin_name)
-        main = getattr(module, "main", None)
-        if callable(main):
-            main(src_dir, out_dir, config)
+        plugin_main = getattr(module, "main", None)
+        if callable(plugin_main):
+            plugin_main(src_dir, out_dir, config)
 
 
 def _is_enabled(value: Any) -> bool:
@@ -402,6 +426,9 @@ def _is_enabled(value: Any) -> bool:
 
 
 def build_combined_rss_feed(out_dir: Path, site_url: str) -> bool:
+    """
+    Combine all rss feeds on the site into one
+    """
     rss_files = sorted(path for path in out_dir.rglob("*.xml") if path.relative_to(out_dir).as_posix() != "rss.xml")
     if not rss_files:
         return False
@@ -507,6 +534,9 @@ def _simple_YAML_parse(raw: str) -> dict[str, Any]:
 
 
 def load_config(config_path: Path) -> dict[str, Any]:
+    """
+    Load the user config from config.yml
+    """
     data = dict(DEFAULT_CONFIG)
     if not config_path.exists():
         return data
@@ -585,6 +615,9 @@ def _source_fingerprint(content: str) -> str:
 
 
 def queue_discovered_webmentions(src_dir: Path, out_dir: Path, site_url: str) -> int:
+    """
+    Add found links to the webmention queue
+    """
     site_host = urllib.parse.urlparse(site_url).netloc
     if not site_host:
         return 0
@@ -702,6 +735,9 @@ def _send_webmention(source: str, target: str) -> None:
 
 
 def publish_webmentions(dry_run: bool = False) -> tuple[int, int]:
+    """
+    Publish all webmentions
+    """
     state = _load_webmention_state()
     queue = [item for item in state.get("queue", []) if isinstance(item, dict)]
     published = [item for item in state.get("published", []) if isinstance(item, dict)]
@@ -749,6 +785,9 @@ def publish_webmentions(dry_run: bool = False) -> tuple[int, int]:
 
 
 def main() -> None:
+    """
+    Main entry point for the static site generator
+    """
     parser = argparse.ArgumentParser(description="Build static site with clean URLs and plugins")
     parser.add_argument("command", nargs="?", default="build", choices=["build", "publish"])
     parser.add_argument("--config", default="config.yml")
