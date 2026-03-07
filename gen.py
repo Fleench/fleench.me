@@ -280,7 +280,7 @@ def derive_title(src_file: Path, parsed: ParsedMarkdown) -> str:
         return "Home"
     return src_file.stem.replace("-", " ").replace("_", " ").title()
 
-
+#R1 MUST REFACTOR TO BE MANY FUNCTIONS
 def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dict[str, Any]) -> int:
     """
     Build the site from the provided input path to the provided output path.
@@ -424,7 +424,7 @@ def _is_enabled(value: Any) -> bool:
         return value.strip().lower() in {"1", "true", "yes", "on"}
     return False
 
-
+#R2 REFACTOR TO USE LESS LOCAL VARS 
 def build_combined_rss_feed(out_dir: Path, site_url: str) -> bool:
     """
     Combine all rss feeds on the site into one
@@ -613,7 +613,7 @@ def _source_fingerprint(content: str) -> str:
     normalized = _normalize_for_hash(content)
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
-
+#R1 Refactor to use many functions
 def queue_discovered_webmentions(src_dir: Path, out_dir: Path, site_url: str) -> int:
     """
     Add found links to the webmention queue
