@@ -256,7 +256,7 @@ def render_template(template_text: str, context: dict[str, Any]) -> str:
     #END NEW
     return rendered
 
-
+#R1 MUST REFACTOR TO USE DICT FOR VARS INSTEAD(up to build site)
 def clean_output_path(src_file: Path, src_dir: Path, out_dir: Path) -> Path:
     """
     Ensure pages are not .html but thier own folder
@@ -299,6 +299,10 @@ def _prep_template(src_dir,md_file,default_template_text,default_template):
     template_text = template_path.read_text(encoding="utf-8") if template_path.exists() else default_template_text
     return parsed, template_text, template_path
 def parse_content(parsed):
+    """
+    Parse the body content of a markdown file to enable setting of class and id values of divs we create
+    """
+    #pylint: disable=R0912
     # Need the changes here for dynamic locations
     # for headings place location as 2nd item seprated by a ---.
     groups = parsed.body.split("\n# ")
@@ -365,7 +369,7 @@ def _write_page(md_file,parsed,body,rel_url,canonical,locs,output_path, template
     }
     #print(context) # RM
     output_path.write_text(render_template(template_text, context), encoding="utf-8")
-#R1 MUST REFACTOR TO BE MANY FUNCTIONS
+
 def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dict[str, Any]) -> int:
     """
     Build the site from the provided input path to the provided output path.
