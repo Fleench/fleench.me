@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# pylint: disable=C0301,E0401,E1102,W0718
+"""
+Author: Flench04
+Date: 3/7/2026
+Description: A python3 based static site generator
+"""
 from __future__ import annotations
 
 import argparse
