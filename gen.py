@@ -279,17 +279,98 @@ def derive_title(src_file: Path, parsed: ParsedMarkdown) -> str:
     if src_file.stem.lower() == "index":
         return "Home"
     return src_file.stem.replace("-", " ").replace("_", " ").title()
-
-#R1 MUST REFACTOR TO BE MANY FUNCTIONS
-def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dict[str, Any]) -> int:
-    """
-    Build the site from the provided input path to the provided output path.
-    """
+def _build_paths_exist(src_dir: Path, default_template):
     if not src_dir.exists():
         raise FileNotFoundError(f"Source directory not found: {src_dir}")
 
     if not default_template.exists():
         raise FileNotFoundError(f"Default template not found: {default_template}")
+def _prep_template(src_dir,md_file,default_template_text,default_template):
+    parsed = parse_frontmatter(md_file.read_text(encoding="utf-8"))
+    selected_template = parsed.metadata.get("template")
+    if selected_template:
+        template_path = Path(str(selected_template))
+    elif md_file.is_relative_to(src_dir / "notes"):
+        template_path = Path.cwd() / src_dir / "note.html.temp"
+    else:
+        template_path = default_template
+    if not template_path.is_absolute():
+        template_path = Path.cwd() / template_path
+    template_text = template_path.read_text(encoding="utf-8") if template_path.exists() else default_template_text
+    return parsed, template_text, template_path
+def parse_content(parsed):
+    # Need the changes here for dynamic locations
+    # for headings place location as 2nd item seprated by a ---.
+    groups = parsed.body.split("\n# ")
+    #headings = []
+    blocks = []
+    for block in groups:
+        lines = block.split("\n")
+        if len(lines) > 1:
+            blocks.append([lines[0],lines[1:]])
+        else:
+            blocks.append(["",lines[0]])
+    locs = {}
+    body = ""
+    for block in blocks:
+        parts = block[0].split("---")
+        lef = ""
+        rig = ""
+        if len(parts)>3 and parts[2]!="{}":
+            lef = f"<div class={parts[2]} id={parts[3]}>"
+            rig = "</div>"
+        elif len(parts)>3 and parts[2]=="{}":
+            lef = f"<div  id={parts[3]}>"
+            rig = "</div>"
+        elif len(parts)>2 and parts[2]!="{}":
+            lef = f"<div class={parts[2]}>"
+            rig = "</div>"
+        if len(parts) > 1 and parts[1] != "{}":
+            #print(parts)#rm
+            if ("{}") not in parts[0]:
+                x = "# " + parts[0] +"\n" + "\n".join(block[1])
+            else:
+                x = "\n".join(block[1])
+            #print(x) #RM
+            if parts[1] not in locs:
+                locs[parts[1]] = ""
+            locs[parts[1]] += "\n" + lef + markdown_to_html(x) + rig
+        else:
+            if ("{}") not in parts[0]:
+                x = "# " + parts[0] +"\n" + "\n".join(block[1])
+            else:
+                x = "\n".join(block[1])
+            body = body + (lef + markdown_to_html(x)+rig)
+    return body, locs
+def _derive_path(md_file,src_dir,out_dir, config):
+    output_path = clean_output_path(md_file, src_dir, out_dir)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    rel_url = "/" + output_path.relative_to(out_dir).as_posix()
+    if rel_url.endswith("/index.html"):
+        rel_url = rel_url[: -len("index.html")]
+
+    canonical = f"{str(config.get('site_url', 'https://flench.me')).rstrip('/')}{rel_url}"
+    return output_path, rel_url, canonical
+def _write_page(md_file,parsed,body,rel_url,canonical,locs,output_path, template_text):
+    escaped_meta = {k: html.escape(str(v)) for k, v in parsed.metadata.items()}
+    context = {
+        "title": html.escape(derive_title(md_file, parsed)),
+        "content": body,
+        "date": html.escape(str(parsed.metadata.get("date", ""))),
+        "output": rel_url,
+        "canonical": html.escape(canonical),
+        **locs,
+        **escaped_meta,
+    }
+    #print(context) # RM
+    output_path.write_text(render_template(template_text, context), encoding="utf-8")
+#R1 MUST REFACTOR TO BE MANY FUNCTIONS
+def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dict[str, Any]) -> int:
+    """
+    Build the site from the provided input path to the provided output path.
+    """
+    _build_paths_exist(src_dir,default_template)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     default_template_text = default_template.read_text(encoding="utf-8")
@@ -297,18 +378,7 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
     built = 0
     for md_file in sorted(src_dir.rglob("*.md")):
         LOGGER.debug("Rendering markdown file: %s", md_file)
-        parsed = parse_frontmatter(md_file.read_text(encoding="utf-8"))
-
-        selected_template = parsed.metadata.get("template")
-        if selected_template:
-            template_path = Path(str(selected_template))
-        elif md_file.is_relative_to(src_dir / "notes"):
-            template_path = Path.cwd() / src_dir / "note.html.temp"
-        else:
-            template_path = default_template
-        if not template_path.is_absolute():
-            template_path = Path.cwd() / template_path
-        template_text = template_path.read_text(encoding="utf-8") if template_path.exists() else default_template_text
+        parsed, template_text, template_path = _prep_template(src_dir,md_file,default_template_text,default_template)
         template_text = inject_elements(
             template_text,
             template_path,
@@ -319,71 +389,12 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
                 "current_markdown": md_file,
             },
         )
-        # Need the changes here for dynamic locations
-        # for headings place location as 2nd item seprated by a ---.
-        groups = parsed.body.split("\n# ")
-        #headings = []
-        blocks = []
-        for block in groups:
-            lines = block.split("\n")
-            if len(lines) > 1:
-                blocks.append([lines[0],lines[1:]])
-            else:
-                blocks.append(["",lines[0]])
-        locs = {}
-        body = ""
-        for block in blocks:
-            parts = block[0].split("---")
-            lef = ""
-            rig = ""
-            if len(parts)>3 and parts[2]!="{}":
-                lef = f"<div class={parts[2]} id={parts[3]}>"
-                rig = "</div>"
-            elif len(parts)>3 and parts[2]=="{}":
-                lef = f"<div  id={parts[3]}>"
-                rig = "</div>"
-            elif len(parts)>2 and parts[2]!="{}":
-                lef = f"<div class={parts[2]}>"
-                rig = "</div>"
-            if len(parts) > 1 and parts[1] != "{}":
-                #print(parts)#rm
-                if ("{}") not in parts[0]:
-                    x = "# " + parts[0] +"\n" + "\n".join(block[1])
-                else:
-                    x = "\n".join(block[1])
-                #print(x) #RM
-                if parts[1] not in locs:
-                    locs[parts[1]] = ""
-                locs[parts[1]] += "\n" + lef + markdown_to_html(x) + rig
-            else:
-                if ("{}") not in parts[0]:
-                    x = "# " + parts[0] +"\n" + "\n".join(block[1])
-                else:
-                    x = "\n".join(block[1])
-                body = body + (lef + markdown_to_html(x)+rig)
+        body, locs = parse_content(parsed)
         # OG CODE
         # body_html = markdown_to_html(parsed.body)
-        output_path = clean_output_path(md_file, src_dir, out_dir)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path, rel_url, canonical = _derive_path(md_file,src_dir,out_dir,config)
 
-        rel_url = "/" + output_path.relative_to(out_dir).as_posix()
-        if rel_url.endswith("/index.html"):
-            rel_url = rel_url[: -len("index.html")]
-
-        canonical = f"{str(config.get('site_url', 'https://flench.me')).rstrip('/')}{rel_url}"
-
-        escaped_meta = {k: html.escape(str(v)) for k, v in parsed.metadata.items()}
-        context = {
-            "title": html.escape(derive_title(md_file, parsed)),
-            "content": body,
-            "date": html.escape(str(parsed.metadata.get("date", ""))),
-            "output": rel_url,
-            "canonical": html.escape(canonical),
-            **locs,
-            **escaped_meta,
-        }
-        #print(context) # RM
-        output_path.write_text(render_template(template_text, context), encoding="utf-8")
+        _write_page(md_file,parsed,body,rel_url,canonical,locs,output_path,template_text)
         built += 1
 
     for asset in src_dir.rglob("*"):
