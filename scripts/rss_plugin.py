@@ -122,9 +122,8 @@ def _build_feed_xml(
     return "\n".join(rss_lines) + "\n"
 
 
-def main(_src_dir: Path, out_dir: Path, config: dict[str, Any], all_pages: list[Any]) -> None:
-    if not all_pages:
-        return
+def _to_rfc2822(value: datetime) -> str:
+    return format_datetime(value)
 
     site_url = str(config.get("site_url", "https://flench.me")).rstrip("/")
     feed_paths = _normalize_feed_paths(config)
