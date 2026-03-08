@@ -3,7 +3,11 @@ out_dir: dist
 default_template: src/page.html.temp
 plugins:
   - scripts.mobile
+  - scripts.rss_plugin
+  - scripts.webmentions
 site_url: https://flench.me
+cmds:
+  publish: scripts.webmentions
 mobile:
   test:
     - nope

@@ -8,20 +8,13 @@ Description: A python3 based static site generator
 from __future__ import annotations
 
 import argparse
-import hashlib
 import html
 import importlib
 import importlib.util
 import json
 import logging
 import re
-import xml.etree.ElementTree as ET
-import urllib.error
-import urllib.parse
-import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
@@ -35,11 +28,6 @@ try:
 except Exception:
     YAML = None
 
-try:
-    import INDIEWEB_UTILS  # type: ignore
-except Exception:
-    INDIEWEB_UTILS = None
-
 DEFAULT_CONFIG: dict[str, Any] = {
     "src_dir": "src",
     "out_dir": "dist",
@@ -47,26 +35,18 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "plugins": [],
     "site_url": "https://flench.me",
     "rss": False,
+    "cmds": {},
 }
-
-WEBMENTION_STATE_PATH = Path(".webmention-state.json")
-FED_BRIDGY_ENDPOINT = "https://fed.brid.gy/webmention"
 LOGGER = logging.getLogger("gen")
 
 
 @dataclass
 class ParsedMarkdown:
-    """
-    Stores Parsed Markdown files allowing for easy access to the 2 chunks generated.
-    """
     metadata: dict[str, Any]
     body: str
 
 
 def parse_frontmatter(raw: str) -> ParsedMarkdown:
-    """
-    Parse the front matter of a markdown file for metadata on the page to generate
-    """
     if not raw.startswith("---\n"):
         return ParsedMarkdown(metadata={}, body=raw)
 
@@ -93,15 +73,9 @@ def parse_frontmatter(raw: str) -> ParsedMarkdown:
 
 
 def configure_logging(level_name: str, json_logs: bool = False) -> None:
-    """
-    Set up the logger for logging
-    """
     level = getattr(logging, level_name.upper(), logging.INFO)
     if json_logs:
         class JsonFormatter(logging.Formatter):
-            """
-            Basic Frontmatter in json
-            """
             def format(self, record: logging.LogRecord) -> str:
                 payload = {
                     "level": record.levelname,
@@ -122,9 +96,6 @@ def configure_logging(level_name: str, json_logs: bool = False) -> None:
 
 
 def markdown_to_html(markdown_text: str) -> str:
-    """
-    Converts markdown provided into useable html
-    """
     if MD_LIB is not None:
         return MD_LIB.markdown(markdown_text, extensions=["extra", "sane_lists"])
 
@@ -140,8 +111,6 @@ def markdown_to_html(markdown_text: str) -> str:
         else:
             chunks.append(f"<p>{html.escape(stripped)}</p>")
     return "\n".join(chunks)
-
-
 
 
 def _resolve_element_file(raw_path: str, template_path: Path) -> Path | None:
@@ -171,7 +140,7 @@ def _run_dynamic_element(path: Path, render_context: dict[str, Any]) -> str:
     try:
         loader.exec_module(module)
     except Exception as e:
-        return e
+        return str(e)
 
     rendered: Any = ""
     renderer = getattr(module, "render", None)
@@ -186,12 +155,11 @@ def _run_dynamic_element(path: Path, render_context: dict[str, Any]) -> str:
                 LOGGER.debug("Dynamic module renderer rejected kwargs; retrying without context")
                 rendered = renderer()
             except Exception as e:
-                return e
+                return str(e)
         except Exception as e:
-            return e
+            return str(e)
     else:
-        html_value = getattr(module, "HTML", "")
-        rendered = html_value
+        rendered = getattr(module, "HTML", "")
 
     if rendered is None:
         return "Error"
@@ -199,10 +167,6 @@ def _run_dynamic_element(path: Path, render_context: dict[str, Any]) -> str:
 
 
 def inject_elements(template_text: str, template_path: Path, render_context: dict[str, Any] | None = None) -> str:
-    """
-    Inject static and Dynamic elemnts into the provided html template text
-    """
-    LOGGER.debug("Injecting template elements from %s", template_path)
     static_pattern = re.compile(r"~\{([^{}]+)\}~")
     dynamic_pattern = re.compile(r":\{([^{}]+\.py)\}:")
     context = render_context or {}
@@ -211,7 +175,6 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
         raw_path = match.group(1).strip()
         if not raw_path:
             return ""
-
         path = _resolve_element_file(raw_path, template_path)
         if path is not None:
             return path.read_text(encoding="utf-8")
@@ -221,11 +184,9 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
         raw_path = match.group(1).strip()
         if not raw_path:
             return ""
-
         path = _resolve_element_file(raw_path, template_path)
         if path is None:
             return ""
-
         run_context = {
             "template_path": template_path,
             "project_root": Path.cwd(),
@@ -233,6 +194,7 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
             **context,
         }
         return _run_dynamic_element(path, run_context)
+
     rendered = template_text
     for _ in range(10):
         updated = static_pattern.sub(replace_static, rendered)
@@ -244,208 +206,147 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
 
 
 def render_template(template_text: str, context: dict[str, Any]) -> str:
-    """
-    Fill in the {{ target }} blocks with target from the markdown file
-    """
     rendered = template_text
     for key, value in context.items():
-        #print(f"Replacing {key}") # RM
         rendered = rendered.replace(f"{{{{ {key} }}}}", str(value))
-    #NEW
-    rendered = re.sub(r'\{\{.*\}\}',"",rendered) 
-    #END NEW
+    rendered = re.sub(r"\{\{.*\}\}", "", rendered)
     return rendered
 
-# R1 MUST REFACTOR TO USE DICT FOR VARS INSTEAD(up to build site)
-## Will only include vars passed around
-def clean_output_path(build_vars) -> Path:
-    """
-    Ensure pages are not .html but thier own folder
 
-    build_vars must have: md_file, src_dir, out_dir
-    """
-    relative = build_vars["md_file"].relative_to(build_vars["src_dir"])
+def clean_output_path(md_file: Path, src_dir: Path, out_dir: Path) -> Path:
+    relative = md_file.relative_to(src_dir)
     if relative.as_posix() == "index.md":
-        return build_vars["out_dir"] / "index.html"
-
+        return out_dir / "index.html"
     page_dir = relative.with_suffix("")
-    return build_vars["out_dir"] / page_dir / "index.html"
+    return out_dir / page_dir / "index.html"
 
 
-def derive_title(build_vars) -> str:
-    """
-    Get the proper tile for a page from the markdown file
-    build_vars must have: parsed, md_file
-    """
-    explicit = build_vars["parsed"].metadata.get("title")
-    if isinstance(explicit, str) and explicit.strip():
-        return explicit.strip()
-    if build_vars["md_file"].stem.lower() == "index":
-        return "Home"
-    return build_vars["md_file"].stem.replace("-", " ").replace("_", " ").title()
-def _build_paths_exist(build_vars):
-    """
-    build_vars must have: src_dir, default_template
-    """
-    if not build_vars["src_dir"].exists():
-        raise FileNotFoundError(f"Source directory not found: {build_vars["src_dir"]}")
+class Page:
+    """Worker object responsible for rendering one markdown file."""
 
-    if not build_vars["default_template"].exists():
-        raise FileNotFoundError(f"Default template not found: {build_vars["default_template"]}")
-def _prep_template(build_vars):
-    """
-    build_vars must have: md_file, src_dir, default_template, default_template_text
-    """
-    parsed = parse_frontmatter(build_vars["md_file"].read_text(encoding="utf-8"))
-    selected_template = parsed.metadata.get("template")
-    if selected_template:
-        template_path = Path(str(selected_template))
-    elif build_vars["md_file"].is_relative_to(build_vars["src_dir"] / "notes"):
-        template_path = Path.cwd() / build_vars["src_dir"] / "note.html.temp"
-    else:
-        template_path = build_vars["default_template"]
-    if not template_path.is_absolute():
-        template_path = Path.cwd() / template_path
-    template_text = template_path.read_text(encoding="utf-8") if template_path.exists() else build_vars["default_template_text"]
-    build_vars["parsed"] = parsed
-    build_vars["template_text"] = template_text
-    build_vars["template_path"] = template_path
-def parse_content(build_vars):
-    """
-    Parse the body content of a markdown file to enable setting of class and id values of divs we create
-    build_vars must have: parsed
-    """
-    #pylint: disable=R0912
-    # Need the changes here for dynamic locations
-    # for headings place location as 2nd item seprated by a ---.
-    groups = build_vars["parsed"].body.split("\n# ")
-    #headings = []
-    blocks = []
-    for block in groups:
-        lines = block.split("\n")
-        if len(lines) > 1:
-            blocks.append([lines[0],lines[1:]])
+    def __init__(self, md_file: Path, src_dir: Path, out_dir: Path, config: dict[str, Any], default_template: Path, default_template_text: str) -> None:
+        self.md_file = md_file
+        self.src_dir = src_dir
+        self.out_dir = out_dir
+        self.config = config
+        self.default_template = default_template
+        self.default_template_text = default_template_text
+
+        self.parsed = ParsedMarkdown({}, "")
+        self.template_path = default_template
+        self.template_text = default_template_text
+        self.body = ""
+        self.locs: dict[str, str] = {}
+        self.output_path = Path()
+        self.rel_url = ""
+        self.canonical = ""
+        self.rendered_html = ""
+
+    def derive_title(self) -> str:
+        explicit = self.parsed.metadata.get("title")
+        if isinstance(explicit, str) and explicit.strip():
+            return explicit.strip()
+        if self.md_file.stem.lower() == "index":
+            return "Home"
+        return self.md_file.stem.replace("-", " ").replace("_", " ").title()
+
+    def prep_template(self) -> None:
+        self.parsed = parse_frontmatter(self.md_file.read_text(encoding="utf-8"))
+        selected_template = self.parsed.metadata.get("template")
+        if selected_template:
+            template_path = Path(str(selected_template))
+        elif self.md_file.is_relative_to(self.src_dir / "notes"):
+            template_path = Path.cwd() / self.src_dir / "note.html.temp"
         else:
-            blocks.append(["",lines[0]])
-    locs = {}
-    body = ""
-    for block in blocks:
-        parts = block[0].split("---")
-        lef = ""
-        rig = ""
-        if len(parts)>3 and parts[2]!="{}":
-            lef = f"<div class={parts[2]} id={parts[3]}>"
-            rig = "</div>"
-        elif len(parts)>3 and parts[2]=="{}":
-            lef = f"<div  id={parts[3]}>"
-            rig = "</div>"
-        elif len(parts)>2 and parts[2]!="{}":
-            lef = f"<div class={parts[2]}>"
-            rig = "</div>"
-        if len(parts) > 1 and parts[1] != "{}":
-            #print(parts)#rm
-            if ("{}") not in parts[0]:
-                x = "# " + parts[0] +"\n" + "\n".join(block[1])
+            template_path = self.default_template
+        if not template_path.is_absolute():
+            template_path = Path.cwd() / template_path
+        self.template_path = template_path
+        self.template_text = template_path.read_text(encoding="utf-8") if template_path.exists() else self.default_template_text
+
+    def parse_content(self) -> None:
+        groups = self.parsed.body.split("\n# ")
+        blocks = []
+        for block in groups:
+            lines = block.split("\n")
+            if len(lines) > 1:
+                blocks.append([lines[0], lines[1:]])
             else:
-                x = "\n".join(block[1])
-            #print(x) #RM
-            if parts[1] not in locs:
-                locs[parts[1]] = ""
-            locs[parts[1]] += "\n" + lef + markdown_to_html(x) + rig
-        else:
-            if ("{}") not in parts[0]:
-                x = "# " + parts[0] +"\n" + "\n".join(block[1])
+                blocks.append(["", lines[0]])
+        locs: dict[str, str] = {}
+        body = ""
+        for block in blocks:
+            parts = block[0].split("---")
+            lef = ""
+            rig = ""
+            if len(parts) > 3 and parts[2] != "{}":
+                lef = f"<div class={parts[2]} id={parts[3]}>"
+                rig = "</div>"
+            elif len(parts) > 3 and parts[2] == "{}":
+                lef = f"<div  id={parts[3]}>"
+                rig = "</div>"
+            elif len(parts) > 2 and parts[2] != "{}":
+                lef = f"<div class={parts[2]}>"
+                rig = "</div>"
+            if len(parts) > 1 and parts[1] != "{}":
+                if "{}" not in parts[0]:
+                    x = "# " + parts[0] + "\n" + "\n".join(block[1])
+                else:
+                    x = "\n".join(block[1])
+                if parts[1] not in locs:
+                    locs[parts[1]] = ""
+                locs[parts[1]] += "\n" + lef + markdown_to_html(x) + rig
             else:
-                x = "\n".join(block[1])
-            body = body + (lef + markdown_to_html(x)+rig)
-    build_vars["body"] = body
-    build_vars["locs"] = locs
-def _derive_path(build_vars):
-    """
-    build_vars must have: md_file, src_dir, out_dir, config
-    """
-    output_path = clean_output_path(build_vars)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+                if "{}" not in parts[0]:
+                    x = "# " + parts[0] + "\n" + "\n".join(block[1])
+                else:
+                    x = "\n".join(block[1])
+                body = body + (lef + markdown_to_html(x) + rig)
+        self.body = body
+        self.locs = locs
 
-    rel_url = "/" + output_path.relative_to(build_vars["out_dir"]).as_posix()
-    if rel_url.endswith("/index.html"):
-        rel_url = rel_url[: -len("index.html")]
+    def derive_path(self) -> None:
+        self.output_path = clean_output_path(self.md_file, self.src_dir, self.out_dir)
+        self.output_path.parent.mkdir(parents=True, exist_ok=True)
+        self.rel_url = "/" + self.output_path.relative_to(self.out_dir).as_posix()
+        if self.rel_url.endswith("/index.html"):
+            self.rel_url = self.rel_url[: -len("index.html")]
+        site_url = str(self.config.get("site_url", "https://flench.me")).rstrip("/")
+        self.canonical = f"{site_url}{self.rel_url}"
 
-    canonical = f"{str(build_vars["config"].get('site_url', 'https://flench.me')).rstrip('/')}{rel_url}"
-    build_vars["output_path"] = output_path
-    build_vars["rel_url"] = rel_url
-    build_vars["canonical"] = canonical
-def _write_page(build_vars):
-    """
-    build_vars must have: parsed, body, cononical, locs, output_path, template_text
-    """
-    escaped_meta = {k: html.escape(str(v)) for k, v in build_vars["parsed"].metadata.items()}
-    context = {
-        "title": html.escape(derive_title(build_vars)),
-        "content": build_vars["body"],
-        "date": html.escape(str(build_vars["parsed"].metadata.get("date", ""))),
-        "output": build_vars["rel_url"],
-        "canonical": html.escape(build_vars["canonical"]),
-        **build_vars["locs"],
-        **escaped_meta,
-    }
-    #print(context) # RM
-    build_vars["output_path"].write_text(render_template(build_vars["template_text"], context), encoding="utf-8")
-
-def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dict[str, Any]) -> int:
-    """
-    Build the site from the provided input path to the provided output path.
-    """
-    build_vars = {"default_template_text": default_template.read_text(encoding="utf-8"),
-                  "src_dir": src_dir,
-                  "out_dir":out_dir,
-                  "config":config,
-                  "default_template":default_template}
-    _build_paths_exist(build_vars)
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-    
-
-    built = 0
-    for md_file in sorted(src_dir.rglob("*.md")):
-        build_vars["md_file"] = md_file
-        LOGGER.debug("Rendering markdown file: %s", md_file)
-        _prep_template(build_vars)
-        build_vars["template_text"] = inject_elements(
-            build_vars["template_text"] ,
-            build_vars["template_path"] ,
+    def write(self) -> None:
+        escaped_meta = {k: html.escape(str(v)) for k, v in self.parsed.metadata.items()}
+        context = {
+            "title": html.escape(self.derive_title()),
+            "content": self.body,
+            "date": html.escape(str(self.parsed.metadata.get("date", ""))),
+            "output": self.rel_url,
+            "canonical": html.escape(self.canonical),
+            **self.locs,
+            **escaped_meta,
+        }
+        self.template_text = inject_elements(
+            self.template_text,
+            self.template_path,
             render_context={
-                "src_dir": src_dir,
-                "out_dir": out_dir,
-                "config": config,
-                "current_markdown": md_file,
+                "src_dir": self.src_dir,
+                "out_dir": self.out_dir,
+                "config": self.config,
+                "current_markdown": self.md_file,
             },
         )
-        parse_content(build_vars)
-        # OG CODE
-        # body_html = markdown_to_html(parsed.body)
-        _derive_path(build_vars)
+        self.rendered_html = render_template(self.template_text, context)
+        self.output_path.write_text(self.rendered_html, encoding="utf-8")
 
-        _write_page(build_vars)
-        built += 1
-
-    for asset in src_dir.rglob("*"):
-        skip = [".md",".element",".py",".temp",".bak"]
-        if not asset.is_file() or asset.suffix.lower() in skip:
-            continue
-        destination = out_dir / asset.relative_to(src_dir)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(asset.read_bytes())
-
-    run_plugins(src_dir, out_dir, config)
-    build_combined_rss_feed(out_dir, str(config.get("site_url", "https://flench.me")))
-    return built
+    def render(self) -> "Page":
+        self.prep_template()
+        self.parse_content()
+        self.derive_path()
+        self.write()
+        return self
 
 
-def run_plugins(src_dir: Path, out_dir: Path, config: dict[str, Any]) -> None:
-    """
-    Run any user provided plugins
-    """
+def run_plugins(src_dir: Path, out_dir: Path, config: dict[str, Any], all_pages: list[Page]) -> None:
     plugins = config.get("plugins", [])
     if not isinstance(plugins, list):
         return
@@ -456,129 +357,87 @@ def run_plugins(src_dir: Path, out_dir: Path, config: dict[str, Any]) -> None:
         module = importlib.import_module(plugin_name)
         plugin_main = getattr(module, "main", None)
         if callable(plugin_main):
-            plugin_main(src_dir, out_dir, config)
+            try:
+                plugin_main(src_dir, out_dir, config, all_pages)
+            except TypeError:
+                plugin_main(src_dir, out_dir, config)
 
 
-def _is_enabled(value: Any) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "on"}
-    return False
+def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dict[str, Any]) -> tuple[int, list[Page]]:
+    if not src_dir.exists():
+        raise FileNotFoundError(f"Source directory not found: {src_dir}")
+    if not default_template.exists():
+        raise FileNotFoundError(f"Default template not found: {default_template}")
 
-#R2 REFACTOR TO USE LESS LOCAL VARS 
-def build_combined_rss_feed(out_dir: Path, site_url: str) -> bool:
-    """
-    Combine all rss feeds on the site into one
-    """
-    rss_files = sorted(path for path in out_dir.rglob("*.xml") if path.relative_to(out_dir).as_posix() != "rss.xml")
-    if not rss_files:
-        return False
+    out_dir.mkdir(parents=True, exist_ok=True)
+    default_template_text = default_template.read_text(encoding="utf-8")
 
-    items_by_key: dict[str, dict[str, Any]] = {}
+    all_pages: list[Page] = []
+    for md_file in sorted(src_dir.rglob("*.md")):
+        LOGGER.debug("Rendering markdown file: %s", md_file)
+        page = Page(md_file, src_dir, out_dir, config, default_template, default_template_text)
+        page.render()
+        all_pages.append(page)
 
-    def infer_category(rss_file: Path) -> str | None:
-        rel = rss_file.relative_to(out_dir)
-        parts = rel.parts
-        if len(parts) >= 2 and parts[-1] == "rss.xml":
-            group = parts[-2].strip().lower()
-            if group.endswith("s") and len(group) > 1:
-                return group[:-1]
-            return group or None
-        if parts and parts[-1].lower().endswith(".xml"):
-            name = Path(parts[-1]).stem.strip().lower()
-            return name or None
-        return None
-
-    for rss_file in rss_files:
-        category = infer_category(rss_file)
-        try:
-            root = ET.fromstring(rss_file.read_text(encoding="utf-8"))
-        except Exception:
+    for asset in src_dir.rglob("*"):
+        skip = [".md", ".element", ".py", ".temp", ".bak"]
+        if not asset.is_file() or asset.suffix.lower() in skip:
             continue
+        destination = out_dir / asset.relative_to(src_dir)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(asset.read_bytes())
 
-        channel = root.find("channel")
-        if channel is None:
-            continue
-
-        for item in channel.findall("item"):
-            item_copy = ET.fromstring(ET.tostring(item, encoding="unicode"))
-            if category:
-                category_node = item_copy.find("category")
-                if category_node is None:
-                    category_node = ET.SubElement(item_copy, "category")
-                category_node.text = category
-
-            link = (item_copy.findtext("link") or "").strip()
-            guid = (item_copy.findtext("guid") or "").strip()
-            title = (item_copy.findtext("title") or "").strip()
-            key = guid or link or title
-            if not key:
-                continue
-
-            pub_date = (item_copy.findtext("pubDate") or "").strip()
-            sort_key = datetime.min.replace(tzinfo=timezone.utc)
-            if pub_date:
-                try:
-                    parsed = parsedate_to_datetime(pub_date)
-                    sort_key = parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
-                except Exception:
-                    pass
-
-            item_xml = ET.tostring(item_copy, encoding="unicode")
-            existing = items_by_key.get(key)
-            if existing is None or sort_key > existing["sort_key"]:
-                items_by_key[key] = {"sort_key": sort_key, "xml": item_xml}
-
-    if not items_by_key:
-        return False
-
-    ordered_items = [entry["xml"] for entry in sorted(items_by_key.values(), key=lambda value: value["sort_key"], reverse=True)]
-    site_root = site_url.rstrip("/")
-    feed_xml = "\n".join(
-        [
-            '<?xml version="1.0" encoding="UTF-8"?>',
-            '<rss version="2.0">',
-            '  <channel>',
-            '    <title>Site Feed</title>',
-            f'    <link>{html.escape(site_root + "/")}</link>',
-            '    <description>Latest updates from across the site</description>',
-            *[f"    {item_xml}" for item_xml in ordered_items],
-            '  </channel>',
-            '</rss>',
-        ]
-    )
-    (out_dir / "rss.xml").write_text(feed_xml + "\n", encoding="utf-8")
-    return True
+    run_plugins(src_dir, out_dir, config, all_pages)
+    return len(all_pages), all_pages
 
 
 def _simple_YAML_parse(raw: str) -> dict[str, Any]:
     data: dict[str, Any] = {}
-    current_list_key: str | None = None
+    current_key: str | None = None
+    current_section: dict[str, Any] | None = None
+    current_is_list = False
+
     for line in raw.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+
+        indent = len(line) - len(line.lstrip(" "))
         stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.startswith("- ") and current_list_key:
-            data.setdefault(current_list_key, []).append(stripped[2:].strip().strip('"').strip("'"))
-            continue
-        if ":" in line:
-            key, value = line.split(":", 1)
+
+        if indent == 0 and ":" in stripped:
+            key, value = stripped.split(":", 1)
             key = key.strip()
             value = value.strip()
+            current_key = key
+            current_section = None
+            current_is_list = False
             if value == "":
-                data[key] = []
-                current_list_key = key
+                data[key] = {}
+                current_section = data[key]
             else:
-                current_list_key = None
                 data[key] = value.strip('"').strip("'")
+            continue
+
+        if indent > 0 and current_key:
+            if stripped.startswith("- "):
+                if not current_is_list:
+                    data[current_key] = []
+                    current_is_list = True
+                    current_section = None
+                data[current_key].append(stripped[2:].strip().strip('"').strip("'"))
+                continue
+
+            if ":" in stripped:
+                if not isinstance(data.get(current_key), dict) or current_is_list:
+                    data[current_key] = {}
+                    current_is_list = False
+                key, value = stripped.split(":", 1)
+                data[current_key][key.strip()] = value.strip().strip('"').strip("'")
+
     return data
 
 
 def load_config(config_path: Path) -> dict[str, Any]:
-    """
-    Load the user config from config.yml
-    """
     data = dict(DEFAULT_CONFIG)
     if not config_path.exists():
         return data
@@ -600,260 +459,44 @@ def load_config(config_path: Path) -> dict[str, Any]:
     return data
 
 
-def _load_webmention_state() -> dict[str, Any]:
-    if not WEBMENTION_STATE_PATH.exists():
-        return {"version": 1, "queue": [], "published": [], "current_links": {}}
-    try:
-        data = json.loads(WEBMENTION_STATE_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return {"version": 1, "queue": [], "published": [], "current_links": {}}
-    if not isinstance(data, dict):
-        return {"version": 1, "queue": [], "published": [], "current_links": {}}
-    data.setdefault("version", 1)
-    data.setdefault("queue", [])
-    data.setdefault("published", [])
-    data.setdefault("current_links", {})
-    return data
-
-
-def _save_webmention_state(state: dict[str, Any]) -> None:
-    WEBMENTION_STATE_PATH.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
-def _html_source_url(out_dir: Path, html_file: Path, site_url: str) -> str:
-    relative = html_file.relative_to(out_dir).as_posix()
-    if relative == "index.html":
-        return f"{site_url.rstrip('/')}/"
-    if relative.endswith("/index.html"):
-        return f"{site_url.rstrip('/')}/{relative[:-len('index.html')]}"
-    return f"{site_url.rstrip('/')}/{relative}"
-
-
-def _extract_links_from_markdown(markdown_text: str) -> set[str]:
-    links = set(re.findall(r"\[[^\]]+\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)", markdown_text))
-    links.update(re.findall(r"<((?:https?://)[^>]+)>", markdown_text))
-    return {link.strip() for link in links if link.strip()}
-
-
-def _extract_links_from_html(html_text: str) -> set[str]:
-    links = set(re.findall(r"(?:href|src)=['\"]([^'\"]+)['\"]", html_text))
-    return {link.strip() for link in links if link.strip()}
-
-
-def _is_http_external(link: str, site_host: str) -> bool:
-    parsed = urllib.parse.urlparse(link)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+def run_config_command(command: str, config: dict[str, Any]) -> bool:
+    cmds = config.get("cmds", {})
+    if not isinstance(cmds, dict):
         return False
-    return parsed.netloc != site_host
+    module_path = cmds.get(command)
+    if not isinstance(module_path, str) or not module_path.strip():
+        return False
 
-
-def _normalize_for_hash(content: str) -> str:
-    return " ".join(content.split())
-
-
-def _source_fingerprint(content: str) -> str:
-    normalized = _normalize_for_hash(content)
-    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-
-#R1 Refactor to use many functions
-def queue_discovered_webmentions(src_dir: Path, out_dir: Path, site_url: str) -> int:
-    """
-    Add found links to the webmention queue
-    """
-    site_host = urllib.parse.urlparse(site_url).netloc
-    if not site_host:
-        return 0
-
-    discovered: dict[tuple[str, str], str] = {}
-    current_links: dict[str, set[str]] = {}
-
-    def record_discovery(source: str, target: str, source_hash: str) -> None:
-        discovered.setdefault((source, target), source_hash)
-        current_links.setdefault(source, set()).add(target)
-
-    def removed_source_hash(source: str, targets: set[str]) -> str:
-        return _source_fingerprint(f"{source}\nremoved\n" + "\n".join(sorted(targets)))
-    for md_file in sorted(src_dir.rglob("*.md")):
-        parsed = parse_frontmatter(md_file.read_text(encoding="utf-8"))
-        source_hash = _source_fingerprint(parsed.body)
-        output_path = clean_output_path({"md_file":md_file, "src_dir":src_dir, "out_dir":out_dir})
-        rel_url = "/" + output_path.relative_to(out_dir).as_posix()
-        if rel_url.endswith("/index.html"):
-            rel_url = rel_url[: -len("index.html")]
-        source = f"{site_url.rstrip('/')}{rel_url}"
-        for link in _extract_links_from_markdown(parsed.body):
-            if _is_http_external(link, site_host):
-                record_discovery(source, link, source_hash)
-
-    for html_file in sorted(out_dir.rglob("*.html")):
-        source = _html_source_url(out_dir, html_file, site_url)
-        html_text = html_file.read_text(encoding="utf-8")
-        source_hash = _source_fingerprint(html_text)
-        for link in _extract_links_from_html(html_text):
-            if _is_http_external(link, site_host):
-                record_discovery(source, link, source_hash)
-
-    state = _load_webmention_state()
-    queue = [item for item in state.get("queue", []) if isinstance(item, dict)]
-    published = [item for item in state.get("published", []) if isinstance(item, dict)]
-    previous_current_links_raw = state.get("current_links", {})
-    previous_current_links: dict[str, set[str]] = {}
-    if isinstance(previous_current_links_raw, dict):
-        for source, targets in previous_current_links_raw.items():
-            if not isinstance(source, str):
-                continue
-            if isinstance(targets, list):
-                previous_current_links[source] = {str(target).strip() for target in targets if str(target).strip()}
-
-    existing = {
-        (
-            str(item.get("source", "")).strip(),
-            str(item.get("target", "")).strip(),
-            str(item.get("source_hash", "")).strip(),
-            str(item.get("event", "added") or "added").strip(),
-        )
-        for item in [*queue, *published]
-    }
-
-    queued_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    added = 0
-
-    for (source, target), source_hash in sorted(discovered.items()):
-        key = (source, target, source_hash, "added")
-        if key in existing:
-            continue
-        queue.append(
-            {
-                "source": source,
-                "target": target,
-                "source_hash": source_hash,
-                "event": "added",
-                "queued_at": queued_at,
-            }
-        )
-        existing.add(key)
-        added += 1
-
-    for source, previous_targets in previous_current_links.items():
-        removed_targets = previous_targets - current_links.get(source, set())
-        if not removed_targets:
-            continue
-        removal_hash = removed_source_hash(source, removed_targets)
-        for target in sorted(removed_targets):
-            key = (source, target, removal_hash, "removed")
-            if key in existing:
-                continue
-            queue.append(
-                {
-                    "source": source,
-                    "target": target,
-                    "source_hash": removal_hash,
-                    "event": "removed",
-                    "queued_at": queued_at,
-                }
-            )
-            existing.add(key)
-            added += 1
-
-    state["queue"] = queue
-    state["current_links"] = {source: sorted(targets) for source, targets in sorted(current_links.items())}
-    _save_webmention_state(state)
-    return added
-
-
-def _send_with_legacy_http(source: str, target: str) -> None:
-    payload = urllib.parse.urlencode({"source": source, "target": target}).encode("utf-8")
-    request = urllib.request.Request(FED_BRIDGY_ENDPOINT, data=payload, method="POST")
-    request.add_header("Content-Type", "application/x-www-form-urlencoded")
-    with urllib.request.urlopen(request, timeout=15):
-        return
-
-
-def _send_webmention(source: str, target: str) -> None:
-    if INDIEWEB_UTILS is not None:
-        INDIEWEB_UTILS.send_webmention(source, target)
-        return
-    _send_with_legacy_http(source, target)
-
-
-def publish_webmentions(dry_run: bool = False) -> tuple[int, int]:
-    """
-    Publish all webmentions
-    """
-    state = _load_webmention_state()
-    queue = [item for item in state.get("queue", []) if isinstance(item, dict)]
-    published = [item for item in state.get("published", []) if isinstance(item, dict)]
-
-    sent = 0
-    failed = 0
-    remaining: list[dict[str, Any]] = []
-
-    for item in queue:
-        source = str(item.get("source", "")).strip()
-        target = str(item.get("target", "")).strip()
-        event = str(item.get("event", "added") or "added").strip()
-        if not source or not target:
-            continue
-
-        if dry_run:
-            print(f"DRY RUN publish [{event}] {source} -> {target}")
-            remaining.append(item)
-            continue
-
-        try:
-            _send_webmention(source, target)
-            sent += 1
-            LOGGER.info("Published webmention [%s] %s -> %s", event, source, target)
-            published.append(
-                {
-                    **item,
-                    "event": event,
-                    "published_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                }
-            )
-        except urllib.error.URLError as exc:
-            failed += 1
-            remaining.append(item)
-            LOGGER.error("Failed publishing %s -> %s: %s", source, target, exc)
-        except Exception as exc:
-            failed += 1
-            remaining.append(item)
-            LOGGER.error("Failed publishing %s -> %s: %s", source, target, exc)
-
-    state["queue"] = remaining
-    state["published"] = published
-    _save_webmention_state(state)
-    return sent, failed
+    module = importlib.import_module(module_path)
+    command_main = getattr(module, "main", None)
+    if not callable(command_main):
+        raise AttributeError(f"Command module '{module_path}' does not expose a callable main()")
+    command_main(config)
+    return True
 
 
 def main() -> None:
-    """
-    Main entry point for the static site generator
-    """
     parser = argparse.ArgumentParser(description="Build static site with clean URLs and plugins")
-    parser.add_argument("command", nargs="?", default="build", choices=["build", "publish"])
+    parser.add_argument("command", nargs="?", default="build")
     parser.add_argument("--config", default="config.yml")
-    parser.add_argument("--dry-run", action="store_true", help="Print publish actions without sending webmentions")
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     parser.add_argument("--json-logs", action="store_true")
     args = parser.parse_args()
     configure_logging(args.log_level, json_logs=args.json_logs)
 
-    if args.command == "publish":
-        sent, failed = publish_webmentions(dry_run=args.dry_run)
-        LOGGER.info("Published %s webmention(s); %s failed", sent, failed)
-        return
-
     config = load_config(Path(args.config))
+
+    if args.command != "build":
+        if run_config_command(args.command, config):
+            return
+        raise SystemExit(f"Unknown command '{args.command}'. Add it under config.yml -> cmds.")
+
     src_dir = Path(str(config.get("src_dir", "src")))
     out_dir = Path(str(config.get("out_dir", "dist")))
     template_path = Path(str(config.get("default_template", "src/page.html.temp")))
 
-    built = build_site(src_dir, out_dir, template_path, config)
-    queued = queue_discovered_webmentions(src_dir, out_dir, str(config.get("site_url", "https://flench.me")))
+    built, _all_pages = build_site(src_dir, out_dir, template_path, config)
     LOGGER.info("Built %s markdown page(s)", built)
-    if queued:
-        LOGGER.info("Queued %s webmention(s)", queued)
 
 
 if __name__ == "__main__":
