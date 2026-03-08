@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import html
 import re
+from html.parser import HTMLParser
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
@@ -11,6 +12,48 @@ from typing import Any
 
 def _strip_tags(value: str) -> str:
     return re.sub(r"<[^>]+>", "", value)
+
+
+class _EContentParser(HTMLParser):
+    """Collect text from nodes marked with class `e-content`."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._depth = 0
+        self._chunks: list[str] = []
+
+    def handle_starttag(self, _tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        classes = ""
+        for key, value in attrs:
+            if key == "class" and value:
+                classes = value
+                break
+        class_names = {name.strip() for name in classes.split() if name.strip()}
+        if "e-content" in class_names:
+            self._depth += 1
+            return
+        if self._depth > 0:
+            self._depth += 1
+
+    def handle_endtag(self, _tag: str) -> None:
+        if self._depth > 0:
+            self._depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if self._depth > 0:
+            self._chunks.append(data)
+
+    def text(self) -> str:
+        return " ".join(" ".join(self._chunks).split())
+
+
+def _content_text(rendered_html: str) -> str:
+    parser = _EContentParser()
+    parser.feed(rendered_html)
+    parsed = parser.text().strip()
+    if parsed:
+        return parsed
+    return " ".join(_strip_tags(rendered_html).split())
 
 
 def _to_rfc2822(date_str: str) -> str:
@@ -40,7 +83,7 @@ def main(_src_dir: Path, out_dir: Path, config: dict[str, Any], all_pages: list[
         title = html.escape(page.derive_title())
         link = f"{site_url}{page.rel_url}"
         guid = link
-        body_text = _strip_tags(page.rendered_html)
+        body_text = _content_text(page.rendered_html)
         description = html.escape(body_text[:280])
         pub_date = _to_rfc2822(str(page.parsed.metadata.get("date", "")).strip())
         feed_items.append((title, link, guid, description, pub_date))
