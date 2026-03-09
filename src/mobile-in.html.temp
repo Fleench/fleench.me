@@ -13,7 +13,7 @@
           <div class="content-shell">
 
 
-            ~{src/.elements/m-nav.element}~
+          <!-- maybe link to reg site here -->
 
             <div class="content-row">
               <main class="layout h-entry">
