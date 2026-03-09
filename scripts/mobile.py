@@ -17,12 +17,18 @@ def main(src_dir, out_dir, config, files):
         #print(f"{str(page.md_file)} has {str((src_dir / "notes"))} in it is { str((src_dir / "notes")) in str(page.md_file)}")
         if str((src_dir / "notes")) in str(page.md_file) or str((src_dir / "blogs")) in str(page.md_file):
             page.out_dir = nout_dir
-            t_path = src_dir / "mobile.html.temp"
+            td_path = src_dir / "mobile.html.temp"
+            other_temps = {
+                "src/note-full.html.temp":src_dir / "mobile" / "mobile-note-full.html.temp",
+                "src/note.html.temp":src_dir / "mobile" / "mobile-note.html.temp",
+                "src/blog.html.temp":src_dir / "mobile" / "mobile-blog.html.temp"
+            }
+            template = config["API"]["parse_frontmatter"](page.md_file.read_text(encoding="utf-8")).metadata.get("template","")
+            t_path = other_temps.get(template,td_path)
             page.template_path = t_path
             page.default_template = t_path
-            template = config["API"]["parse_frontmatter"](page.md_file.read_text(encoding="utf-8")).metadata.get("template","")
             if "mobile" not in str(template):
-                print(f"Using def temp on  {str(page.md_file)} as it's template {template} does not have mobile in it")
+                print(f"Using {t_path} on  {str(page.md_file)} as it's template {template} does not have mobile in it")
                 page.custom_template_set = True
             page.render()
             #custom render flow
