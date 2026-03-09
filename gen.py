@@ -459,6 +459,9 @@ def load_config(config_path: Path) -> dict[str, Any]:
                     normalized["site_url"] = normalized[alias]
                     break
         data.update(normalized)
+    data["API"] = {
+        "parse_frontmatter": parse_frontmatter,
+    }
     return data
 
 

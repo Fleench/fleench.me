@@ -1,5 +1,5 @@
 import os
-def main(src_dir, out_dir, config, files):
+def main(src_dir, out_dir, config, files=[]):
     """
     print("---")
     print("Welcome to mobile buildier")
@@ -17,11 +17,17 @@ def main(src_dir, out_dir, config, files):
         t_path = src_dir / "mobile.html.temp"
         page.template_path = t_path
         page.default_template = t_path
-        page.custom_template_set = True
+        if "mobile" not in config["API"]["parse_frontmatter"](page.md_file.read_text(encoding="utf-8"))[0].get("template",""):
+            page.custom_template_set = True
         print(page.template_path)
         #print(f"{str(page.md_file)} has {str((src_dir / "notes"))} in it is { str((src_dir / "notes")) in str(page.md_file)}")
         if str((src_dir / "notes")) in str(page.md_file) or str((src_dir / "blogs")) in str(page.md_file):
-            page.render()
+            #page.render()
+            #custom render flow
+            page.prep_template()
+            page.parse_content()
+            page.derive_path()
+            page.write()
     for asset in src_dir.rglob("*"):
         skip = [".md", ".element", ".py", ".temp", ".bak", ".html"]
         if not asset.is_file() or asset.suffix.lower() in skip:
