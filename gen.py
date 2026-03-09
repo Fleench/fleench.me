@@ -231,7 +231,7 @@ class Page:
         self.config = config
         self.default_template = default_template
         self.default_template_text = default_template_text
-
+        self.custom_template_set = False
         self.parsed = ParsedMarkdown({}, "")
         self.template_path = default_template
         self.template_text = default_template_text
@@ -252,7 +252,10 @@ class Page:
 
     def prep_template(self) -> None:
         self.parsed = parse_frontmatter(self.md_file.read_text(encoding="utf-8"))
-        selected_template = self.parsed.metadata.get("template")
+        if self.custom_template_set:
+            selected_template = self.template_path
+        else:
+            selected_template = self.parsed.metadata.get("template")
         if selected_template:
             template_path = Path(str(selected_template))
         elif self.md_file.is_relative_to(self.src_dir / "notes"):

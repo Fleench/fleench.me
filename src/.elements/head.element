@@ -7,5 +7,3 @@
 <link rel="pingback" href="https://webmention.io/flench.me/xmlrpc" />
 <script src="/layout.js" defer></script>
 <script src="/mentions.js" defer></script>
-<script src="/mentions.js" defer></script>
-<script src="/mobile.js" defer></script>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    ~{src/.elements/head.element}~
+    <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
+    <link rel="stylesheet" href="/mobile.css" />
+
+  </head>
+  <body>
+    helo mobile
+    <div class="page-wrap">
+      ~{src/.elements/marquee.element}~
+<link rel="stylesheet" href="/style.css" />
+
+      <div class="site-layout">
+        <div class="center-column">
+          <div class="content-shell">
+
+
+            ~{src/.elements/nav.element}~
+
+            <div class="content-row">
+              <main class="layout h-entry">
+                <section class="content panel">
+                  <div class="e-content">{{ content }}</div>
+                  <div style="display:none;">
+                    <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
+                    <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
+                    <div class="p-author h-card">
+                      <a class="u-url n" href="https://flench.me">Flench04</a>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="main-extras">
+                   ~{src/.elements/footer.element}~
+                </section>
+              </main>
+<aside class="sidebar sidebar-left panel" id="right-sidebar">
+              {{ right sidebar }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
