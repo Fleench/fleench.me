@@ -179,9 +179,10 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
         if path is not None:
             return path.read_text(encoding="utf-8")
         return ""
-
+    #rm these prints in the func
     def replace_dynamic(match: re.Match[str]) -> str:
         raw_path = match.group(1).strip()
+        print(raw_path)
         if not raw_path:
             return ""
         path = _resolve_element_file(raw_path, template_path)

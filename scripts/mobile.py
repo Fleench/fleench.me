@@ -28,13 +28,13 @@ def main(src_dir, out_dir, config, files):
             page.template_path = t_path
             page.default_template = t_path
             if "mobile" not in str(template):
-                print(f"Using {t_path} on  {str(page.md_file)} as it's template {template} does not have mobile in it")
+                #print(f"Using {t_path} on  {str(page.md_file)} as it's template {template} does not have mobile in it")
                 page.custom_template_set = True
             page.render()
             #custom render flow
             """ 
             page.prep_template()
-            print(page.template_path)
+            #print(page.template_path)
             page.parse_content()
             page.derive_path()
             page.write()
