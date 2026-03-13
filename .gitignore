@@ -10,3 +10,8 @@ ENV/
 .webmention-state.json
 .env
 .webmention-state.json
+# Pycharm
+.idea
+
+# CPython
+**/__pychache__
