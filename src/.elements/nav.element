@@ -1,4 +1,5 @@
 <nav class="top-nav panel top-nav-main" aria-label="Primary navigation" id="NAV">
+              <!-- :{src/.elements/rate.py}:-->
               <a href="/">Home</a>
               <a href="/changelog">Changelog</a>
               <a href="/notes/">Notes</a>
