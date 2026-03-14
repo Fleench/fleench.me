@@ -38,6 +38,12 @@
               aria-expanded="false">
                   <a href="blogs">Blogs(not implimented)</a>
                   </button>
+                  <button class="button panel"
+              type="button"
+              aria-controls="left-sidebar"
+              aria-expanded="false">
+                  <a href="about">About me</a>
+                  </button>
                 </section>
 
                 <section class="main-extras">

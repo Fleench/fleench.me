@@ -40,11 +40,11 @@
                 </section>
 
                 <section class="main-extras">
-                  <div id="webmentions"></div>
+
                    ~{src/.elements/footer.element}~
                 </section>
               </main>
-<aside class="sidebar sidebar-left panel" id="right-sidebar">
+              <aside class="sidebar sidebar-left panel" id="right-sidebar"></aside>
               {{ right sidebar }}
             </div>
           </div>

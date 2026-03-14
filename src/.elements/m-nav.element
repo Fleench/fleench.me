@@ -1,3 +1,3 @@
-<nav class="top-nav panel top-nav-main" aria-label="Primary navigation" id="NAV">
+<nav class="top-nav panel top-nav-main mobile-nav" aria-label="Primary navigation" id="MNAV">
               <a href="/">Home</a>
 </nav>

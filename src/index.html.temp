@@ -53,20 +53,8 @@
 
               <main class="layout h-entry">
                 <section class="content panel">
-                  <h1>Welcome</h1>
                   <div class="e-content">
-                    <p>
-                      This site is built from simple templates and markdown notes. If you enjoy
-                      old-school personal sites, you are in the right place.
-                    </p>
-                    <p>
-                      Check the <a href="/notes/">notes page</a> for short updates and visit the
-                      <a href="/rss.xml">RSS feed</a> if you want to follow along.
-                    </p>
-                    <p>
-                      You can also find me on the fediverse via rss parrot as
-                      <strong>@flench.me@rss-parrot.net</strong>.
-                    </p>
+                   {{ content }}
                   </div>
                   <div style="display:none;">
                     <a class="u-url p-name" href="/">Home</a>

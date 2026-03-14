@@ -15,7 +15,7 @@ def main(src_dir, out_dir, config, files):
     for page in files:
         
         #print(f"{str(page.md_file)} has {str((src_dir / "notes"))} in it is { str((src_dir / "notes")) in str(page.md_file)}")
-        if str((src_dir / "notes")) in str(page.md_file) or str((src_dir / "blogs")) in str(page.md_file):
+        if str((src_dir / "notes")) in str(page.md_file) or str((src_dir / "blogs")) in str(page.md_file) or str((src_dir / "about")) in str(page.md_file):
             page.out_dir = nout_dir
             td_path = src_dir / "mobile.html.temp"
             other_temps = {
