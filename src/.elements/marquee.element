@@ -1,4 +1,4 @@
-<header class="marquee-frame">
+<header class="marquee-frame" style="display: none">
           <marquee behavior="alternate" scrollamount="6">
           ★ Welcome to The Void ★
         </marquee>
