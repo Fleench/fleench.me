@@ -1,5 +1,6 @@
 # {} ---{}---{}---changes
 - #### [View roadmap](/todo)
+- **<2026-Mar-015>** --- Add new blogs page
 - **<2026-Mar-014>** --- Updated mobile site
 - **<2026-Mar-014>** --- Added About me page
 - **<2026-Mar-013>** --- Added guestbook
