@@ -4,7 +4,7 @@
     ~{src/.elements/head.element}~
     <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
   </head>
-  
+
   <body>
     <div class="page-wrap">
       ~{src/.elements/marquee.element}~
@@ -31,7 +31,7 @@
                 <section class="content panel">
                   <div class="blog e-content">
                     <h1>{{ title }}</h1>
-                    <img alt="{{ img-alt }}"href="{{ image }}">
+                    <img alt="{{ img-alt }}"href="{{ img }}">
                     {{ content }}</div>
                   <div style="display:none;">
                     <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
@@ -43,12 +43,12 @@
                 </section>
 
                 <section class="main-extras">
-                  
+
                    ~{src/.elements/footer.element}~
                 </section>
               </main>
 <aside class="sidebar sidebar-left panel" id="right-sidebar">
-              ~{src/.elements/author.element}~ 
+              ~{src/.elements/author.element}~
             </div>
           </div>
         </div>
