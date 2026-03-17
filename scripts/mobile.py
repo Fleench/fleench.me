@@ -21,6 +21,7 @@ def main(src_dir, out_dir, config, files):
             other_temps = {
                 "src/note-full.html.temp":src_dir / "mobile" / "mobile-note-full.html.temp",
                 "src/note.html.temp":src_dir / "mobile" / "mobile-note.html.temp",
+                "src/blogs-full.html.temp":src_dir / "mobile" / "mobile-blog-full.html.temp",
                 "src/blog.html.temp":src_dir / "mobile" / "mobile-blog.html.temp"
             }
             template = config["API"]["parse_frontmatter"](page.md_file.read_text(encoding="utf-8")).metadata.get("template","")

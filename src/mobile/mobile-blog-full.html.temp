@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<!-- template: mobile-blog-full -->
+<html lang="en">
+  <head>
+    ~{src/.elements/head.element}~
+    <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
+    <link rel="stylesheet" href="/mobile.css" />
+  </head>
+  <body>
+    <div class="page-wrap">
+      <div class="site-layout">
+        <div class="center-column">
+          <div class="content-shell">
+            ~{src/.elements/m-nav.element}~
+            <main class="layout">
+              <section class="content panel notes-index">
+                <h1>Blogs</h1>
+                <p><a href="/rss.xml">Subscribe via RSS</a></p>
+                <div class="notes-list">
+                  :{src/.elements/blogs.py}:
+                </div>
+              </section>
+              <section class="main-extras">
+                <div id="webmentions"></div>
+                ~{src/.elements/footer.element}~
+              </section>
+            </main>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
