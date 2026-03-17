@@ -9,4 +9,5 @@
 # Backend Build Features
 - Update CMS bot to allow me to easily edit the todo list as I get ideas
 - Update CMS bot to allow different note types. (likes, notes, short-replies)
+- Update CMS bot to allow remote build starts
 # Site Issues
