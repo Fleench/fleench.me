@@ -140,10 +140,10 @@ def generate_blog_index(project_root: Path) -> str:
         metadata, body = _parse_frontmatter(raw)
 
         permalink = _permalink_from_path(post_file, src_dir)
-        if pdate:=metadata.get("date","") != "":
+        if metadata.get("date","") != "":
             date = _date_from_slug(post_file, src_dir)
         else:
-            date = pdate.split("-")
+            date = metadata.get("date","").split("-")
             d = dt.date(date[0], date[1], date[2])
             date = d.strftime("%B %d, %Y")
 
