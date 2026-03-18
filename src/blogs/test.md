@@ -1,5 +1,6 @@
 ---
 template: src/blog.html.temp
+date: 1900-01-01
 ---
 # Welcome
 Hello I am Flench04.
