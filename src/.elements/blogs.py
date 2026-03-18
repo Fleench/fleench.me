@@ -141,7 +141,7 @@ def generate_blog_index(project_root: Path) -> str:
 
         permalink = _permalink_from_path(post_file, src_dir)
         date = ""
-        if not date:=metadata.get("date",""):
+        if date:=metadata.get("date","") != "":
             date = _date_from_slug(post_file, src_dir)
 
         preview = _blog_preview(metadata, body, permalink, date)
