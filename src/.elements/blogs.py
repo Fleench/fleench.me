@@ -133,24 +133,41 @@ def generate_blog_index(project_root: Path) -> str:
 
     posts = sorted(blog_dir.rglob("*.md"), reverse=True) if blog_dir.exists() else []
 
-    rendered: list[str] = []
+    rendered = []
 
     for post_file in posts:
         raw = post_file.read_text(encoding="utf-8")
         metadata, body = _parse_frontmatter(raw)
-
+        print(f"Post: {post_file.name}")
         permalink = _permalink_from_path(post_file, src_dir)
-        if metadata.get("date","") != "":
+        if metadata.get("date","") == "":
             date = _date_from_slug(post_file, src_dir)
         else:
-            date = metadata.get("date","").split("-")
-            d = dt.date(date[0], date[1], date[2])
+            #print(metadata)
+            date = metadata.get("date").split("/")
+            d = dt.date(int(date[0]), int(date[1]), int(date[2]))
             date = d.strftime("%B %d, %Y")
-
-        preview = _blog_preview(metadata, body, permalink, date)
+        if not date:
+            d = dt.date(0, 0, 0)
+            date = d.strftime("%B %d, %Y")
+        #print(date)
+        preview = [date,_blog_preview(metadata, body, permalink, date)]
         rendered.append(preview)
+    for i in range(len(rendered)):
+        for j in range(len(rendered)):
+            if i != j:
+                reni = rendered[i][0]
+                renj = rendered[j][0]
+                #print(reni,"---",renj)
+                if reni > renj:
+                    tmp = rendered[j]
+                    rendered[j] = rendered[i]
+                    rendered[i] = tmp
+    finished = []
+    for item in rendered:
+        finished.append(item[1])
 
-    return "\n".join(rendered)
+    return "\n".join(finished)
 
 
 def main(**context) -> str:
@@ -159,4 +176,5 @@ def main(**context) -> str:
 
 
 if __name__ == "__main__":
-    print(generate_blog_index(Path.cwd()))
+    x = (generate_blog_index(Path.cwd()))
+    print(x)
