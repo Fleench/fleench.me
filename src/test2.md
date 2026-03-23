@@ -11,3 +11,9 @@ But I think it is [broken](https://flench.me/blogs/test)
 Yo this is at the bottom
 # HI ---left
 ![](/profile.png)
+
+# Stupid Table
+
+| Name | Type    | Hope      |
+|------|---------|-----------|
+| You  | Not Ai? | Please do |
