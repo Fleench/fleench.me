@@ -48,7 +48,7 @@
                 </section>
               </main>
 <aside class="sidebar sidebar-left panel" id="right-sidebar">
-              ~{src/.elements/author.element}~
+  ~{src/.elements/author.element}~ </aside>
             </div>
           </div>
         </div>
