@@ -1,11 +1,12 @@
 # {} ---{}---{}---changes
 - #### [View roadmap](/todo)
-- **<2026-Mar-018>** --- Moved all blogs from vivaldi.net blog to here
-- **<2026-Mar-015>** --- Add new blogs page
-- **<2026-Mar-014>** --- Updated mobile site
-- **<2026-Mar-014>** --- Added About me page
-- **<2026-Mar-013>** --- Added guestbook
-- **<2026-Mar-011>** --- Started working on mobile specific site
+- **<2026-Mar-24>** --- Added about the author to my blog pages
+- **<2026-Mar-18>** --- Moved all blogs from vivaldi.net blog to here
+- **<2026-Mar-15>** --- Add new blogs page
+- **<2026-Mar-14>** --- Updated mobile site
+- **<2026-Mar-14>** --- Added About me page
+- **<2026-Mar-13>** --- Added guestbook
+- **<2026-Mar-11>** --- Started working on mobile specific site
 - **<2026-Mar-02>** --- Switched back to flexbox from grid
 - **<2026-Mar-02>** --- Fixed broken layout on lack of sidebars
 - **<2026-Mar-01>** --- Fixed webmention sending and receiving
