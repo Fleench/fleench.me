@@ -36,7 +36,10 @@
                       <a class="u-url n" href="https://flench.me">Flench04</a>
                     </div>
                   </div>
-                  <div id="webmentions"></div>
+                  <div style="display: flex;flex-direction: row;">
+                  <iframe src="https://flench04.atabook.org" style="width: 50%;height: 75vh;margin-right: 10px"></iframe>
+                  <div id="webmentions" style="width: 50%"></div>
+                  </div>
                 </section>
 
                 <section class="main-extras">
