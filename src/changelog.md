@@ -1,5 +1,6 @@
 # {} ---{}---{}---changes
 - #### [View roadmap](/todo)
+- **<2026-Mar-26>** --- Added a surprise
 - **<2026-Mar-26>** --- Added an atabook guestbook to the guestbook page
 - **<2026-Mar-24>** --- Added about the author to my blog pages
 - **<2026-Mar-18>** --- Moved all blogs from vivaldi.net blog to here
