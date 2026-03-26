@@ -13,7 +13,7 @@
                       <main class="layout">
                         <section class="content panel notes-index">
                         <h1>Notes</h1>
-                          <p><a href="/rss.xml">Subscribe via RSS</a></p>
+                          <p><a href="rss.xml">Subscribe via RSS</a></p>
                           <div class="notes-list">
                           :{src/.elements/notes.py}:
                         </div>
