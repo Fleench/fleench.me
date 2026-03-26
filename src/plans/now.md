@@ -1,3 +1,6 @@
+---
+hidden: True
+---
 If you found this gem then cool. It will be gone when I build my now page.
 
 My now page needs to be a 1-6 month status update. 

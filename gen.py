@@ -223,7 +223,7 @@ def clean_output_path(md_file: Path, src_dir: Path, out_dir: Path) -> Path:
 
 
 class Page:
-    """Worker object responsible for rendering one markdown file."""
+    """Worker object responsible for rendering one Markdown file."""
 
     def __init__(self, md_file: Path, src_dir: Path, out_dir: Path, config: dict[str, Any], default_template: Path, default_template_text: str) -> None:
         self.md_file = md_file
