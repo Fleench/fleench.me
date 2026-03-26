@@ -5,6 +5,13 @@
     <link>https://flench.me/notes/</link>
     <description>Latest notes</description>
     <item>
+      <title>2352</title>
+      <link>https://flench.me/notes/2026-03-24/2352/</link>
+      <guid>https://flench.me/notes/2026-03-24/2352/</guid>
+      <pubDate>Tue, 24 Mar 2026 23:52:00 +0000</pubDate>
+      <description>I have decided I don't want to do the math to get the equation I need so I am using a seprate equation I know kinda gets me what I need. I am just missing one value but I know what value the solution must be above so I am just having c++ random numbers guess and check for me. Currently at attempt 1738739086. Though it's probbaly higher as I don't have my code giving my the attempt # for each attempt.</description>
+    </item>
+    <item>
       <title>1246</title>
       <link>https://flench.me/notes/2026-03-11/1246/</link>
       <guid>https://flench.me/notes/2026-03-11/1246/</guid>
