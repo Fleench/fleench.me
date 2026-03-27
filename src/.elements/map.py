@@ -63,12 +63,13 @@ def main(**config):
     z = print_nodes(top_node, 0)
     li = ["<ul style: "column-count: 2">"]
     for item in z:
-        it = item.split(",")
+        it =item.split(",")
         if len(it) == 3:
             tab = len(it[0])
         else:
             tab = 0
         name = it[1]
         value = it[2]
-        li.append(f'<li style="margin-left:{tab*15}px"><a href="{value}">{name}</a></li>"')
+        li.append(f'<li style="margin-left:{tab*15}px"><a href="{value}">{name}</a></li>')
+    li.append("</ul")
     return "\n".join(li)
