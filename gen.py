@@ -242,6 +242,7 @@ class Page:
         self.rel_url = ""
         self.canonical = ""
         self.rendered_html = ""
+        self.opages = []
 
     def derive_title(self) -> str:
         explicit = self.parsed.metadata.get("title")
@@ -337,6 +338,7 @@ class Page:
                 "out_dir": self.out_dir,
                 "config": self.config,
                 "current_markdown": self.md_file,
+                "opages": self.opages,
             },
         )
         self.rendered_html = render_template(self.template_text, context)
@@ -380,8 +382,10 @@ def build_site(src_dir: Path, out_dir: Path, default_template: Path, config: dic
     for md_file in sorted(src_dir.rglob("*.md")):
         LOGGER.debug("Rendering markdown file: %s", md_file)
         page = Page(md_file, src_dir, out_dir, config, default_template, default_template_text)
-        page.render()
         all_pages.append(page)
+    for page in all_pages:
+        page.opages = all_pages
+        page.render()
 
     for asset in src_dir.rglob("*"):
         skip = [".md", ".element", ".py", ".temp", ".bak"]

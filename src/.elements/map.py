@@ -1,3 +1,4 @@
+
 class Node:
     def __init__(self, name: str, value: str, parent = None):
         self.name = name
@@ -35,7 +36,8 @@ def print_nodes(t_node: Node, deep:int):
             for item in x:
                 build.append(item)
     return build
-def main(src_dir, out_dir, config, files):
+def main(**config):
+    files = config["opages"]
     print("INIT")
     top_node = Node("Top Node", 0)
     for page in files:
@@ -59,5 +61,4 @@ def main(src_dir, out_dir, config, files):
                     cur_node = n_node
     print("PRINTING NODES")
     z = print_nodes(top_node, 0)
-    for item in z:
-        print(item)
+    return "\n".join(z)

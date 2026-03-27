@@ -5,7 +5,6 @@ plugins:
   - scripts.mobile
   - scripts.rss_plugin
   - scripts.webmentions
-  - scripts.map
 site_url: https://flench.me
 cmds:
   publish: scripts.webmentions
