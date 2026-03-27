@@ -61,7 +61,7 @@ def main(**config):
                     cur_node = n_node
     print("PRINTING NODES")
     z = print_nodes(top_node, 0)
-    li = ["<ul>"]
+    li = ["<ul style: "column-count: 2">"]
     for item in z:
         it = item.split(",")
         if len(it) == 3:
