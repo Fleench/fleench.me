@@ -28,7 +28,7 @@ def print_nodes(t_node: Node, deep:int):
     for node in t_node.children.values():
         if not node.name:
             print("Err")
-        item = f"{"-"*deep}{node.name},{node.value}"
+        item = f"{"-"*deep},{node.name},{node.value}"
         build.append(item)
         if node.get_children() is not {}:
             #print("\n")
@@ -61,4 +61,14 @@ def main(**config):
                     cur_node = n_node
     print("PRINTING NODES")
     z = print_nodes(top_node, 0)
-    return "\n".join(z)
+    li = ["<ul>"]
+    for item in z:
+        it = item.split(",")
+        if len(it) == 3:
+            tab = len(it[0])
+        else:
+            tab = 0
+        name = it[1]
+        value = it[2]
+        li.append(f'<li style="margin-left:{tab*15}px"><a href="{value}">{name}</a></li>"')
+    return "\n".join(li)
