@@ -1,4 +1,3 @@
-j7
 class Node:
     def __init__(self, name: str, value: str, parent = None):
         self.name = name
