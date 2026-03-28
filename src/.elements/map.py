@@ -1,4 +1,4 @@
-
+j7
 class Node:
     def __init__(self, name: str, value: str, parent = None):
         self.name = name
@@ -61,7 +61,7 @@ def main(**config):
                     cur_node = n_node
     print("PRINTING NODES")
     z = print_nodes(top_node, 0)
-    li = ['<ul style: "columns: 2;-webkit-columns: 2;-moz-columns: 2;">']
+    li = ['<ul style: "columns: 2;-webkit-columns: 2;-moz-columns: 2;column-width: 5px">']
     for item in z:
         it =item.split(",")
         if len(it) == 3:
