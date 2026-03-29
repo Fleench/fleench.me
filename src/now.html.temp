@@ -22,7 +22,7 @@
   .fav h1 {
     position: absolute;
     bottom: -0.6em;
-    text-wrap: nowrap;
+    text-wrap: auto;
       margin-top: -1.9em;
       font-size: clamp(0.5rem, 2vw, 1rem);
   }
@@ -51,6 +51,7 @@
     padding: 0;
     visibility: hidden;
     justify-content: start;
+    border-radius: 8px;
 }
   </style>
   <body>
@@ -158,6 +159,40 @@
                       <img src=":{src/.elements/spotify.py}:(0k79A6mTLVAwJLEnF6bZz6,albumID)">
                       <h1>The Middle</h1>
                     </div>
+                    <!-- Are You Looking Up-->
+                    <div class="fav">
+                      <a href=":{src/.elements/spotify.py}:(6UZfwVJdXRqM9N3lR94JeO,trackID,1)" target="_blank" class="ricon">
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(6UZfwVJdXRqM9N3lR94JeO,trackID)">
+                      <h1>Are You Looking Up</h1>
+                    </div>
+                    <!-- Drive-->
+                    <div class="fav">
+                      <a href=":{src/.elements/spotify.py}:(1GgoypuXSxpTKOxEYiZ3JJ,trackID,1)" target="_blank" class="ricon">
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(1GgoypuXSxpTKOxEYiZ3JJ,trackID)">
+                      <h1>Drive</h1>
+                    </div>
+                    <!-- The Summons-->
+                    <div class="fav">
+                      <a href=":{src/.elements/spotify.py}:(0MXF8sxW0k2QYrSEaSeeUz,trackID,1)" target="_blank" class="ricon">
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(0MXF8sxW0k2QYrSEaSeeUz,trackID)">
+                      <h1>The Summons</h1>
+                    </div>
+                    <!-- note to self (Acoustic Version)-->
+                    <div class="fav">
+                      <a href=":{src/.elements/spotify.py}:(57X5CeMMlrFDmvAyUxMkgV,trackID,1)" target="_blank" class="ricon">
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(57X5CeMMlrFDmvAyUxMkgV,trackID)">
+                      <h1>note to self (Acoustic Version)</h1>
+                    </div>
+                  </div>
+
                   </div>
                   <div class="e-content"> </div>
                   <div style="display:none;">
