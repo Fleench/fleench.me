@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Home</title>
     <link rel="stylesheet" href="/style.css" />
+    <script src="/theme-mode.js" defer></script>
     <link rel="canonical" href="{{ canonical }}" />
     <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
     <link rel="webmention" href="https://webmention.io/flench.me/webmention" />
