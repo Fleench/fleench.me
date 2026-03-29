@@ -8,10 +8,8 @@
   .fav {
     position: relative;
     width: 16em;
-    height: 20em;
+    /*height: 20em;*/
     background-size: cover;
-      margin: 10px;
-      flex-shrink: 0;
   }
   .fav img {
     object-fit: cover;
@@ -19,15 +17,16 @@
     height: 15em;
    }
   .fav h1 {
-    position: relative;
-    bottom: 1em;
+    position: absolute;
+    bottom: -0.6em;
     text-wrap: nowrap;
+      margin-top: -1.9em;
   }
-  .fav .spicon {
+  .fav .ricon {
     position: absolute;
     right: 0;
   }
-  .spicon img {
+  .ricon img {
   /* This overrides the .fav img styles for the icon specifically */
   width: 32px !important;
   height: 32px !important;
@@ -35,14 +34,16 @@
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
 
-.spicon:hover {
+.ricon:hover {
     transform: scale(1.1);
 }
 .crow {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 16em);
     overflow: scroll;
     scrollbar-width: none;
+    gap: 0;
+    visibility: hidden;
 }
   </style>
   <body>
@@ -72,7 +73,7 @@
                   <div class="crow">
                   <!-- ben rector-->
                   <div class = "fav">
-                      <a href=":{src/.elements/spotify.py}:(Ben Rector,artist,1)" target="_blank" class="spicon">
+                      <a href=":{src/.elements/spotify.py}:(Ben Rector,artist,1)" target="_blank" class="ricon">
     <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
   </a>
                     <img src=":{src/.elements/spotify.py}:(Ben Rector,artist)"> </img>
@@ -82,7 +83,7 @@
                   </div>
                     <!-- Luminati Suns-->
                   <div class = "fav">
-<a href=":{src/.elements/spotify.py}:(Luminati Suns,artist,1)" target="_blank" class="spicon">
+<a href=":{src/.elements/spotify.py}:(Luminati Suns,artist,1)" target="_blank" class="ricon">
     <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
   </a>
                     <img src=":{src/.elements/spotify.py}:(Luminati Suns,artist)"> </img>
@@ -93,7 +94,7 @@
 
                     <!-- Josiah Queen-->
                   <div class = "fav">
-                      <a href=":{src/.elements/spotify.py}:(Josiah Queen,artist,1)" target="_blank" class="spicon">
+                      <a href=":{src/.elements/spotify.py}:(Josiah Queen,artist,1)" target="_blank" class="ricon">
     <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
   </a>
                     <img src=":{src/.elements/spotify.py}:(Josiah Queen,artist)"> </img>
@@ -103,7 +104,7 @@
                   </div>
                         <!-- Owl City-->
                   <div class = "fav">
-                      <a href=":{src/.elements/spotify.py}:(Owl City,artist,1)" target="_blank" class="spicon">
+                      <a href=":{src/.elements/spotify.py}:(Owl City,artist,1)" target="_blank" class="ricon">
     <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
   </a>
                     <img src=":{src/.elements/spotify.py}:(Owl City,artist)"> </img>
@@ -113,7 +114,7 @@
                   </div>
                                       <!-- Mercy Me-->
                   <div class = "fav">
-                      <a href=":{src/.elements/spotify.py}:(Mercy Me,artist,1)" target="_blank" class="spicon">
+                      <a href=":{src/.elements/spotify.py}:(Mercy Me,artist,1)" target="_blank" class="ricon">
     <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
   </a>
                     <img src=":{src/.elements/spotify.py}:(Mercy Me,artist)"> </img>
@@ -121,6 +122,21 @@
                       Mercy Me
                     </h1>
                   </div>
+                                           <!-- Inhale (Exhale)-->
+                  <div class = "fav">
+                      <a href=":{src/.elements/spotify.py}:(Inhale (Exhale),album,1)" target="_blank" class="ricon">
+    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+  </a>
+                    <img src=":{src/.elements/spotify.py}:(Inhale (Exhale),album)"> </img>
+                    <h1>
+                      Inhale (Exhale)
+                    </h1>
+                  </div>
+
+
+
+
+
                   </div>
                   <div class="e-content"> </div>
                   <div style="display:none;">
@@ -144,5 +160,38 @@
         </div>
       </div>
     </div>
+  <script>
+  // window.onload ensures the script waits for all images and CSS to load
+  window.onload = function() {
+    const grid = document.querySelector(".crow");
+
+    if (!grid) {
+      console.error("Shuffle Error: Could not find a container with class '.cow'");
+      return;
+    }
+
+    // Convert children to a true Array
+    const items = Array.from(grid.children);
+
+    if (items.length < 2) {
+      console.warn("Shuffle Warning: Not enough items in '.cow' to shuffle.");
+      return;
+    }
+
+    // Fisher-Yates Shuffle
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [items[i], items[j]] = [items[j], items[i]];
+    }
+
+    // Detach and Re-attach in new order
+    grid.innerHTML = "";
+    items.forEach(item => {
+      grid.appendChild(item);
+    });
+    grid.style.visibility = "visible";
+    console.log("Shuffle Complete! New order applied to .cow grid.");
+  };
+</script>
   </body>
 </html>
