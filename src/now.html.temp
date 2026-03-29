@@ -124,10 +124,10 @@
                   </div>
                                            <!-- Inhale (Exhale)-->
                   <div class = "fav">
-                      <a href=":{src/.elements/spotify.py}:(Inhale (Exhale),album,1)" target="_blank" class="ricon">
+                      <a href=':{src/.elements/spotify.py}:(5AfoxZl8Y5VJgC9nK0DvBV,IDalbum,1)' target="_blank" class="ricon">
     <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
   </a>
-                    <img src=":{src/.elements/spotify.py}:(Inhale (Exhale),album)"> </img>
+                    <img src=':{src/.elements/spotify.py}:(5AfoxZl8Y5VJgC9nK0DvBV,IDalbum)'> </img>
                     <h1>
                       Inhale (Exhale)
                     </h1>
