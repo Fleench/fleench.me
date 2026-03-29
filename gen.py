@@ -172,7 +172,7 @@ def _parse_dynamic_args(raw_args: str) -> list[Any]:
     if not stripped:
         return []
     try:
-        tokens = next(csv.reader([stripped], skipinitialspace=True))
+        tokens = next(csv.reader([stripped], skipinitialspace=True, escapechar="\\"))
     except Exception:
         tokens = [part.strip() for part in stripped.split(",")]
     parsed: list[Any] = []
@@ -190,9 +190,101 @@ def _parse_dynamic_args(raw_args: str) -> list[Any]:
     return parsed
 
 
+def _find_dynamic_match(template_text: str, start_idx: int = 0) -> tuple[int, int, str, str] | None:
+    marker_start = template_text.find(":{", start_idx)
+    if marker_start == -1:
+        return None
+
+    path_start = marker_start + 2
+    path_end = template_text.find("}:", path_start)
+    if path_end == -1:
+        return None
+
+    raw_path = template_text[path_start:path_end].strip()
+    if not raw_path.endswith(".py"):
+        return _find_dynamic_match(template_text, marker_start + 2)
+
+    args_start = path_end + 2
+    if args_start >= len(template_text) or template_text[args_start] != "(":
+        return (marker_start, args_start, raw_path, "")
+
+    depth = 0
+    quote_char: str | None = None
+    escaped = False
+    i = args_start
+
+    while i < len(template_text):
+        char = template_text[i]
+        if escaped:
+            escaped = False
+            i += 1
+            continue
+        if char == "\\":
+            escaped = True
+            i += 1
+            continue
+        if quote_char:
+            if char == quote_char:
+                quote_char = None
+            i += 1
+            continue
+        if char in ("'", '"'):
+            quote_char = char
+            i += 1
+            continue
+        if char == "(":
+            depth += 1
+            i += 1
+            continue
+        if char == ")":
+            depth -= 1
+            i += 1
+            if depth == 0:
+                return (marker_start, i, raw_path, template_text[args_start + 1 : i - 1])
+            continue
+        i += 1
+
+    return None
+
+
+def _replace_dynamic_elements(template_text: str, template_path: Path, context: dict[str, Any]) -> str:
+    rendered_parts: list[str] = []
+    cursor = 0
+    search_from = 0
+    replaced_any = False
+
+    while True:
+        found = _find_dynamic_match(template_text, search_from)
+        if found is None:
+            break
+        start, end, raw_path, raw_args = found
+        rendered_parts.append(template_text[cursor:start])
+        element_args = _parse_dynamic_args(raw_args)
+        path = _resolve_element_file(raw_path, template_path)
+        if path is None:
+            rendered_parts.append("")
+        else:
+            run_context = {
+                "template_path": template_path,
+                "project_root": Path.cwd(),
+                "md": MD_LIB,
+                **context,
+                "args": element_args,
+                "element_args": element_args,
+            }
+            rendered_parts.append(_run_dynamic_element(path, run_context))
+        cursor = end
+        search_from = end
+        replaced_any = True
+
+    if not replaced_any:
+        return template_text
+    rendered_parts.append(template_text[cursor:])
+    return "".join(rendered_parts)
+
+
 def inject_elements(template_text: str, template_path: Path, render_context: dict[str, Any] | None = None) -> str:
     static_pattern = re.compile(r"~\{([^{}]+)\}~")
-    dynamic_pattern = re.compile(r":\{([^{}]+\.py)\}:(?:\((.*?)\))?")
     context = render_context or {}
 
     def replace_static(match: re.Match[str]) -> str:
@@ -203,28 +295,10 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
         if path is not None:
             return path.read_text(encoding="utf-8")
         return ""
-    def replace_dynamic(match: re.Match[str]) -> str:
-        raw_path = match.group(1).strip()
-        if not raw_path:
-            return ""
-        element_args = _parse_dynamic_args(match.group(2) or "")
-        path = _resolve_element_file(raw_path, template_path)
-        if path is None:
-            return ""
-        run_context = {
-            "template_path": template_path,
-            "project_root": Path.cwd(),
-            "md": MD_LIB,
-            **context,
-            "args": element_args,
-            "element_args": element_args,
-        }
-        return _run_dynamic_element(path, run_context)
-
     rendered = template_text
     for _ in range(10):
         updated = static_pattern.sub(replace_static, rendered)
-        updated = dynamic_pattern.sub(replace_dynamic, updated)
+        updated = _replace_dynamic_elements(updated, template_path, context)
         if updated == rendered:
             return rendered
         rendered = updated
