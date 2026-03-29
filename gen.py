@@ -8,6 +8,7 @@ Description: A python3 based static site generator
 from __future__ import annotations
 
 import argparse
+import csv
 import html
 import importlib
 import importlib.util
@@ -166,9 +167,32 @@ def _run_dynamic_element(path: Path, render_context: dict[str, Any]) -> str:
     return str(rendered)
 
 
+def _parse_dynamic_args(raw_args: str) -> list[Any]:
+    stripped = raw_args.strip()
+    if not stripped:
+        return []
+    try:
+        tokens = next(csv.reader([stripped], skipinitialspace=True))
+    except Exception:
+        tokens = [part.strip() for part in stripped.split(",")]
+    parsed: list[Any] = []
+    for token in tokens:
+        value = token.strip()
+        if not value:
+            continue
+        if YAML is not None:
+            try:
+                parsed.append(YAML.safe_load(value))
+                continue
+            except Exception:
+                pass
+        parsed.append(value)
+    return parsed
+
+
 def inject_elements(template_text: str, template_path: Path, render_context: dict[str, Any] | None = None) -> str:
     static_pattern = re.compile(r"~\{([^{}]+)\}~")
-    dynamic_pattern = re.compile(r":\{([^{}]+\.py)\}:")
+    dynamic_pattern = re.compile(r":\{([^{}]+\.py)\}:(?:\((.*?)\))?")
     context = render_context or {}
 
     def replace_static(match: re.Match[str]) -> str:
@@ -179,12 +203,11 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
         if path is not None:
             return path.read_text(encoding="utf-8")
         return ""
-    #rm these prints in the func
     def replace_dynamic(match: re.Match[str]) -> str:
         raw_path = match.group(1).strip()
-        print(raw_path)
         if not raw_path:
             return ""
+        element_args = _parse_dynamic_args(match.group(2) or "")
         path = _resolve_element_file(raw_path, template_path)
         if path is None:
             return ""
@@ -193,6 +216,8 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
             "project_root": Path.cwd(),
             "md": MD_LIB,
             **context,
+            "args": element_args,
+            "element_args": element_args,
         }
         return _run_dynamic_element(path, run_context)
 
