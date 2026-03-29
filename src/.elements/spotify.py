@@ -32,8 +32,22 @@ def main(**context):
 
     search_query = str(args[0])
 
-    # FIX: Force lowercase to prevent Spotify 400 errors
-    item_type = str(args[1]).lower() if len(args) > 1 else "artist"
+    raw_item_type = str(args[1]) if len(args) > 1 else "artist"
+    normalized_type = raw_item_type.lower()
+    is_id_lookup = False
+
+    if normalized_type.endswith("id"):
+        item_type = normalized_type[:-2]
+        is_id_lookup = True
+    elif normalized_type.startswith("id"):
+        item_type = normalized_type[2:]
+        is_id_lookup = True
+    else:
+        item_type = normalized_type
+
+    if item_type not in ["artist", "album", "track"]:
+        return f"STP_ERR: Invalid type '{raw_item_type}'"
+
     return_playback = str(args[2]) == "1" if len(args) > 2 else False
 
     # 3. Initialize Spotipy
@@ -48,15 +62,23 @@ def main(**context):
 
     # 4. Search Logic
     try:
-        # q format 'type:name' helps narrow results
-        q = f"{item_type}:{search_query}" if item_type in ["artist", "album", "track"] else search_query
-        results = sp.search(q=q, type=item_type, limit=1)
+        if is_id_lookup:
+            if item_type == "artist":
+                item_data = sp.artist(search_query)
+            elif item_type == "album":
+                item_data = sp.album(search_query)
+            else:
+                item_data = sp.track(search_query)
+        else:
+            # q format 'type:name' helps narrow results
+            q = f"{item_type}:{search_query}"
+            results = sp.search(q=q, type=item_type, limit=1)
 
-        items = results.get(f"{item_type}s", {}).get("items", [])
-        if not items:
-            return f"STP_ERR: '{search_query}' not found in {item_type}s"
+            items = results.get(f"{item_type}s", {}).get("items", [])
+            if not items:
+                return f"STP_ERR: '{search_query}' not found in {item_type}s"
 
-        item_data = items[0]
+            item_data = items[0]
 
         # 5. Return Output
         if return_playback:
