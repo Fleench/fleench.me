@@ -355,3 +355,64 @@ img {
   width: 100%;
   text-align: center;
 }
+html[data-mode="light"] {
+  --bg: #f3f4f7;
+  --bg-shade: #ffffff;
+  --panel-bg: #ffffff;
+  --panel-border: #cbd2de;
+  --text: #1a2233;
+  --muted-text: #4a5a73;
+  --accent: #0f3d91;
+  --warning: #7a3e00;
+}
+
+html[data-mode="light"] body {
+  background:
+    radial-gradient(circle at top, #ffffff 0%, transparent 45%),
+    radial-gradient(circle at bottom, #e8edf7 0%, transparent 55%),
+    linear-gradient(180deg, var(--bg-shade), var(--bg));
+}
+
+html[data-mode="light"] .panel {
+  box-shadow: 0 0 0 1px #e2e6ef, 0 10px 22px rgba(41, 57, 91, 0.14);
+}
+
+html[data-mode="light"] .marquee-frame,
+html[data-mode="light"] .top-nav a,
+html[data-mode="light"] .mobile-nav a {
+  background: #f8faff;
+  border-color: #c3cddd;
+}
+
+html[data-mode="light"] h1,
+html[data-mode="light"] h2,
+html[data-mode="light"] h3 {
+  text-shadow: none;
+}
+
+html[data-mode="light"] a {
+  color: #1c4aa6;
+}
+
+html[data-mode="light"] a:hover {
+  color: #0a2f73;
+}
+
+html[data-mode="light"] .button-88x31 {
+  color: #1a2233;
+  background: linear-gradient(135deg, #eef3ff, #dee8ff);
+  border-color: #b7c8ef;
+}
+
+html[data-mode="light"] .mention-card {
+  background: #f8fbff;
+  border-color: #ccd8ee;
+}
+
+html[data-mode="light"] .mention-header {
+  border-bottom-color: #ccd8ee;
+}
+
+html[data-mode="light"] .blog p {
+  color: #233a68;
+}
