@@ -8,13 +8,14 @@
   .fav {
     position: relative;
     width: 16em;
-    /*height: 20em;*/
     background-size: cover;
+    overflow: hidden;
   }
   .fav img {
     object-fit: cover;
     width: 100%;
     height: 15em;
+    display: block;
    }
   .fav h1 {
     position: absolute;
@@ -43,8 +44,9 @@
     grid-template-columns: repeat(auto-fill, 16em);
     overflow: scroll;
     scrollbar-width: none;
-    gap: 0;
+    gap: 0.5rem;
     visibility: hidden;
+    justify-content: center;
 }
   </style>
   <body>
@@ -72,112 +74,86 @@
               <main class="layout h-entry">
                 <section class="content panel">
                   <div class="crow">
-                  <!-- ben rector-->
-                  <div class = "fav">
+                    <!-- ben rector-->
+                    <div class="fav">
                       <a href=":{src/.elements/spotify.py}:(Ben Rector,artist,1)" target="_blank" class="ricon">
-    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
-  </a>
-                    <img src=":{src/.elements/spotify.py}:(Ben Rector,artist)"> </img>
-                    <h1>
-                      Ben Rector
-                    </h1>
-                  </div>
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(Ben Rector,artist)">
+                      <h1>Ben Rector</h1>
+                    </div>
                     <!-- Luminati Suns-->
-                  <div class = "fav">
-<a href=":{src/.elements/spotify.py}:(Luminati Suns,artist,1)" target="_blank" class="ricon">
-    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
-  </a>
-                    <img src=":{src/.elements/spotify.py}:(Luminati Suns,artist)"> </img>
-                    <h1>
-                      Luminati Suns
-                    </h1>
-                  </div>
-
+                    <div class="fav">
+                      <a href=":{src/.elements/spotify.py}:(Luminati Suns,artist,1)" target="_blank" class="ricon">
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(Luminati Suns,artist)">
+                      <h1>Luminati Suns</h1>
+                    </div>
                     <!-- Josiah Queen-->
-                  <div class = "fav">
+                    <div class="fav">
                       <a href=":{src/.elements/spotify.py}:(Josiah Queen,artist,1)" target="_blank" class="ricon">
-    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
-  </a>
-                    <img src=":{src/.elements/spotify.py}:(Josiah Queen,artist)"> </img>
-                    <h1>
-                      Josiah Queen
-                    </h1>
-                  </div>
-                        <!-- Owl City-->
-                  <div class = "fav">
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(Josiah Queen,artist)">
+                      <h1>Josiah Queen</h1>
+                    </div>
+                    <!-- Owl City-->
+                    <div class="fav">
                       <a href=":{src/.elements/spotify.py}:(Owl City,artist,1)" target="_blank" class="ricon">
-    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
-  </a>
-                    <img src=":{src/.elements/spotify.py}:(Owl City,artist)"> </img>
-                    <h1>
-                      Owl City
-                    </h1>
-                  </div>
-                                      <!-- Mercy Me-->
-                  <div class = "fav">
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(Owl City,artist)">
+                      <h1>Owl City</h1>
+                    </div>
+                    <!-- Mercy Me-->
+                    <div class="fav">
                       <a href=":{src/.elements/spotify.py}:(Mercy Me,artist,1)" target="_blank" class="ricon">
-    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
-  </a>
-                    <img src=":{src/.elements/spotify.py}:(Mercy Me,artist)"> </img>
-                    <h1>
-                      Mercy Me
-                    </h1>
-                  </div>
-                                           <!-- Inhale (Exhale)-->
-                  <div class = "fav">
-                      <a href=':{src/.elements/spotify.py}:(5AfoxZl8Y5VJgC9nK0DvBV,albumID,1)' target="_blank" class="ricon">
-    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
-  </a>
-                    <img src=':{src/.elements/spotify.py}:(5AfoxZl8Y5VJgC9nK0DvBV,albumID)'> </img>
-                    <h1>
-                      Inhale (Exhale)
-                    </h1>
-                       <!-- Magic-->
-                  <div class = "fav">
-                      <a href=':{src/.elements/spotify.py}:(3Mb8bYV4FKmdnmrlSYqp3j,albumID,1)' target="_blank" class="ricon">
-    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
-  </a>
-                    <img src=':{src/.elements/spotify.py}:(3Mb8bYV4FKmdnmrlSYqp3j,albumID)'> </img>
-                    <h1>
-                      Magic
-                    </h1>
-                  </div>
-                      <!-- The Prodigal (Deluxe Edition)    -->
-                  <div class = "fav">
-                      <a href=':{src/.elements/spotify.py}:(2IDUIQkIrI8EREUvVNPxm2,albumID,1)' target="_blank" class="ricon">
-    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
-  </a>
-                    <img src=':{src/.elements/spotify.py}:(2IDUIQkIrI8EREUvVNPxm2,albumID)'> </img>
-                    <h1>
-                      The Prodigal (Deluxe Edition)
-                    </h1>
-                      <!-- How We Love -->
-                  </div>
-                      <div class = "fav">
-                      <a href=':{src/.elements/spotify.py}:(0PXMY36QVuybwHDfdtDuOB,albumID,1)' target="_blank" class="ricon">
-    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
-  </a>
-                    <img src=':{src/.elements/spotify.py}:(0PXMY36QVuybwHDfdtDuOB,albumID)'> </img>
-                    <h1>
-                      How We Lvoe
-                    </h1>
-                  </div><!-- The Middle-->
-                  </div>
-                      <div class = "fav">
-                      <a href=':{src/.elements/spotify.py}:(0k79A6mTLVAwJLEnF6bZz6,albumID,1)' target="_blank" class="ricon">
-    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
-  </a>
-                    <img src=':{src/.elements/spotify.py}:(0k79A6mTLVAwJLEnF6bZz6,albumID)'> </img>
-                    <h1>
-                        The Middle
-                    </h1>
-                  </div>
-
-
-
-
-
-
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(Mercy Me,artist)">
+                      <h1>Mercy Me</h1>
+                    </div>
+                    <!-- Inhale (Exhale)-->
+                    <div class="fav">
+                      <a href=":{src/.elements/spotify.py}:(5AfoxZl8Y5VJgC9nK0DvBV,albumID,1)" target="_blank" class="ricon">
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(5AfoxZl8Y5VJgC9nK0DvBV,albumID)">
+                      <h1>Inhale (Exhale)</h1>
+                    </div>
+                    <!-- Magic-->
+                    <div class="fav">
+                      <a href=":{src/.elements/spotify.py}:(3Mb8bYV4FKmdnmrlSYqp3j,albumID,1)" target="_blank" class="ricon">
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(3Mb8bYV4FKmdnmrlSYqp3j,albumID)">
+                      <h1>Magic</h1>
+                    </div>
+                    <!-- The Prodigal (Deluxe Edition) -->
+                    <div class="fav">
+                      <a href=":{src/.elements/spotify.py}:(2IDUIQkIrI8EREUvVNPxm2,albumID,1)" target="_blank" class="ricon">
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(2IDUIQkIrI8EREUvVNPxm2,albumID)">
+                      <h1>The Prodigal (Deluxe Edition)</h1>
+                    </div>
+                    <!-- How We Love -->
+                    <div class="fav">
+                      <a href=":{src/.elements/spotify.py}:(0PXMY36QVuybwHDfdtDuOB,albumID,1)" target="_blank" class="ricon">
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(0PXMY36QVuybwHDfdtDuOB,albumID)">
+                      <h1>How We Love</h1>
+                    </div>
+                    <!-- The Middle-->
+                    <div class="fav">
+                      <a href=":{src/.elements/spotify.py}:(0k79A6mTLVAwJLEnF6bZz6,albumID,1)" target="_blank" class="ricon">
+                        <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+                      </a>
+                      <img src=":{src/.elements/spotify.py}:(0k79A6mTLVAwJLEnF6bZz6,albumID)">
+                      <h1>The Middle</h1>
+                    </div>
                   </div>
                   <div class="e-content"> </div>
                   <div style="display:none;">
