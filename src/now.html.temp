@@ -4,6 +4,23 @@
     ~{src/.elements/head.element}~
     <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
   </head>
+  <style>
+  .fav {
+    width: auto;
+    height: 20em;
+    background-size: cover;
+  }
+  .fav img {
+    object-fit: cover;
+    width: 15em;
+    height: 15em;
+   }
+  .fav h1 {
+    position: relative;
+    bottom: 1em;
+    text-wrap: nowrap;
+  }
+  </style>
   <body>
     <div class="page-wrap">
       ~{src/.elements/marquee.element}~
@@ -28,15 +45,44 @@
 
               <main class="layout h-entry">
                 <section class="content panel">
+                  <div class="content-row">
                   <!-- ben rector-->
-                  <div>
+                  <div class = "fav">
                     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Ben_Rector_%28cropped%29.jpg/500px-Ben_Rector_%28cropped%29.jpg"> </img>
                     <h1>
                       Ben Rector
                     </h1>
                   </div>
-
-                  <div class="e-content">{{ content }}</div>
+                    <!-- Luminati Suns-->
+                  <div class = "fav" style="" ID = "LSUNS">
+                    <img src=""> </img>
+                    <h1>
+                      Luminati Suns
+                    </h1>
+                  </div>
+                    <!-- Josiah Queen-->
+                  <div class = "fav">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Josiahdec2024.jpg/500px-Josiahdec2024.jpg"> </img>
+                    <h1>
+                      Josiah Queen
+                    </h1>
+                  </div>
+                        <!-- Owl City-->
+                  <div class = "fav">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Owlcity.png/500px-Owlcity.png"> </img>
+                    <h1>
+                      Owl City
+                    </h1>
+                  </div>
+                                      <!-- Mercy Me-->
+                  <div class = "fav">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/9/97/MercyMe_Band%2C_2015_%28XagSVa6xcBY%29.jpg?_=20221002004840"> </img>
+                    <h1>
+                      Mercy Me
+                    </h1>
+                  </div>
+                  </div>
+                  <div class="e-content"> </div>
                   <div style="display:none;">
                     <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
                     <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
@@ -52,7 +98,7 @@
                 </section>
               </main>
 <aside class="sidebar sidebar-left panel" id="right-sidebar">
-              {{ right sidebar }}
+  {{ right sidebar }} </aside>
             </div>
           </div>
         </div>
