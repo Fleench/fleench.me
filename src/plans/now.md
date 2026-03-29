@@ -3,11 +3,11 @@ hidden: True
 ---
 If you found this gem then cool. It will be gone when I build my now page.
 
-My now page needs to be a 1 month status update. 
+My now page needs to be a 1-month status update. 
 - My top artists, top tracks, top albums from lastfm
   - do top 5 of each
 - a current quote
-  - take from posted quotes on mastadon
+  - take from posted quotes on mastodon
 - current project(s)
   - select 3 besides website and classes
   - link music brainz or last fm page
