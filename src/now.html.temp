@@ -6,13 +6,16 @@
   </head>
   <style>
   .fav {
-    width: auto;
+    position: relative;
+    width: 16em;
     height: 20em;
     background-size: cover;
+      margin: 10px;
+      flex-shrink: 0;
   }
   .fav img {
     object-fit: cover;
-    width: 15em;
+    width: 100%;
     height: 15em;
    }
   .fav h1 {
@@ -20,6 +23,27 @@
     bottom: 1em;
     text-wrap: nowrap;
   }
+  .fav .spicon {
+    position: absolute;
+    right: 0;
+  }
+  .spicon img {
+  /* This overrides the .fav img styles for the icon specifically */
+  width: 32px !important;
+  height: 32px !important;
+  margin: 0 !important;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.spicon:hover {
+    transform: scale(1.1);
+}
+.crow {
+    display: flex;
+    flex-direction: row;
+    overflow: scroll;
+    scrollbar-width: none;
+}
   </style>
   <body>
     <div class="page-wrap">
@@ -45,38 +69,54 @@
 
               <main class="layout h-entry">
                 <section class="content panel">
-                  <div class="content-row">
+                  <div class="crow">
                   <!-- ben rector-->
                   <div class = "fav">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Ben_Rector_%28cropped%29.jpg/500px-Ben_Rector_%28cropped%29.jpg"> </img>
+                      <a href=":{src/.elements/spotify.py}:(Ben Rector,artist,1)" target="_blank" class="spicon">
+    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+  </a>
+                    <img src=":{src/.elements/spotify.py}:(Ben Rector,artist)"> </img>
                     <h1>
                       Ben Rector
                     </h1>
                   </div>
                     <!-- Luminati Suns-->
-                  <div class = "fav" style="" ID = "LSUNS">
-                    <img src=""> </img>
+                  <div class = "fav">
+<a href=":{src/.elements/spotify.py}:(Luminati Suns,artist,1)" target="_blank" class="spicon">
+    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+  </a>
+                    <img src=":{src/.elements/spotify.py}:(Luminati Suns,artist)"> </img>
                     <h1>
                       Luminati Suns
                     </h1>
                   </div>
+
                     <!-- Josiah Queen-->
                   <div class = "fav">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Josiahdec2024.jpg/500px-Josiahdec2024.jpg"> </img>
+                      <a href=":{src/.elements/spotify.py}:(Josiah Queen,artist,1)" target="_blank" class="spicon">
+    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+  </a>
+                    <img src=":{src/.elements/spotify.py}:(Josiah Queen,artist)"> </img>
                     <h1>
                       Josiah Queen
                     </h1>
                   </div>
                         <!-- Owl City-->
                   <div class = "fav">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Owlcity.png/500px-Owlcity.png"> </img>
+                      <a href=":{src/.elements/spotify.py}:(Owl City,artist,1)" target="_blank" class="spicon">
+    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+  </a>
+                    <img src=":{src/.elements/spotify.py}:(Owl City,artist)"> </img>
                     <h1>
                       Owl City
                     </h1>
                   </div>
                                       <!-- Mercy Me-->
                   <div class = "fav">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/9/97/MercyMe_Band%2C_2015_%28XagSVa6xcBY%29.jpg?_=20221002004840"> </img>
+                      <a href=":{src/.elements/spotify.py}:(Mercy Me,artist,1)" target="_blank" class="spicon">
+    <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png" alt="Listen on Spotify">
+  </a>
+                    <img src=":{src/.elements/spotify.py}:(Mercy Me,artist)"> </img>
                     <h1>
                       Mercy Me
                     </h1>
