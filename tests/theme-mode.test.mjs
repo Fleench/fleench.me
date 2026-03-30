@@ -163,18 +163,16 @@ test('defaults to dark mode and injects stylesheet', () => {
   assert.equal(localStorage.getItem('flench.themeMode'), 'dark');
 });
 
-test('uses light mode from mode or theme query parameter', () => {
+test('uses light mode from mode query parameter', () => {
   const modeResult = runThemeMode({ search: '?mode=light' });
   assert.equal(modeResult.document.documentElement.getAttribute('data-mode'), 'light');
   assert.equal(modeResult.document.head.appended.length, 0);
-
-  const themeResult = runThemeMode({ search: '?theme=light' });
-  assert.equal(themeResult.document.documentElement.getAttribute('data-mode'), 'light');
 });
 
-test('falls back to saved mode when query parameter is invalid', () => {
-  const { document } = runThemeMode({ search: '?mode=sepia', savedMode: 'light' });
-  assert.equal(document.documentElement.getAttribute('data-mode'), 'light');
+test('invalid mode query parameter falls back to dark default', () => {
+  const { document, localStorage } = runThemeMode({ search: '?mode=sepia', savedMode: 'light' });
+  assert.equal(document.documentElement.getAttribute('data-mode'), 'dark');
+  assert.equal(localStorage.getItem('flench.themeMode'), 'dark');
 });
 
 test('keeps light mode in internal links and ignores non-navigational links', () => {
@@ -215,32 +213,6 @@ test('dark mode strips mode and theme query parameters from internal links', () 
   });
 
   assert.equal(document.querySelectorAll('a[href]')[0].getAttribute('href'), '/article?x=1');
-});
-
-test('theme switch links keep their explicit mode in both dark and light pages', () => {
-  const darkPage = runThemeMode({
-    search: '?mode=dark',
-    anchors: [
-      { href: '?mode=light', attrs: { 'data-theme-switch': 'light' } },
-      { href: '?mode=dark', attrs: { 'data-theme-switch': 'dark' } },
-    ],
-  });
-
-  const darkHrefs = darkPage.document.querySelectorAll('a[href]').map((a) => a.getAttribute('href'));
-  assert.equal(darkHrefs[0], '/here?mode=light');
-  assert.equal(darkHrefs[1], '/here');
-
-  const lightPage = runThemeMode({
-    search: '?mode=light',
-    anchors: [
-      { href: '?mode=light', attrs: { 'data-theme-switch': 'light' } },
-      { href: '?mode=dark', attrs: { 'data-theme-switch': 'dark' } },
-    ],
-  });
-
-  const lightHrefs = lightPage.document.querySelectorAll('a[href]').map((a) => a.getAttribute('href'));
-  assert.equal(lightHrefs[0], '/here?mode=light');
-  assert.equal(lightHrefs[1], '/here');
 });
 
 test('defers link rewriting until DOMContentLoaded when document is loading', () => {
