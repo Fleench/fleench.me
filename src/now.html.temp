@@ -24,11 +24,12 @@
     bottom: -0.6em;
     text-wrap: auto;
       margin-top: -1.9em;
-      font-size: clamp(0.5rem, 2vw, 1rem);
+      font-size: clamp(0.5rem, 2vw, 1.35rem);
   }
   .fav .ricon {
     position: absolute;
-    right: 0;
+    right: 3px;
+    top: 3px;
     z-index: 2;
   }
 
@@ -58,7 +59,7 @@
   }
   .ricon img {
   /* This overrides the .fav img styles for the icon specifically */
-  width: 32px !important;
+  width: auto !important;
   height: 32px !important;
   margin: 0 !important;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
@@ -106,6 +107,7 @@
               <main class="layout h-entry">
                 <section class="content panel">
                   <div class="crow" id ="crow">
+                     <!-- MUSIC FAVS -->
                     <!-- ben rector-->
                     <div class="fav" data-href=":{src/.elements/spotify.py}:(Ben Rector,artist,1)">
                       <a href=":{src/.elements/spotify.py}:(Ben Rector,artist,1)" target="_blank" class="ricon">
@@ -232,9 +234,28 @@
                       <h1>note to self (Acoustic Version)</h1>
                       <span class="fav-cta">View on Spotify</span>
                     </div>
-                  </div>
+                    <!-- TV FAVS -->
+                    <!-- The Rookie-->
+                    <div class="fav" data-href="https://www.themoviedb.org/tv/79744-the-rookie">
+                      <a href="https://www.themoviedb.org/tv/79744-the-rookie" target="_blank" class="ricon">
+                        <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="Listen on Spotify">
+                      </a>
+                      <img src="https://media.themoviedb.org/t/p/w440_and_h660_face/70kTz0OmjjZe7zHvIDrq2iKW7PJ.jpg">
+                      <h1></h1>
+                      <span class="fav-cta">View on TMDB</span>
+                    </div>
+                    <!-- The Neighborhood-->
+                    <div class="fav" data-href="https://www.themoviedb.org/tv/79744-the-rookie">
+                      <a href="https://www.themoviedb.org/tv/79744-the-rookie" target="_blank" class="ricon">
+                        <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="Listen on Spotify">
+                      </a>
+                      <img src="https://media.themoviedb.org/t/p/w440_and_h660_face/lO4tP5y1iwCSWeeetcJhiRzn9C8.jpg">
+                      <h1>The Neighborhood</h1>
+                      <span class="fav-cta">View on TMDB</span>
+                    </div>
 
                   </div>
+
                   <div class="e-content"> </div>
                   <div style="display:none;">
                     <a class="u-url p-name" href="{{ output }}">{{ title }}</a>

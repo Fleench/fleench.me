@@ -1,4 +1,5 @@
 ---
-template: src/now.html.temp
+template: src/replace.html.temp
+location: "/now"
 ---
-oh
+shucks
