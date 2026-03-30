@@ -1,12 +1,12 @@
 :root {
-  --bg: #050505;
-  --bg-shade: #0d0d0d;
-  --panel-bg: #111;
-  --panel-border: #2a2a2a;
-  --text: #e8e8e8;
-  --muted-text: #a8a8a8;
-  --accent: #f0f0f0;
-  --warning: #d4d4d4;
+  --bg: #f3f4f7;
+  --bg-shade: #ffffff;
+  --panel-bg: #ffffff;
+  --panel-border: #cbd2de;
+  --text: #1a2233;
+  --muted-text: #4a5a73;
+  --accent: #0f3d91;
+  --warning: #7a3e00;
 }
 
 * {
@@ -19,8 +19,8 @@ body {
   font-family: "Trebuchet MS", "Verdana", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top, #171717 0%, transparent 45%),
-    radial-gradient(circle at bottom, #101010 0%, transparent 55%),
+    radial-gradient(circle at top, #ffffff 0%, transparent 45%),
+    radial-gradient(circle at bottom, #e8edf7 0%, transparent 55%),
     linear-gradient(180deg, var(--bg-shade), var(--bg));
 }
 
@@ -32,12 +32,12 @@ body {
 .panel {
   background: var(--panel-bg);
   border: 2px solid var(--panel-border);
-  box-shadow: 0 0 0 1px #000, 0 10px 22px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0 0 1px #e2e6ef, 0 10px 22px rgba(41, 57, 91, 0.14);
   padding: 1rem;
 }
 
 .marquee-frame {
-  background: #0b0b0b;
+  background: #f8faff;
   color: var(--warning);
   font-weight: 700;
   margin-bottom: 1rem;
@@ -62,10 +62,10 @@ body {
 .top-nav a {
   display: inline-block;
   padding: 0.45rem 0.85rem;
-  border: 1px solid #3a3a3a;
+  border: 1px solid #c3cddd;
   color: var(--text);
   text-decoration: none;
-  background: #0b0b0b;
+  background: #f8faff;
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.8rem;
@@ -134,7 +134,7 @@ h2,
 h3 {
   margin-top: 0;
   font-family: "Courier New", monospace;
-  text-shadow: 1px 1px 0 #000;
+  text-shadow: none;
 }
 
 h1 {
@@ -142,11 +142,11 @@ h1 {
 }
 
 a {
-  color: #cfcfcf;
+  color: #1c4aa6;
 }
 
 a:hover {
-  color: #fff;
+  color: #0a2f73;
 }
 
 .content ul {
@@ -180,9 +180,9 @@ a:hover {
   width: 88px;
   height: 31px;
   font-size: 0.7rem;
-  color: #fff;
-  background: linear-gradient(135deg, #1a1a1a, #050505);
-  border: 1px solid #474747;
+  color: #1a2233;
+  background: linear-gradient(135deg, #eef3ff, #dee8ff);
+  border: 1px solid #b7c8ef;
   text-transform: uppercase;
   text-align: center;
   font-weight: 700;
@@ -213,8 +213,8 @@ a:hover {
 }
 
 .mention-card {
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: #f8fbff;
+  border: 1px solid #ccd8ee;
   padding: 0.75rem;
   margin-bottom: 0.75rem;
 }
@@ -225,7 +225,7 @@ a:hover {
   gap: 0.5rem;
   font-size: 0.8rem;
   margin-bottom: 0.5rem;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid #ccd8ee;
   padding-bottom: 0.5rem;
 }
 
@@ -339,80 +339,19 @@ img {
 .blog p {
 	line-height: 1.5;
 	font-size: 17px;
-	color: #ddeefe;
+	color: #233a68;
 }
 .mobile-nav a {
   display: inline-block;
   /*padding: 0.45rem 0.85rem;*/
-  border: 1px solid #3a3a3a;
+  border: 1px solid #c3cddd;
   color: var(--text);
   text-decoration: none;
-  background: #0b0b0b;
+  background: #f8faff;
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.8rem;
   letter-spacing: 0.4px;
   width: 100%;
   text-align: center;
-}
-html[data-mode="light"] {
-  --bg: #f3f4f7;
-  --bg-shade: #ffffff;
-  --panel-bg: #ffffff;
-  --panel-border: #cbd2de;
-  --text: #1a2233;
-  --muted-text: #4a5a73;
-  --accent: #0f3d91;
-  --warning: #7a3e00;
-}
-
-html[data-mode="light"] body {
-  background:
-    radial-gradient(circle at top, #ffffff 0%, transparent 45%),
-    radial-gradient(circle at bottom, #e8edf7 0%, transparent 55%),
-    linear-gradient(180deg, var(--bg-shade), var(--bg));
-}
-
-html[data-mode="light"] .panel {
-  box-shadow: 0 0 0 1px #e2e6ef, 0 10px 22px rgba(41, 57, 91, 0.14);
-}
-
-html[data-mode="light"] .marquee-frame,
-html[data-mode="light"] .top-nav a,
-html[data-mode="light"] .mobile-nav a {
-  background: #f8faff;
-  border-color: #c3cddd;
-}
-
-html[data-mode="light"] h1,
-html[data-mode="light"] h2,
-html[data-mode="light"] h3 {
-  text-shadow: none;
-}
-
-html[data-mode="light"] a {
-  color: #1c4aa6;
-}
-
-html[data-mode="light"] a:hover {
-  color: #0a2f73;
-}
-
-html[data-mode="light"] .button-88x31 {
-  color: #1a2233;
-  background: linear-gradient(135deg, #eef3ff, #dee8ff);
-  border-color: #b7c8ef;
-}
-
-html[data-mode="light"] .mention-card {
-  background: #f8fbff;
-  border-color: #ccd8ee;
-}
-
-html[data-mode="light"] .mention-header {
-  border-bottom-color: #ccd8ee;
-}
-
-html[data-mode="light"] .blog p {
-  color: #233a68;
 }

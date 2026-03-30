@@ -1,13 +1,17 @@
 (function () {
   const params = new URLSearchParams(window.location.search);
   const requestedMode = (params.get('mode') || params.get('theme') || '').toLowerCase();
-  const isLightMode = requestedMode === 'light';
+  const isDarkMode = requestedMode === 'dark';
 
-  if (!isLightMode) {
-    return;
+  if (isDarkMode) {
+    document.documentElement.setAttribute('data-mode', 'dark');
+
+    const darkStylesheet = document.createElement('link');
+    darkStylesheet.rel = 'stylesheet';
+    darkStylesheet.href = '/dark.css';
+    darkStylesheet.setAttribute('data-theme-stylesheet', 'dark');
+    document.head.appendChild(darkStylesheet);
   }
-
-  document.documentElement.setAttribute('data-mode', 'light');
 
   const keepModeInInternalLinks = () => {
     const anchors = document.querySelectorAll('a[href]');
@@ -29,8 +33,13 @@
         return;
       }
 
-      if (!url.searchParams.has('mode') && !url.searchParams.has('theme')) {
-        url.searchParams.set('mode', 'light');
+      if (isDarkMode) {
+        if (!url.searchParams.has('mode') && !url.searchParams.has('theme')) {
+          url.searchParams.set('mode', 'dark');
+        }
+      } else {
+        url.searchParams.delete('mode');
+        url.searchParams.delete('theme');
       }
 
       const newHref = href.startsWith('http') ? url.toString() : `${url.pathname}${url.search}${url.hash}`;
