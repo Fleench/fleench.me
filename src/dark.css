@@ -1,0 +1,62 @@
+:root,
+html[data-mode="dark"] {
+  --bg: #050505;
+  --bg-shade: #0d0d0d;
+  --panel-bg: #111;
+  --panel-border: #2a2a2a;
+  --text: #e8e8e8;
+  --muted-text: #a8a8a8;
+  --accent: #f0f0f0;
+  --warning: #d4d4d4;
+}
+
+html[data-mode="dark"] body {
+  background:
+    radial-gradient(circle at top, #171717 0%, transparent 45%),
+    radial-gradient(circle at bottom, #101010 0%, transparent 55%),
+    linear-gradient(180deg, var(--bg-shade), var(--bg));
+}
+
+html[data-mode="dark"] .panel {
+  box-shadow: 0 0 0 1px #000, 0 10px 22px rgba(0, 0, 0, 0.45);
+}
+
+html[data-mode="dark"] .marquee-frame,
+html[data-mode="dark"] .top-nav a,
+html[data-mode="dark"] .mobile-nav a {
+  background: #0b0b0b;
+  border-color: #3a3a3a;
+}
+
+html[data-mode="dark"] h1,
+html[data-mode="dark"] h2,
+html[data-mode="dark"] h3 {
+  text-shadow: 1px 1px 0 #000;
+}
+
+html[data-mode="dark"] a {
+  color: #cfcfcf;
+}
+
+html[data-mode="dark"] a:hover {
+  color: #fff;
+}
+
+html[data-mode="dark"] .button-88x31 {
+  color: #fff;
+  background: linear-gradient(135deg, #1a1a1a, #050505);
+  border-color: #474747;
+}
+
+html[data-mode="dark"] .mention-card {
+  background: #1a1a1a;
+  border-color: #333;
+}
+
+html[data-mode="dark"] .mention-header {
+  border-bottom-color: #333;
+}
+
+html[data-mode="dark"] .blog p {
+  color: #ddeefe;
+}
