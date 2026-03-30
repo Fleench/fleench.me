@@ -3,14 +3,10 @@
   const VISITS_STORAGE_KEY = 'flench.pageVisits';
 
   const params = new URLSearchParams(window.location.search);
-  const requestedMode = (params.get('mode') || params.get('theme') || '').toLowerCase();
-  const savedMode = (localStorage.getItem(THEME_STORAGE_KEY) || '').toLowerCase();
-
+  const requestedMode = (params.get('mode') || '').toLowerCase();
   let activeMode = 'dark';
   if (requestedMode === 'light' || requestedMode === 'dark') {
     activeMode = requestedMode;
-  } else if (savedMode === 'light' || savedMode === 'dark') {
-    activeMode = savedMode;
   }
 
   const isLightMode = activeMode === 'light';
@@ -78,14 +74,7 @@
         return;
       }
 
-      const themeSwitchMode = (anchor.getAttribute('data-theme-switch') || '').toLowerCase();
-      if (themeSwitchMode === 'light' || themeSwitchMode === 'dark') {
-        url.searchParams.delete('mode');
-        url.searchParams.delete('theme');
-        if (themeSwitchMode === 'light') {
-          url.searchParams.set('mode', 'light');
-        }
-      } else if (isLightMode) {
+      if (isLightMode) {
         url.searchParams.delete('theme');
         url.searchParams.set('mode', 'light');
       } else {
