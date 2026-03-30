@@ -5,4 +5,6 @@
               <a href="/notes/">Notes</a>
               <a href="/blogs/">Blogs</a>
               <a href="/about">About me</a>
+              <a href="?mode=light">Light mode</a>
+              <a href="?mode=dark">Dark mode</a>
 </nav>
