@@ -1,7 +1,8 @@
 (function () {
   const params = new URLSearchParams(window.location.search);
   const requestedMode = (params.get('mode') || params.get('theme') || '').toLowerCase();
-  const isDarkMode = requestedMode === 'dark';
+  const isLightMode = requestedMode === 'light';
+  const isDarkMode = !isLightMode;
 
   if (isDarkMode) {
     document.documentElement.setAttribute('data-mode', 'dark');
@@ -11,6 +12,8 @@
     darkStylesheet.href = '/dark.css';
     darkStylesheet.setAttribute('data-theme-stylesheet', 'dark');
     document.head.appendChild(darkStylesheet);
+  } else {
+    document.documentElement.setAttribute('data-mode', 'light');
   }
 
   const keepModeInInternalLinks = () => {
@@ -33,10 +36,8 @@
         return;
       }
 
-      if (isDarkMode) {
-        if (!url.searchParams.has('mode') && !url.searchParams.has('theme')) {
-          url.searchParams.set('mode', 'dark');
-        }
+      if (isLightMode) {
+        url.searchParams.set('mode', 'light');
       } else {
         url.searchParams.delete('mode');
         url.searchParams.delete('theme');
