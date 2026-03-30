@@ -69,7 +69,7 @@
 
       let url;
       try {
-        url = new URL(href, window.location.origin);
+        url = new URL(href, window.location.href);
       } catch (_error) {
         return;
       }
@@ -78,7 +78,15 @@
         return;
       }
 
-      if (isLightMode) {
+      const themeSwitchMode = (anchor.getAttribute('data-theme-switch') || '').toLowerCase();
+      if (themeSwitchMode === 'light' || themeSwitchMode === 'dark') {
+        url.searchParams.delete('mode');
+        url.searchParams.delete('theme');
+        if (themeSwitchMode === 'light') {
+          url.searchParams.set('mode', 'light');
+        }
+      } else if (isLightMode) {
+        url.searchParams.delete('theme');
         url.searchParams.set('mode', 'light');
       } else {
         url.searchParams.delete('mode');
