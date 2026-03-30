@@ -105,7 +105,7 @@
 
               <main class="layout h-entry">
                 <section class="content panel">
-                  <div class="crow">
+                  <div class="crow" id ="crow">
                     <!-- ben rector-->
                     <div class="fav" data-href=":{src/.elements/spotify.py}:(Ben Rector,artist,1)">
                       <a href=":{src/.elements/spotify.py}:(Ben Rector,artist,1)" target="_blank" class="ricon">
@@ -309,7 +309,24 @@
     card.setAttribute('role', 'link');
     card.setAttribute('tabindex', '0');
   });
+  resz()
   };
+    function resz() {
+  crow =document.getElementById("crow")
+    scrow = window.getComputedStyle(crow)
+      crow.style.width = "auto"
+  x = scrow.gridTemplateColumns.split(" ")
+    y = 0;
+    for (const item in x) {
+      console.log(x[0].substring(0, x.length - 2))
+      y+=parseInt(x[0].substring(0, x[0].length-2),10)
+      console.log("TIS Y: " + y)
+    }
+    crow.style.width = y + "px";
+    console.log(scrow.gridTemplateColumns)
+    console.log(x)
+    console.log(scrow.width)}
+  window.onresize = resz
 </script>
   </body>
 </html>
