@@ -1,5 +1,6 @@
 # {} ---{}---{}---changes
 - #### [View roadmap](/todo)
+- **<2026-Mar-31>** --- Add a last built tracker to the footer
 - **<2026-Mar-31>** --- Changed the nav bar to cover the width of the page on all pages.
 - **<2026-Mar-29>** --- Published my now Page and Site Map
 - **<2026-Mar-26>** --- Added a surprise

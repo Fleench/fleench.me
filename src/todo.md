@@ -4,7 +4,6 @@
 - Create section for my games
 - Make favicon
 - use local data to track visited sites in the sitemap
-- add a last built tracker
 - add in achievements
 # Backend Build Features
 - Update CMS bot to allow me to easily edit the todo list as I get ideas
