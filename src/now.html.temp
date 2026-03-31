@@ -99,13 +99,15 @@
               Toggle sidebar
             </button>
 
-            ~{src/.elements/nav.element}~
+
+              ~{src/.elements/nav.element}~
 
             <div class="content-row">
               <aside class="sidebar sidebar-left panel" id="left-sidebar">{{ left sidebar }}</aside>
 
               <main class="layout h-entry">
                 <section class="content panel">
+
                   <div class="crow" id ="crow">
                      <!-- MUSIC FAVS -->
                     <!-- ben rector-->
@@ -255,7 +257,6 @@
                     </div>
 
                   </div>
-
                   <div class="e-content"> </div>
                   <div style="display:none;">
                     <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
@@ -267,7 +268,9 @@
                 </section>
 
                 <section class="main-extras">
+                  <a href="/plans/now">
                   <div id="webmentions"></div>
+                  </a>
                    ~{src/.elements/footer.element}~
                 </section>
               </main>
