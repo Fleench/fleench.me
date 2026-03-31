@@ -1,6 +1,7 @@
 # {} ---{}---{}---changes
 - #### [View roadmap](/todo)
-- **<2026-Mar-30>** --- Published my now Page and Site Map
+- **<2026-Mar-31>** --- Changed the nav bar to cover the width of the page on all pages.
+- **<2026-Mar-29>** --- Published my now Page and Site Map
 - **<2026-Mar-26>** --- Added a surprise
 - **<2026-Mar-26>** --- Added an atabook guestbook to the guestbook page
 - **<2026-Mar-24>** --- Added about the author to my blog pages
