@@ -55,7 +55,7 @@ def main(**config):
                 if n_node:
                     cur_node = n_node
                 else:
-                    n_node = Node(part, "https://flench.me"+"/".join(used_parts), parent = cur_node)
+                    n_node = Node(part, "/".join(used_parts), parent = cur_node)
                     cur_node.add_child(n_node)
                     cur_node = n_node
     print("PRINTING NODES")
