@@ -12,7 +12,9 @@
     <link rel="pingback" href="https://webmention.io/flench.me/xmlrpc" />
     <script src="/layout.js" defer></script>
     <script src="/mentions.js" defer></script>
-  </head>
+    <link rel="stylesheet" href="https://poempuppy.neocities.org/webring/onionring.css">
+
+</head>
   <body>
     <div class="page-wrap">
       ~{src/.elements/marquee.element}~
@@ -56,6 +58,10 @@
                 <section class="content panel">
                   <div class="e-content">
                    {{ content }}
+<div id='apple-webring' data-apple="red">
+    <script type="text/javascript" src="https://poempuppy.neocities.org/webring/onionring-variables.js"></script>
+    <script type="text/javascript" src="https://poempuppy.neocities.org/webring/onionring-widget.js"></script>
+</div>
                   </div>
                   <div style="display:none;">
                     <a class="u-url p-name" href="/">Home</a>
