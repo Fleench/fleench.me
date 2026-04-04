@@ -355,3 +355,11 @@ img {
   width: 100%;
   text-align: center;
 }
+code {
+  background: #1a1a1a;
+  overflow: scroll;
+  width: 100%;
+  display: block;
+  scrollbar-width: thin;
+  scroll-behavior: smooth;
+}

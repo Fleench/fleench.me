@@ -80,8 +80,9 @@
               <h1>
               Add my button
               </h1>
-              <p>Download the provided gif and then when adding it please link to https://flench.me</p>
+              <p>Please copy the code below to add my button</p>
               <a href="https://flench.me"><image src="/theme/button.gif"></image></a>
+                  {{ button }}
               </aside>
             </div>
           </div>
