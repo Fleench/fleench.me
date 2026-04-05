@@ -1,3 +1,7 @@
+---
+template: src/ai.html.temp
+---
+
 # AI Policies
 I have a love hate relationship with AI. As a technology I think it is so cool but as a content creator I don't like the way it is used to replace content. That is why I aam creating this page. A way to share how AI will be used in the creation of my website.
 
