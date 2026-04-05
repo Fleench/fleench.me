@@ -352,31 +352,41 @@ class Page:
         return self.md_file.stem.replace("-", " ").replace("_", " ").title()
 
     def prep_template(self) -> None:
-        self.parsed = parse_frontmatter(self.md_file.read_text(encoding="utf-8"))
+        self.parsed = parse_frontmatter(self.md_file.read_text(encoding='utf-8'))
         
-        # New: Check for 'extends'
-        parent_template = self.parsed.metadata.get("extends")
+        parent_template = self.parsed.metadata.get('extends')
         if parent_template:
-            # Load parent
             parent_path = Path.cwd() / Path(str(parent_template))
-            parent_text = parent_path.read_text(encoding="utf-8")
+            parent_text = parent_path.read_text(encoding='utf-8')
             
-            # Load current (as child)
-            child_text = self.parsed.body
-            
-            # Merge child blocks into parent
-            self.template_text = self.apply_blocks(parent_text) # Simplified merge
-            # In a full impl, we'd replace named placeholders. 
-            # For now, let's implement block-based injection.
-            
-            # (Actual logic will replace parent's ~{block NAME}~ with child's ~{block NAME}~ content)
-            
-            # Let's perform a simpler recursive inject_elements first.
+            def replacer(match):
+                block_name = match.group('name')
+                block_content = match.group('content')
+                nonlocal parent_text
+                # Replace the placeholder block in the parent
+                parent_text = re.sub(rf'~\{{block {block_name}\}}~.*?~\{{endblock\}}~', 
+                                    f'~{{block {block_name}}}~{block_content}~{{endblock}}~', 
+                                    parent_text, flags=re.DOTALL)
+                return ''
+
+            re.sub(r'~\{block (?P<name>\w+)\}~(?P<content>.*?)~\{endblock\}~', replacer, self.parsed.body, flags=re.DOTALL)
+            self.template_text = parent_text
+            self.template_path = parent_path
             
         elif self.custom_template_set:
-            selected_template = self.template_path
+            self.template_text = self.template_path.read_text(encoding='utf-8')
         else:
-            selected_template = self.parsed.metadata.get("template")
+            selected_template = self.parsed.metadata.get('template')
+            if selected_template:
+                template_path = Path.cwd() / Path(str(selected_template))
+            elif self.md_file.is_relative_to(self.src_dir / 'notes'):
+                template_path = Path.cwd() / self.src_dir / 'note.html.temp'
+            else:
+                template_path = self.default_template
+            
+            self.template_path = template_path
+            self.template_text = template_path.read_text(encoding='utf-8') if template_path.exists() else self.default_template_text
+
 
     def parse_content(self) -> None:
         groups = self.parsed.body.split("\n# ")
@@ -419,11 +429,16 @@ class Page:
         self.body = body
         self.locs = locs
 
+    def derive_path(self) -> None:
+        self.output_path = clean_output_path(self.md_file, self.src_dir, self.out_dir)
+        self.output_path.parent.mkdir(parents=True, exist_ok=True)
+        self.rel_url = "/" + self.output_path.relative_to(self.out_dir).as_posix()
+        if self.rel_url.endswith("/index.html"):
+            self.rel_url = self.rel_url[: -len("index.html")]
+        site_url = str(self.config.get("site_url", "https://flench.me")).rstrip("/")
+        self.canonical = f"{site_url}{self.rel_url}"
+
     # NEW BLOCK-BASED TEMPLATING
-    # Let's add a mechanism for parsing 'extends' and blocks.
-    # In 'derive_path', we need to check for 'extends' metadata.
-    # The 'Page' class already parses metadata.
-    
     def apply_blocks(self, template_text: str) -> str:
         # Simple block replacement: ~{block NAME}~content~{endblock}~
         pattern = re.compile(r"~\{block (?P<name>\w+)\}~(?P<content>.*?)~\{endblock\}~", re.DOTALL)
@@ -435,14 +450,6 @@ class Page:
             return content
         
         return pattern.sub(replacement, template_text)
-
-        self.output_path = clean_output_path(self.md_file, self.src_dir, self.out_dir)
-        self.output_path.parent.mkdir(parents=True, exist_ok=True)
-        self.rel_url = "/" + self.output_path.relative_to(self.out_dir).as_posix()
-        if self.rel_url.endswith("/index.html"):
-            self.rel_url = self.rel_url[: -len("index.html")]
-        site_url = str(self.config.get("site_url", "https://flench.me")).rstrip("/")
-        self.canonical = f"{site_url}{self.rel_url}"
 
     def write(self) -> None:
         escaped_meta = {k: html.escape(str(v)) for k, v in self.parsed.metadata.items()}
