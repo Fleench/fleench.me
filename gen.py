@@ -352,21 +352,41 @@ class Page:
         return self.md_file.stem.replace("-", " ").replace("_", " ").title()
 
     def prep_template(self) -> None:
-        self.parsed = parse_frontmatter(self.md_file.read_text(encoding="utf-8"))
-        if self.custom_template_set:
-            selected_template = self.template_path
+        self.parsed = parse_frontmatter(self.md_file.read_text(encoding='utf-8'))
+        
+        parent_template = self.parsed.metadata.get('extends')
+        if parent_template:
+            parent_path = Path.cwd() / Path(str(parent_template))
+            parent_text = parent_path.read_text(encoding='utf-8')
+            
+            def replacer(match):
+                block_name = match.group('name')
+                block_content = match.group('content')
+                nonlocal parent_text
+                # Replace the placeholder block in the parent
+                parent_text = re.sub(rf'~\{{block {block_name}\}}~.*?~\{{endblock\}}~', 
+                                    f'~{{block {block_name}}}~{block_content}~{{endblock}}~', 
+                                    parent_text, flags=re.DOTALL)
+                return ''
+
+            re.sub(r'~\{block (?P<name>\w+)\}~(?P<content>.*?)~\{endblock\}~', replacer, self.parsed.body, flags=re.DOTALL)
+            self.template_text = parent_text
+            self.template_path = parent_path
+            
+        elif self.custom_template_set:
+            self.template_text = self.template_path.read_text(encoding='utf-8')
         else:
-            selected_template = self.parsed.metadata.get("template")
-        if selected_template:
-            template_path = Path(str(selected_template))
-        elif self.md_file.is_relative_to(self.src_dir / "notes"):
-            template_path = Path.cwd() / self.src_dir / "note.html.temp"
-        else:
-            template_path = self.default_template
-        if not template_path.is_absolute():
-            template_path = Path.cwd() / template_path
-        self.template_path = template_path
-        self.template_text = template_path.read_text(encoding="utf-8") if template_path.exists() else self.default_template_text
+            selected_template = self.parsed.metadata.get('template')
+            if selected_template:
+                template_path = Path.cwd() / Path(str(selected_template))
+            elif self.md_file.is_relative_to(self.src_dir / 'notes'):
+                template_path = Path.cwd() / self.src_dir / 'note.html.temp'
+            else:
+                template_path = self.default_template
+            
+            self.template_path = template_path
+            self.template_text = template_path.read_text(encoding='utf-8') if template_path.exists() else self.default_template_text
+
 
     def parse_content(self) -> None:
         groups = self.parsed.body.split("\n# ")
@@ -417,6 +437,19 @@ class Page:
             self.rel_url = self.rel_url[: -len("index.html")]
         site_url = str(self.config.get("site_url", "https://flench.me")).rstrip("/")
         self.canonical = f"{site_url}{self.rel_url}"
+
+    # NEW BLOCK-BASED TEMPLATING
+    def apply_blocks(self, template_text: str) -> str:
+        # Simple block replacement: ~{block NAME}~content~{endblock}~
+        pattern = re.compile(r"~\{block (?P<name>\w+)\}~(?P<content>.*?)~\{endblock\}~", re.DOTALL)
+        
+        def replacement(match):
+            name = match.group("name")
+            content = match.group("content")
+            # Replace placeholder in parent template
+            return content
+        
+        return pattern.sub(replacement, template_text)
 
     def write(self) -> None:
         escaped_meta = {k: html.escape(str(v)) for k, v in self.parsed.metadata.items()}
