@@ -353,20 +353,30 @@ class Page:
 
     def prep_template(self) -> None:
         self.parsed = parse_frontmatter(self.md_file.read_text(encoding="utf-8"))
-        if self.custom_template_set:
+        
+        # New: Check for 'extends'
+        parent_template = self.parsed.metadata.get("extends")
+        if parent_template:
+            # Load parent
+            parent_path = Path.cwd() / Path(str(parent_template))
+            parent_text = parent_path.read_text(encoding="utf-8")
+            
+            # Load current (as child)
+            child_text = self.parsed.body
+            
+            # Merge child blocks into parent
+            self.template_text = self.apply_blocks(parent_text) # Simplified merge
+            # In a full impl, we'd replace named placeholders. 
+            # For now, let's implement block-based injection.
+            
+            # (Actual logic will replace parent's ~{block NAME}~ with child's ~{block NAME}~ content)
+            
+            # Let's perform a simpler recursive inject_elements first.
+            
+        elif self.custom_template_set:
             selected_template = self.template_path
         else:
             selected_template = self.parsed.metadata.get("template")
-        if selected_template:
-            template_path = Path(str(selected_template))
-        elif self.md_file.is_relative_to(self.src_dir / "notes"):
-            template_path = Path.cwd() / self.src_dir / "note.html.temp"
-        else:
-            template_path = self.default_template
-        if not template_path.is_absolute():
-            template_path = Path.cwd() / template_path
-        self.template_path = template_path
-        self.template_text = template_path.read_text(encoding="utf-8") if template_path.exists() else self.default_template_text
 
     def parse_content(self) -> None:
         groups = self.parsed.body.split("\n# ")
@@ -409,7 +419,23 @@ class Page:
         self.body = body
         self.locs = locs
 
-    def derive_path(self) -> None:
+    # NEW BLOCK-BASED TEMPLATING
+    # Let's add a mechanism for parsing 'extends' and blocks.
+    # In 'derive_path', we need to check for 'extends' metadata.
+    # The 'Page' class already parses metadata.
+    
+    def apply_blocks(self, template_text: str) -> str:
+        # Simple block replacement: ~{block NAME}~content~{endblock}~
+        pattern = re.compile(r"~\{block (?P<name>\w+)\}~(?P<content>.*?)~\{endblock\}~", re.DOTALL)
+        
+        def replacement(match):
+            name = match.group("name")
+            content = match.group("content")
+            # Replace placeholder in parent template
+            return content
+        
+        return pattern.sub(replacement, template_text)
+
         self.output_path = clean_output_path(self.md_file, self.src_dir, self.out_dir)
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
         self.rel_url = "/" + self.output_path.relative_to(self.out_dir).as_posix()
