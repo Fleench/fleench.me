@@ -129,6 +129,20 @@ def _resolve_element_file(raw_path: str, template_path: Path) -> Path | None:
     return None
 
 
+def _resolve_template_file(raw_path: str, current_template_path: Path) -> Path | None:
+    candidate = Path(raw_path)
+    search_paths: list[Path] = []
+    if candidate.is_absolute():
+        search_paths.append(candidate)
+    else:
+        search_paths.append(current_template_path.parent / candidate)
+        search_paths.append(Path.cwd() / candidate)
+    for path in search_paths:
+        if path.exists() and path.is_file():
+            return path
+    return None
+
+
 def _run_dynamic_element(path: Path, render_context: dict[str, Any]) -> str:
     LOGGER.debug("Loading dynamic module: %s", path.name)
     module_name = f"_gen2_dynamic_{hash(path.resolve()) & 0xFFFFFFFF:x}_{path.stat().st_mtime_ns}"
@@ -351,6 +365,63 @@ class Page:
             return "Home"
         return self.md_file.stem.replace("-", " ").replace("_", " ").title()
 
+    @staticmethod
+    def _parse_template_meta(template_text: str) -> dict[str, str]:
+        meta_match = re.search(r"<!--\s*meta start\s*-->(?P<meta>.*?)<!--\s*meta end\s*-->", template_text, flags=re.DOTALL | re.IGNORECASE)
+        if not meta_match:
+            return {}
+        meta_raw = meta_match.group("meta")
+        meta: dict[str, str] = {}
+        for line in meta_raw.splitlines():
+            cleaned = line.strip().strip("<!--").strip("-->").strip()
+            if not cleaned or ":" not in cleaned:
+                continue
+            key, value = cleaned.split(":", 1)
+            meta[key.strip()] = value.strip()
+        return meta
+
+    @staticmethod
+    def _remove_template_meta(template_text: str) -> str:
+        return re.sub(
+            r"<!--\s*meta start\s*-->.*?<!--\s*meta end\s*-->",
+            "",
+            template_text,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+
+    @staticmethod
+    def _extract_blocks(template_text: str) -> dict[str, str]:
+        pattern = re.compile(r"~\{block (?P<name>\w+)\}~(?P<content>.*?)~\{endblock\}~", re.DOTALL)
+        return {m.group("name"): m.group("content") for m in pattern.finditer(template_text)}
+
+    @staticmethod
+    def _merge_blocks(parent_text: str, overrides: dict[str, str]) -> str:
+        def replacement(match: re.Match[str]) -> str:
+            name = match.group("name")
+            existing = match.group("content")
+            content = overrides.get(name, existing)
+            return f"~{{block {name}}}~{content}~{{endblock}}~"
+
+        pattern = re.compile(r"~\{block (?P<name>\w+)\}~(?P<content>.*?)~\{endblock\}~", re.DOTALL)
+        return pattern.sub(replacement, parent_text)
+
+    def _load_template_with_inheritance(self, template_path: Path) -> tuple[Path, str]:
+        raw_text = template_path.read_text(encoding="utf-8")
+        meta = self._parse_template_meta(raw_text)
+        extends_path = meta.get("extends", "")
+        child_text = self._remove_template_meta(raw_text)
+
+        if not extends_path:
+            return template_path, child_text
+
+        parent_path = _resolve_template_file(extends_path, template_path)
+        if parent_path is None:
+            return template_path, child_text
+        resolved_parent_path, parent_text = self._load_template_with_inheritance(parent_path)
+        child_blocks = self._extract_blocks(child_text)
+        merged = self._merge_blocks(parent_text, child_blocks)
+        return resolved_parent_path, merged
+
     def prep_template(self) -> None:
         self.parsed = parse_frontmatter(self.md_file.read_text(encoding='utf-8'))
         
@@ -374,18 +445,32 @@ class Page:
             self.template_path = parent_path
             
         elif self.custom_template_set:
-            self.template_text = self.template_path.read_text(encoding='utf-8')
+            self.template_path, self.template_text = self._load_template_with_inheritance(self.template_path)
         else:
             selected_template = self.parsed.metadata.get('template')
             if selected_template:
-                template_path = Path.cwd() / Path(str(selected_template))
+                raw_selected = Path(str(selected_template))
+                candidates = []
+                if raw_selected.is_absolute():
+                    candidates.append(raw_selected)
+                else:
+                    candidates.extend([
+                        self.md_file.parent / raw_selected,
+                        self.src_dir.parent / raw_selected,
+                        Path.cwd() / raw_selected,
+                    ])
+                existing = next((candidate for candidate in candidates if candidate.exists() and candidate.is_file()), None)
+                template_path = existing if existing is not None else (Path.cwd() / raw_selected)
             elif self.md_file.is_relative_to(self.src_dir / 'notes'):
-                template_path = Path.cwd() / self.src_dir / 'note.html.temp'
+                template_path = self.src_dir / 'note.html.temp'
             else:
                 template_path = self.default_template
             
             self.template_path = template_path
-            self.template_text = template_path.read_text(encoding='utf-8') if template_path.exists() else self.default_template_text
+            if template_path.exists():
+                self.template_path, self.template_text = self._load_template_with_inheritance(template_path)
+            else:
+                self.template_text = self.default_template_text
 
 
     def parse_content(self) -> None:
@@ -473,6 +558,7 @@ class Page:
                 "opages": self.opages,
             },
         )
+        self.template_text = self.apply_blocks(self.template_text)
         self.rendered_html = render_template(self.template_text, context)
         self.output_path.write_text(self.rendered_html, encoding="utf-8")
 
