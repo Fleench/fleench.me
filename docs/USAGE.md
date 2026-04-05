@@ -77,3 +77,15 @@ When you run `/note` or `/reply`, you do **not** need to manually run build or G
 - Webmention queue publishing
 
 So your workflow stays focused on writing content in Discord.
+
+## Template authoring (subtemplates)
+
+You can choose a page template in Markdown frontmatter:
+
+```yaml
+---
+template: src/blog.html.temp
+---
+```
+
+Templates can inherit from `src/page.html.temp` using `extends` + `~{block ...}~` overrides, allowing subtemplate reuse without copying full layouts.

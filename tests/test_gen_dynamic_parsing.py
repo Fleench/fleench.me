@@ -67,6 +67,44 @@ class DynamicElementParsingTests(unittest.TestCase):
             rendered = gen.inject_elements(text, template_path)
             self.assertEqual(rendered, text)
 
+    def test_template_meta_extends_applies_block_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            src = root / "src"
+            out = root / "dist"
+            src.mkdir(parents=True, exist_ok=True)
+
+            (src / "page.html.temp").write_text(
+                "<html>~{block content_block}~{{ content }}~{endblock}~</html>",
+                encoding="utf-8",
+            )
+            (src / "child.html.temp").write_text(
+                """<!-- meta start -->
+<!--
+extends: src/page.html.temp
+-->
+<!-- meta end -->
+~{block content_block}~<article>{{ title }}</article>~{endblock}~
+""",
+                encoding="utf-8",
+            )
+            (src / "index.md").write_text(
+                "---\n"
+                "title: Hello\n"
+                "template: src/child.html.temp\n"
+                "---\n"
+                "Body",
+                encoding="utf-8",
+            )
+
+            config = {"src_dir": "src", "out_dir": "dist", "default_template": "src/page.html.temp", "site_url": "https://example.com", "plugins": []}
+            built, _pages = gen.build_site(src, out, src / "page.html.temp", config)
+            self.assertEqual(built, 1)
+
+            output = (out / "index.html").read_text(encoding="utf-8")
+            self.assertIn("<article>Hello</article>", output)
+            self.assertNotIn("~{block", output)
+
 
 if __name__ == "__main__":
     unittest.main()

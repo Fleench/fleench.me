@@ -1,19 +1,25 @@
-# Template Inheritance and Block System
+# Template Inheritance, Blocks, and Subtemplates
 
-This document outlines the architecture of the new template inheritance system implemented in the static site generator.
+This document outlines the template inheritance system in `gen.py`, including the **subtemplates** workflow for page-specific layout overrides.
 
 ## Overview
-The system has moved from a "template-swap" model (where each page points to a discrete file) to an "inheritance-based" model. This allows for a single, consistent `page.html.temp` base layout while permitting granular customization of specific page components.
+The generator supports an inheritance-based template model:
 
-## Architecture
-- **Base Template (`page.html.temp`)**: Serves as the master container for all site content. It defines the site skeleton, CSS/JS inclusions, and common structural components.
-- **Child Templates**: Any template (e.g., `blog.html.temp`, `note.html.temp`) can now "extend" the base layout.
-- **Blocks**: These are defined in the parent using `~{block NAME}~...~{endblock}~` and replaced by content in the child template using the same `~{block NAME}~...~{endblock}~` syntax.
+- A parent template (usually `src/page.html.temp`) provides the outer shell.
+- Child templates override named `block`s from the parent.
+- Markdown pages can then choose a child template with frontmatter (`template:`), creating a practical **subtemplate** layer on top of the base layout.
 
-## Implementation Details
+In practice:
 
-### 1. Metadata Requirement
-Each child template MUST declare the parent it extends in the frontmatter/meta-comment block:
+- **Base template** = site-wide shell.
+- **Template** = specialized page family (blog, note, etc.).
+- **Subtemplate** = any template that extends another template and overrides only specific blocks.
+
+## Syntax
+
+### 1) Child template declares a parent
+A child template must include an `extends` directive in a meta comment block:
+
 ```html
 <!-- meta start -->
 <!-- 
@@ -22,8 +28,8 @@ extends: src/page.html.temp
 <!-- meta end -->
 ```
 
-### 2. Block Definition
-In your base `page.html.temp`:
+### 2) Parent defines replaceable blocks
+
 ```html
 <main>
   ~{block content}~
@@ -32,7 +38,8 @@ In your base `page.html.temp`:
 </main>
 ```
 
-In your child template (e.g., `blog.html.temp`):
+### 3) Child/subtemplate overrides a block
+
 ```html
 ~{block content}~
   <article class="blog-entry">
@@ -42,14 +49,35 @@ In your child template (e.g., `blog.html.temp`):
 ~{endblock}~
 ```
 
-## How It Works (`gen.py`)
-- The `Page.prep_template()` function checks for the `extends` directive.
-- If found, it reads the parent file into memory.
-- It scans the child’s content for `block` tags.
-- It uses regular expressions to find the corresponding `block` tags in the parent template and performs a surgical replacement of the placeholder content with the child’s defined content.
-- This result is then processed through the standard `inject_elements` (for other includes) and `render_template` (for variables) pipelines.
+## Page-Level Subtemplate Selection
+Markdown pages choose templates with frontmatter:
+
+```yaml
+---
+title: Example Post
+template: src/blog.html.temp
+---
+```
+
+A common pattern is:
+
+1. `src/page.html.temp` defines the global shell.
+2. `src/blog.html.temp` extends the base and overrides blocks.
+3. A blog post sets `template: src/blog.html.temp`.
+
+This gives reusable subtemplates without duplicating the full layout.
+
+## How `gen.py` applies inheritance
+`Page.prep_template()` performs inheritance resolution:
+
+1. Reads markdown frontmatter.
+2. Checks `extends` metadata.
+3. Loads parent template text.
+4. Finds each child `~{block NAME}~...~{endblock}~`.
+5. Replaces matching parent blocks using regex.
+6. Continues through normal include/dynamic injection and `{{ key }}` replacement.
 
 ## Benefits
-- **DRY (Don't Repeat Yourself)**: Changes to the site layout (nav, headers, wrappers) now happen in one file (`page.html.temp`).
-- **Granular Control**: Pages can easily modify specific regions (like a sidebar or content container) without duplicating the entire HTML structure.
-- **Maintainability**: The separation of structure and content is now formal and enforced by the build system.
+- **DRY layouts**: One site shell, many focused subtemplates.
+- **Safe customization**: Override only specific regions.
+- **Clear author workflow**: Pick template in frontmatter; avoid full HTML duplication.

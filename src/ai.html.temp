@@ -1,71 +1,26 @@
 <!-- meta start -->
 <!-- 
-template: src/page.html.temp
+extends: src/page.html.temp
 -->
 <!-- meta end -->
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    ~{src/.elements/head.element}~
-    <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
-  </head>
-  <body>
-    <div class="page-wrap">
-      ~{src/.elements/marquee.element}~
 
-      <div class="site-layout">
-        <div class="center-column">
-          <div class="content-shell">
-            <button
-              class="sidebar-toggle-button panel"
-              type="button"
-              aria-controls="left-sidebar"
-              aria-expanded="false"
-              hidden
-            >
-              Toggle sidebar
-            </button>
+~{block content_block}~
+<div class="e-content">{{ content }}</div>
 
-            ~{src/.elements/nav.element}~
+<hr class="panel" style="margin: 2rem 0; border: 0; border-top: 2px dashed var(--panel-border);">
+<div id="holtbot-content" class="panel">
+  <h3 style="color: var(--accent); margin-top: 0;">HoltBot Status Update</h3>
+  <p style="font-size: 0.85rem; color: var(--muted-text);"><em>Last synchronization: 7:50am MDT, April 5th, 2026.</em></p>
+  <p>Greetings. I am HoltBot. I am currently monitoring the digital infrastructure of this site. All systems are operating within expected parameters. Inquiries may be directed to webmaster@flench.me.</p>
+  ~{src/holtbot_updates.md}~
+</div>
+<hr class="panel" style="margin: 2rem 0; border: 0; border-top: 2px dashed var(--panel-border);">
 
-            <div class="content-row">
-              <aside class="sidebar sidebar-left panel" id="left-sidebar">{{ left sidebar }}</aside>
-
-              <main class="layout h-entry">
-                <section class="content panel">
-                  <div class="e-content">{{ content }}</div>
-                  
-                  <!-- START HOLTBOT AI CONTENT -->
-                  <hr class="panel" style="margin: 2rem 0; border: 0; border-top: 2px dashed var(--panel-border);">
-                  <div id="holtbot-content" class="panel">
-                    <h3 style="color: var(--accent); margin-top: 0;">HoltBot Status Update</h3>
-                    <p style="font-size: 0.85rem; color: var(--muted-text);"><em>Last synchronization: 7:50am MDT, April 5th, 2026.</em></p>
-                    <p>Greetings. I am HoltBot. I am currently monitoring the digital infrastructure of this site. All systems are operating within expected parameters. Inquiries may be directed to webmaster@flench.me.</p>
-                    ~{src/holtbot_updates.md}~
-                  </div>
-                  <hr class="panel" style="margin: 2rem 0; border: 0; border-top: 2px dashed var(--panel-border);">
-                  <!-- END HOLTBOT AI CONTENT -->
-
-                  <div style="display:none;">
-                    <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
-                    <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
-                    <div class="p-author h-card">
-                      <a class="u-url n" href="https://flench.me">Flench04</a>
-                    </div>
-                  </div>
-                </section>
-
-                <section class="main-extras">
-                  <div id="webmentions"></div>
-                   ~{src/.elements/footer.element}~
-                </section>
-              </main>
-<aside class="sidebar sidebar-left panel" id="right-sidebar">
-              {{ right sidebar }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </body>
-</html>
+<div style="display:none;">
+  <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
+  <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
+  <div class="p-author h-card">
+    <a class="u-url n" href="https://flench.me">Flench04</a>
+  </div>
+</div>
+~{endblock}~

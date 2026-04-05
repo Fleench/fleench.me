@@ -1,15 +1,17 @@
 # Site Architecture (site.md)
 
-The architecture is built upon a philosophy of strict separation between content-authorship (Markdown), structure (HTML Templates), and presentation (CSS).
+The architecture is built on a strict separation between content (Markdown), structure (HTML templates), and presentation (CSS/JS).
 
 ## Template System
-- **Template Logic**: Templates are located in `src/` and follow a `.html.temp` naming convention. `page.html.temp` functions as the monolithic base for the site, though it is designed to be highly modular via the injection system.
-- **Mobile Variants**: The `src/mobile/` directory contains templates specifically crafted for small-screen constraints, such as `mobile-blog.html.temp` and `mobile-note.html.temp`. These provide a distinct UI/UX flow from the desktop counterparts.
+- **Template Locations**: Templates live in `src/` and use the `.html.temp` suffix.
+- **Base Layout**: `page.html.temp` is the global container for shared site structure.
+- **Subtemplates (new)**: Page-specific templates (for example `blog.html.temp` and `note.html.temp`) can be used as **subtemplates** to customize only selected sections while still inheriting the base layout behavior.
+- **Mobile Variants**: `src/mobile/` contains mobile-focused templates like `mobile-blog.html.temp` and `mobile-note.html.temp`.
 
 ## Styling Framework
-- **Primary Styles**: `style.css` handles the layout defaults, while `style-grid.css` provides the structural skeleton for the content layout.
-- **Theming**: Dark mode capability is provided by `dark.css`. This is explicitly toggled via `theme-mode.js`, allowing client-side preference persistence without backend interference.
-- **Responsive Design**: `mobile.css` serves as the corrective stylesheet to ensure that complex layouts collapse or reconfigure gracefully on mobile devices.
+- **Primary Styles**: `style.css` for defaults and `style-grid.css` for structural grid behavior.
+- **Theming**: `dark.css` and `theme-mode.js` provide client-side theme persistence.
+- **Responsive Layer**: `mobile.css` adjusts layout behavior for smaller viewports.
 
 ## Content Components
-The system supports complex layout containers within Markdown via `---` delimiters. These blocks are parsed into CSS classes or IDs by `gen.py`, allowing authors to wrap content in specific `div` structures (e.g., sidebars, callouts, or grid items) directly from their Markdown documents, preventing the need for raw HTML in content files.
+Markdown supports layout containers via `---` delimiters. `gen.py` parses these into wrapper `div`s with classes/IDs, enabling callouts/sidebar-like structures directly in authored content.

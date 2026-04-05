@@ -1,31 +1,19 @@
-<!DOCTYPE html>
-            <html lang="en">
-            <head>
-              ~{src/.elements/head.element}~
-            </head>
-            <body>
-              <div class="page-wrap">
-              ~{src/.elements/marquee.element}~
-                <div class="site-layout">
-                  <div class="center-column">
-                    <div class="content-shell">
-                      ~{src/.elements/nav.element}~
-                      <main class="layout">
-                        <section class="content panel notes-index">
-                        <h1>Notes</h1>
-                          <p><a href="rss.xml">Subscribe via RSS</a></p>
-                          <div class="notes-list">
-                          :{src/.elements/blogs.py}:
-                        </div>
-                      </section>
-                        <section class="main-extras">
-                          <div id="webmentions"></div>
-                          ~{src/.elements/footer.element}~
-                      </section>
-                    </main>
-                  </div>
-                </div>
-              </div>
-            </div>
-            </body>
-            </html>
+<!-- meta start -->
+<!-- 
+extends: src/page.html.temp
+-->
+<!-- meta end -->
+
+~{block left_sidebar}~~{endblock}~
+
+~{block content_block}~
+<div class="notes-index">
+  <h1>Blogs</h1>
+  <p><a href="rss.xml">Subscribe via RSS</a></p>
+  <div class="notes-list">
+    :{src/.elements/blogs.py}:
+  </div>
+</div>
+~{endblock}~
+
+~{block right_sidebar}~~{endblock}~

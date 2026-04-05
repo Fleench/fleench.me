@@ -2,7 +2,9 @@
 <html lang="en">
   <head>
     ~{src/.elements/head.element}~
+    ~{block head_extra}~
     <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
+    ~{endblock}~
   </head>
   <body>
     <div class="page-wrap">
@@ -24,10 +26,15 @@
             ~{src/.elements/nav.element}~
 
             <div class="content-row">
-              <aside class="sidebar sidebar-left panel" id="left-sidebar">{{ left sidebar }}</aside>
+              <aside class="sidebar sidebar-left panel" id="left-sidebar">
+                ~{block left_sidebar}~
+                {{ left sidebar }}
+                ~{endblock}~
+              </aside>
 
               <main class="layout h-entry">
                 <section class="content panel">
+                  ~{block content_block}~
                   <div class="e-content">{{ content }}</div>
                   <div style="display:none;">
                     <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
@@ -36,15 +43,22 @@
                       <a class="u-url n" href="https://flench.me">Flench04</a>
                     </div>
                   </div>
+                  ~{endblock}~
                 </section>
 
                 <section class="main-extras">
+                  ~{block main_extras}~
                   <div id="webmentions"></div>
-                   ~{src/.elements/footer.element}~
+                  ~{src/.elements/footer.element}~
+                  ~{endblock}~
                 </section>
               </main>
-<aside class="sidebar sidebar-left panel" id="right-sidebar">
-              {{ right sidebar }}
+
+              <aside class="sidebar sidebar-left panel" id="right-sidebar">
+                ~{block right_sidebar}~
+                {{ right sidebar }}
+                ~{endblock}~
+              </aside>
             </div>
           </div>
         </div>
