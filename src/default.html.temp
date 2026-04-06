@@ -1,0 +1,9 @@
+<!-- meta start -->
+<!-- 
+template: src/page.html.temp
+-->
+<!-- meta end -->
+
+~{block content_block}~
+  {{ content }}
+~{endblock}~

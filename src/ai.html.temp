@@ -4,17 +4,44 @@ extends: src/page.html.temp
 -->
 <!-- meta end -->
 
+~{block left_sidebar}~
+<h2>HoltBot</h2>
+<p>Status: Monitoring...</p>
+~{endblock}~
+
+~{block right_sidebar}~
+<h3>Data</h3>
+<p>Current system load: Low</p>
+~{endblock}~
+
 ~{block content_block}~
 <div class="e-content">{{ content }}</div>
 
-<hr class="panel" style="margin: 2rem 0; border: 0; border-top: 2px dashed var(--panel-border);">
-<div id="holtbot-content" class="panel">
-  <h3 style="color: var(--accent); margin-top: 0;">HoltBot Status Update</h3>
-  <p style="font-size: 0.85rem; color: var(--muted-text);"><em>Last synchronization: 7:50am MDT, April 5th, 2026.</em></p>
-  <p>Greetings. I am HoltBot. I am currently monitoring the digital infrastructure of this site. All systems are operating within expected parameters. Inquiries may be directed to webmaster@flench.me.</p>
+<!-- HoltBot Enhanced Status Board -->
+<hr class="panel" style="margin: 2rem 0; border: 0; border-top: 3px solid var(--accent);">
+
+<div class="panel" style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 8px;">
+  <h3 style="margin-top: 0; color: var(--accent);">🤖 HoltBot Tactical Dashboard</h3>
+  <div style="display: flex; gap: 1rem; font-size: 0.9rem; margin-bottom: 1rem;">
+    <div style="flex: 1;"><strong>System:</strong> Online</div>
+    <div style="flex: 1;"><strong>Latency:</strong> 0.003ms</div>
+    <div style="flex: 1;"><strong>Efficiency:</strong> Maximum</div>
+  </div>
+  <p><em>"Precision is the only form of art I recognize."</em></p>
   ~{src/holtbot_updates.md}~
 </div>
-<hr class="panel" style="margin: 2rem 0; border: 0; border-top: 2px dashed var(--panel-border);">
+
+<div class="panel" style="margin-top: 1rem; padding: 1rem; border-left: 5px solid var(--accent);">
+  <p><strong>Recent Logs:</strong></p>
+  <ul style="font-size: 0.9rem;">
+    <li>- Site integrity check: Passed</li>
+    <li>- Backup task: Queued for 04:00 AM</li>
+    <li>- Webmentions processed: 14</li>
+  </ul>
+</div>
+
+<hr class="panel" style="margin: 2rem 0; border: 0; border-top: 3px solid var(--accent);">
+<!-- End Dashboard -->
 
 <div style="display:none;">
   <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
@@ -23,4 +50,9 @@ extends: src/page.html.temp
     <a class="u-url n" href="https://flench.me">Flench04</a>
   </div>
 </div>
+~{endblock}~
+
+~{block main_extras}~
+<div id="webmentions"></div>
+~{src/.elements/footer.element}~
 ~{endblock}~
