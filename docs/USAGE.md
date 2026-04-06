@@ -61,31 +61,51 @@ python3 gen.py publish
 python3 gen.py publish --dry-run
 ```
 
-Alternative pipeline:
+## Advanced Templating (Subtemplates)
 
-```bash
-python3 gen2.py build
-python3 gen2.py publish --dry-run
-```
+The generator supports **recursive inheritance**, allowing you to create specialized sub-templates or override layouts directly in your Markdown posts.
 
-## What is automated for you
-
-When you run `/note` or `/reply`, you do **not** need to manually run build or Git commands. The bot handles:
-
-- Site generation
-- Git add/commit/push
-- Webmention queue publishing
-
-So your workflow stays focused on writing content in Discord.
-
-## Template authoring (subtemplates)
-
-You can choose a page template in Markdown frontmatter:
+### 1. Using a Sub-template
+Select a specialized template in your Markdown frontmatter:
 
 ```yaml
 ---
+title: My Blog Post
 template: src/blog.html.temp
 ---
 ```
 
-Templates can inherit from `src/page.html.temp` using `extends` + `~{block ...}~` overrides, allowing subtemplate reuse without copying full layouts.
+If `blog.html.temp` extends `page.html.temp`, your post will automatically inherit the site shell.
+
+### 2. Direct Inheritance in Markdown
+Override specific blocks directly in your post without creating a new template:
+
+```yaml
+---
+title: One-off Special Page
+extends: src/page.html.temp
+---
+~{block content_block}~
+  <div class="super-special">
+    <h1>{{ title }}</h1>
+    {{ content }}
+  </div>
+~{endblock}~
+
+This content will be injected into {{ content }} in the block above.
+```
+
+### 3. Creating a Sub-template (`.html.temp`)
+Use a meta block at the top of your template to extend another:
+
+```html
+<!-- meta start -->
+<!-- extends: src/page.html.temp -->
+<!-- meta end -->
+
+~{block sidebar}~
+  <div class="custom-sidebar">...</div>
+~{endblock}~
+```
+
+This makes your template a "child" that can be used by Markdown pages while inheriting the "parent" structure.

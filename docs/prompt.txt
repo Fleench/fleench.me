@@ -1,3 +1,6 @@
+Analyze the sub-template inheritance architecture in the attached file snippets.
+Files:
+gen.py:
 #!/usr/bin/env python3
 # pylint: disable=C0301,E0401,E1102,W0718,C0303,C0103
 """
@@ -472,8 +475,47 @@ class Page:
             else:
                 self.template_text = self.default_template_text
 
+
     def parse_content(self) -> None:
-        self.body = markdown_to_html(self.parsed.body)
+        groups = self.parsed.body.split("\n# ")
+        blocks = []
+        for block in groups:
+            lines = block.split("\n")
+            if len(lines) > 1:
+                blocks.append([lines[0], lines[1:]])
+            else:
+                blocks.append(["", lines[0]])
+        locs: dict[str, str] = {}
+        body = ""
+        for block in blocks:
+            parts = block[0].split("---")
+            lef = ""
+            rig = ""
+            if len(parts) > 3 and parts[2] != "{}":
+                lef = f"<div class={parts[2]} id={parts[3]}>"
+                rig = "</div>"
+            elif len(parts) > 3 and parts[2] == "{}":
+                lef = f"<div  id={parts[3]}>"
+                rig = "</div>"
+            elif len(parts) > 2 and parts[2] != "{}":
+                lef = f"<div class={parts[2]}>"
+                rig = "</div>"
+            if len(parts) > 1 and parts[1] != "{}":
+                if "{}" not in parts[0]:
+                    x = "# " + parts[0] + "\n" + "\n".join(block[1])
+                else:
+                    x = "\n".join(block[1])
+                if parts[1] not in locs:
+                    locs[parts[1]] = ""
+                locs[parts[1]] += "\n" + lef + markdown_to_html(x) + rig
+            else:
+                if "{}" not in parts[0]:
+                    x = "# " + parts[0] + "\n" + "\n".join(block[1])
+                else:
+                    x = "\n".join(block[1])
+                body = body + (lef + markdown_to_html(x) + rig)
+        self.body = body
+        self.locs = locs
 
     def derive_path(self) -> None:
         self.output_path = clean_output_path(self.md_file, self.src_dir, self.out_dir)
@@ -483,6 +525,19 @@ class Page:
             self.rel_url = self.rel_url[: -len("index.html")]
         site_url = str(self.config.get("site_url", "https://flench.me")).rstrip("/")
         self.canonical = f"{site_url}{self.rel_url}"
+
+    # NEW BLOCK-BASED TEMPLATING
+    def apply_blocks(self, template_text: str) -> str:
+        # Simple block replacement: ~{block NAME}~content~{endblock}~
+        pattern = re.compile(r"~\{block (?P<name>\w+)\}~(?P<content>.*?)~\{endblock\}~", re.DOTALL)
+        
+        def replacement(match):
+            name = match.group("name")
+            content = match.group("content")
+            # Replace placeholder in parent template
+            return content
+        
+        return pattern.sub(replacement, template_text)
 
     def write(self) -> None:
         escaped_meta = {k: html.escape(str(v)) for k, v in self.parsed.metadata.items()}
@@ -506,6 +561,7 @@ class Page:
                 "opages": self.opages,
             },
         )
+        self.template_text = self.apply_blocks(self.template_text)
         self.rendered_html = render_template(self.template_text, context)
         self.output_path.write_text(self.rendered_html, encoding="utf-8")
 
@@ -677,3 +733,158 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+src/page.html.temp:
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    ~{src/.elements/head.element}~
+    ~{block head_extra}~
+    <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
+    ~{endblock}~
+  </head>
+  <body>
+    <div class="page-wrap">
+      ~{src/.elements/marquee.element}~
+
+      <div class="site-layout">
+        <div class="center-column">
+          <div class="content-shell">
+            <button
+              class="sidebar-toggle-button panel"
+              type="button"
+              aria-controls="left-sidebar"
+              aria-expanded="false"
+              hidden
+            >
+              Toggle sidebar
+            </button>
+
+            ~{src/.elements/nav.element}~
+
+            <div class="content-row">
+              <aside class="sidebar sidebar-left panel" id="left-sidebar">
+                ~{block left_sidebar}~
+                {{ left sidebar }}
+                ~{endblock}~
+              </aside>
+
+              <main class="layout h-entry">
+                <section class="content panel">
+                  ~{block content_block}~
+                  <div class="e-content">{{ content }}</div>
+                  <div style="display:none;">
+                    <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
+                    <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
+                    <div class="p-author h-card">
+                      <a class="u-url n" href="https://flench.me">Flench04</a>
+                    </div>
+                  </div>
+                  ~{endblock}~
+                </section>
+
+                <section class="main-extras">
+                  ~{block main_extras}~
+                  <div id="webmentions"></div>
+                  ~{src/.elements/footer.element}~
+                  ~{endblock}~
+                </section>
+              </main>
+
+              <aside class="sidebar sidebar-left panel" id="right-sidebar">
+                ~{block right_sidebar}~
+                {{ right sidebar }}
+                ~{endblock}~
+              </aside>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+docs/inheritance.md:
+# Template Inheritance, Blocks, and Subtemplates
+
+This document outlines the template inheritance system in `gen.py`, including the **subtemplates** workflow for page-specific layout overrides.
+
+## Overview
+The generator supports an inheritance-based template model:
+
+- A parent template (usually `src/page.html.temp`) provides the outer shell.
+- Child templates override named `block`s from the parent.
+- Markdown pages can then choose a child template with frontmatter (`template:`), creating a practical **subtemplate** layer on top of the base layout.
+
+In practice:
+
+- **Base template** = site-wide shell.
+- **Template** = specialized page family (blog, note, etc.).
+- **Subtemplate** = any template that extends another template and overrides only specific blocks.
+
+## Syntax
+
+### 1) Child template declares a parent
+A child template must include an `extends` directive in a meta comment block:
+
+```html
+<!-- meta start -->
+<!-- 
+extends: src/page.html.temp
+-->
+<!-- meta end -->
+```
+
+### 2) Parent defines replaceable blocks
+
+```html
+<main>
+  ~{block content}~
+    {{ content }}
+  ~{endblock}~
+</main>
+```
+
+### 3) Child/subtemplate overrides a block
+
+```html
+~{block content}~
+  <article class="blog-entry">
+    <h1>{{ title }}</h1>
+    {{ content }}
+  </article>
+~{endblock}~
+```
+
+## Page-Level Subtemplate Selection
+Markdown pages choose templates with frontmatter:
+
+```yaml
+---
+title: Example Post
+template: src/blog.html.temp
+---
+```
+
+A common pattern is:
+
+1. `src/page.html.temp` defines the global shell.
+2. `src/blog.html.temp` extends the base and overrides blocks.
+3. A blog post sets `template: src/blog.html.temp`.
+
+This gives reusable subtemplates without duplicating the full layout.
+
+## How `gen.py` applies inheritance
+`Page.prep_template()` performs inheritance resolution:
+
+1. Reads markdown frontmatter.
+2. Checks `extends` metadata.
+3. Loads parent template text.
+4. Finds each child `~{block NAME}~...~{endblock}~`.
+5. Replaces matching parent blocks using regex.
+6. Continues through normal include/dynamic injection and `{{ key }}` replacement.
+
+## Benefits
+- **DRY layouts**: One site shell, many focused subtemplates.
+- **Safe customization**: Override only specific regions.
+- **Clear author workflow**: Pick template in frontmatter; avoid full HTML duplication.
+
+Task: Thoroughly update docs/inheritance.md and other relevant docs/ files to reflect the inheritance model. Provide the new content for these files.
