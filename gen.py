@@ -472,8 +472,47 @@ class Page:
             else:
                 self.template_text = self.default_template_text
 
+
     def parse_content(self) -> None:
-        self.body = markdown_to_html(self.parsed.body)
+        groups = self.parsed.body.split("\n# ")
+        blocks = []
+        for block in groups:
+            lines = block.split("\n")
+            if len(lines) > 1:
+                blocks.append([lines[0], lines[1:]])
+            else:
+                blocks.append(["", lines[0]])
+        locs: dict[str, str] = {}
+        body = ""
+        for block in blocks:
+            parts = block[0].split("---")
+            lef = ""
+            rig = ""
+            if len(parts) > 3 and parts[2] != "{}":
+                lef = f"<div class={parts[2]} id={parts[3]}>"
+                rig = "</div>"
+            elif len(parts) > 3 and parts[2] == "{}":
+                lef = f"<div  id={parts[3]}>"
+                rig = "</div>"
+            elif len(parts) > 2 and parts[2] != "{}":
+                lef = f"<div class={parts[2]}>"
+                rig = "</div>"
+            if len(parts) > 1 and parts[1] != "{}":
+                if "{}" not in parts[0]:
+                    x = "# " + parts[0] + "\n" + "\n".join(block[1])
+                else:
+                    x = "\n".join(block[1])
+                if parts[1] not in locs:
+                    locs[parts[1]] = ""
+                locs[parts[1]] += "\n" + lef + markdown_to_html(x) + rig
+            else:
+                if "{}" not in parts[0]:
+                    x = "# " + parts[0] + "\n" + "\n".join(block[1])
+                else:
+                    x = "\n".join(block[1])
+                body = body + (lef + markdown_to_html(x) + rig)
+        self.body = body
+        self.locs = locs
 
     def derive_path(self) -> None:
         self.output_path = clean_output_path(self.md_file, self.src_dir, self.out_dir)
@@ -483,6 +522,19 @@ class Page:
             self.rel_url = self.rel_url[: -len("index.html")]
         site_url = str(self.config.get("site_url", "https://flench.me")).rstrip("/")
         self.canonical = f"{site_url}{self.rel_url}"
+
+    # NEW BLOCK-BASED TEMPLATING
+    def apply_blocks(self, template_text: str) -> str:
+        # Simple block replacement: ~{block NAME}~content~{endblock}~
+        pattern = re.compile(r"~\{block (?P<name>\w+)\}~(?P<content>.*?)~\{endblock\}~", re.DOTALL)
+        
+        def replacement(match):
+            name = match.group("name")
+            content = match.group("content")
+            # Replace placeholder in parent template
+            return content
+        
+        return pattern.sub(replacement, template_text)
 
     def write(self) -> None:
         escaped_meta = {k: html.escape(str(v)) for k, v in self.parsed.metadata.items()}
@@ -506,6 +558,7 @@ class Page:
                 "opages": self.opages,
             },
         )
+        self.template_text = self.apply_blocks(self.template_text)
         self.rendered_html = render_template(self.template_text, context)
         self.output_path.write_text(self.rendered_html, encoding="utf-8")
 
