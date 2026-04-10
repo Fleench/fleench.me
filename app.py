@@ -285,9 +285,12 @@ def list_notes() -> list[NoteRecord]:
 
 
 def run_build_command() -> tuple[bool, str]:
+    python_executable = Path(os.environ.get("VIRTUAL_ENV", "")) / "bin" / "python"
+    if not python_executable.exists():
+        python_executable = Path(os.sys.executable)
     try:
         result = subprocess.run(
-            ["python3", str(GEN_SCRIPT), "build"],
+            [str(python_executable), str(GEN_SCRIPT), "build"],
             cwd=BASE_DIR,
             capture_output=True,
             text=True,

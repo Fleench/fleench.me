@@ -305,11 +305,71 @@ def inject_elements(template_text: str, template_path: Path, render_context: dic
     return rendered
 
 
+def _parse_template_meta(template_text: str) -> tuple[dict[str, str], str]:
+    meta_pattern = re.compile(
+        r"^<!-- meta start -->\s*<!--(.*?)-->\s*<!-- meta end -->\s*",
+        re.DOTALL,
+    )
+    match = meta_pattern.match(template_text)
+    if not match:
+        return {}, template_text
+
+    meta_body = match.group(1)
+    metadata: dict[str, str] = {}
+    for line in meta_body.splitlines():
+        line = line.strip()
+        if not line or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        metadata[key.strip()] = value.strip()
+    return metadata, template_text[match.end() :]
+
+
+BLOCK_PATTERN = re.compile(r"~\{block\s+([^}]+)\}~(.*?)~\{endblock\}~", re.DOTALL)
+
+
+def _collect_blocks(template_body: str) -> dict[str, str]:
+    return {match.group(1).strip(): match.group(2) for match in BLOCK_PATTERN.finditer(template_body)}
+
+
+def _apply_blocks(base_text: str, child_blocks: dict[str, str]) -> str:
+    def replace_block(match: re.Match[str]) -> str:
+        block_name = match.group(1).strip()
+        default_content = match.group(2)
+        return child_blocks.get(block_name, default_content)
+
+    return BLOCK_PATTERN.sub(replace_block, base_text)
+
+
+def _resolve_template_inheritance(template_text: str, template_path: Path, seen: set[Path] | None = None) -> tuple[str, Path]:
+    seen = seen or set()
+    resolved_path = template_path.resolve()
+    if resolved_path in seen:
+        raise ValueError(f"Circular template inheritance detected for {template_path}")
+    seen.add(resolved_path)
+
+    metadata, template_body = _parse_template_meta(template_text)
+    parent_ref = metadata.get("extends")
+    if not parent_ref:
+        return template_body, template_path
+
+    parent_path = Path(parent_ref)
+    if not parent_path.is_absolute():
+        parent_path = Path.cwd() / parent_path
+    parent_text = parent_path.read_text(encoding="utf-8")
+    resolved_parent_text, resolved_parent_path = _resolve_template_inheritance(parent_text, parent_path, seen)
+    child_blocks = _collect_blocks(template_body)
+    merged = _apply_blocks(resolved_parent_text, child_blocks)
+    return merged, resolved_parent_path
+
+
 def render_template(template_text: str, context: dict[str, Any]) -> str:
     rendered = template_text
     for key, value in context.items():
         rendered = rendered.replace(f"{{{{ {key} }}}}", str(value))
     rendered = re.sub(r"\{\{.*\}\}", "", rendered)
+    rendered = re.sub(r"~\{block\s+[^}]+\}~", "", rendered)
+    rendered = re.sub(r"~\{endblock\}~", "", rendered)
     return rendered
 
 
@@ -366,7 +426,8 @@ class Page:
         if not template_path.is_absolute():
             template_path = Path.cwd() / template_path
         self.template_path = template_path
-        self.template_text = template_path.read_text(encoding="utf-8") if template_path.exists() else self.default_template_text
+        raw_template_text = template_path.read_text(encoding="utf-8") if template_path.exists() else self.default_template_text
+        self.template_text, self.template_path = _resolve_template_inheritance(raw_template_text, template_path)
 
     def parse_content(self) -> None:
         groups = self.parsed.body.split("\n# ")
