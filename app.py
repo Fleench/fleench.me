@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Posts-only CMS for the Gen0/fleench.me repository.
+"""Notes-only CMS for the Gen0/fleench.me repository.
 
 This app intentionally stays simple:
-- manages markdown files under src/blogs/
+- manages markdown files under src/notes/
 - uses the existing frontmatter format expected by gen.py
 - can trigger a local static-site build on demand
+- authentication is disabled by default for testing
 
 Run:
     python3 app.py
@@ -12,7 +13,8 @@ or:
     flask --app app run --debug
 
 Optional environment variables:
-    CMS_TOKEN=shared-secret        # enables lightweight bearer/session auth
+    CMS_REQUIRE_AUTH=1            # enable lightweight shared-secret auth
+    CMS_TOKEN=shared-secret       # required when CMS_REQUIRE_AUTH=1
     CMS_HOST=127.0.0.1
     CMS_PORT=5000
     CMS_DEBUG=1
@@ -32,24 +34,21 @@ from flask import Flask, abort, flash, redirect, render_template_string, request
 
 BASE_DIR = Path(__file__).resolve().parent
 SRC_DIR = BASE_DIR / "src"
-BLOGS_DIR = SRC_DIR / "blogs"
+NOTES_DIR = SRC_DIR / "notes"
 GEN_SCRIPT = BASE_DIR / "gen.py"
-DEFAULT_TEMPLATE = "src/blog.html.temp"
-DEFAULT_IMAGE = "/img/fallback.png"
-DEFAULT_IMAGE_ALT = ""
+DEFAULT_TEMPLATE = "src/note.html.temp"
+DEFAULT_TYPE = "note"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or secrets.token_hex(32)
 
 
 @dataclass
-class PostRecord:
+class NoteRecord:
     slug: str
     relative_path: str
     title: str
     date: str
-    img: str
-    img_alt: str
     body: str
     file_path: Path
 
@@ -98,7 +97,7 @@ PAGE_TEMPLATE = """
     .muted { color: var(--muted); }
     .grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
     @media (min-width: 900px) {
-      .grid.posts { grid-template-columns: 1.25fr 1.75fr; }
+      .grid.notes { grid-template-columns: 1.1fr 1.9fr; }
     }
     label { display: block; margin: 0 0 6px; font-weight: 600; }
     input, textarea {
@@ -116,7 +115,6 @@ PAGE_TEMPLATE = """
       padding: 10px 14px; border-radius: 10px;
     }
     button.secondary, .button.secondary { background: transparent; color: var(--text); }
-    button.danger { background: var(--danger); color: #1b0c0a; }
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
     code, pre { background: #0d1016; border-radius: 8px; }
@@ -130,19 +128,21 @@ PAGE_TEMPLATE = """
   <div class="wrap">
     <div class="topbar">
       <div>
-        <h1 style="margin-bottom: 4px;">Gen0 Posts CMS</h1>
-        <div class="muted">Posts only. Markdown files under <code>src/blogs/</code>.</div>
+        <h1 style="margin-bottom: 4px;">Gen0 Notes CMS</h1>
+        <div class="muted">Notes only. Markdown files under <code>src/notes/</code>.</div>
       </div>
       <div class="actions">
         {% if authed %}
-          <a class="button secondary" href="{{ url_for('index') }}">Posts</a>
-          <a class="button secondary" href="{{ url_for('new_post') }}">New Post</a>
+          <a class="button secondary" href="{{ url_for('index') }}">Notes</a>
+          <a class="button secondary" href="{{ url_for('new_note') }}">New Note</a>
           <form method="post" action="{{ url_for('build_site') }}">
             <button type="submit">Run Build</button>
           </form>
+          {% if auth_enabled %}
           <form method="post" action="{{ url_for('logout') }}">
             <button type="submit" class="secondary">Logout</button>
           </form>
+          {% endif %}
         {% endif %}
       </div>
     </div>
@@ -162,7 +162,7 @@ PAGE_TEMPLATE = """
 LOGIN_BODY = """
 <div class="panel" style="max-width: 420px; margin: 40px auto;">
   <h2>Authentication required</h2>
-  <p class="muted">Set <code>CMS_TOKEN</code> to require a lightweight shared-secret login. If it is unset, the app runs without authentication.</p>
+  <p class="muted">Authentication is disabled by default. To enable it, set <code>CMS_REQUIRE_AUTH=1</code> and <code>CMS_TOKEN</code>.</p>
   <form method="post">
     <label for="token">CMS token</label>
     <input id="token" name="token" type="password" autocomplete="current-password" required>
@@ -174,11 +174,17 @@ LOGIN_BODY = """
 """
 
 
+def auth_enabled() -> bool:
+    return os.environ.get("CMS_REQUIRE_AUTH", "0") == "1"
+
+
 def render_page(title: str, body: str) -> str:
-    return render_template_string(PAGE_TEMPLATE, title=title, body=body, authed=is_authenticated())
+    return render_template_string(PAGE_TEMPLATE, title=title, body=body, authed=is_authenticated(), auth_enabled=auth_enabled())
 
 
 def is_authenticated() -> bool:
+    if not auth_enabled():
+        return True
     configured = os.environ.get("CMS_TOKEN")
     if not configured:
         return True
@@ -192,7 +198,17 @@ def require_auth() -> None:
 
 def slugify(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
-    return slug or "untitled-post"
+    return slug or datetime.now().strftime("%H%M")
+
+
+def normalize_note_slug(value: str, date_str: str) -> str:
+    candidate = value.strip()
+    if candidate:
+        return candidate
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%dT%H:%M").strftime("%H%M")
+    except ValueError:
+        return datetime.now().strftime("%H%M")
 
 
 def parse_frontmatter(raw: str) -> tuple[dict[str, str], str]:
@@ -220,59 +236,61 @@ def quote_yaml(value: str) -> str:
     return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
 
 
-def make_post_path(date_str: str, slug: str) -> Path:
-    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-    return BLOGS_DIR / f"{date_obj.year:04d}" / f"{date_obj.month:02d}" / f"{date_obj.day:02d}" / f"{slug}.md"
+def make_note_path(date_str: str, slug: str) -> Path:
+    dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M")
+    return NOTES_DIR / dt.strftime("%Y-%m-%d") / f"{slug}.md"
 
 
-def build_markdown(title: str, date_str: str, body: str, img: str, img_alt: str) -> str:
+def build_markdown(date_str: str, body: str) -> str:
     normalized_body = body.rstrip() + "\n"
     return (
         "---\n"
-        f"title: {quote_yaml(title)}\n"
-        f"template: {DEFAULT_TEMPLATE}\n"
         f"date: {date_str}\n"
-        f"img: {img}\n"
-        f"img-alt: {quote_yaml(img_alt)}\n"
+        f"type: {DEFAULT_TYPE}\n"
+        f"template: {DEFAULT_TEMPLATE}\n"
         "---\n\n"
         f"{normalized_body}"
     )
 
 
-def load_post(path: Path) -> PostRecord:
+def load_note(path: Path) -> NoteRecord:
     raw = path.read_text(encoding="utf-8")
     meta, body = parse_frontmatter(raw)
-    title = meta.get("title") or path.stem.replace("-", " ").title()
     date = meta.get("date") or infer_date_from_path(path)
-    return PostRecord(
+    title = path.stem
+    return NoteRecord(
         slug=path.stem,
         relative_path=path.relative_to(BASE_DIR).as_posix(),
         title=title,
         date=date,
-        img=meta.get("img", DEFAULT_IMAGE),
-        img_alt=meta.get("img-alt", DEFAULT_IMAGE_ALT),
         body=body.rstrip("\n"),
         file_path=path,
     )
 
 
 def infer_date_from_path(path: Path) -> str:
-    parts = path.relative_to(BLOGS_DIR).parts
-    if len(parts) >= 4 and all(part.isdigit() for part in parts[:3]):
-        return f"{parts[0]}-{parts[1]}-{parts[2]}"
-    return datetime.now().strftime("%Y-%m-%d")
+    parts = path.relative_to(NOTES_DIR).parts
+    if len(parts) >= 2:
+        day = parts[0]
+        time = path.stem
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) and re.fullmatch(r"\d{4}", time):
+            return f"{day}T{time[:2]}:{time[2:]}"
+    return datetime.now().strftime("%Y-%m-%dT%H:%M")
 
 
-def list_posts() -> list[PostRecord]:
-    posts = [load_post(path) for path in BLOGS_DIR.rglob("*.md")]
-    posts.sort(key=lambda post: (post.date, post.relative_path), reverse=True)
-    return posts
+def list_notes() -> list[NoteRecord]:
+    notes = [load_note(path) for path in NOTES_DIR.rglob("*.md")]
+    notes.sort(key=lambda note: (note.date, note.relative_path), reverse=True)
+    return notes
 
 
 def run_build_command() -> tuple[bool, str]:
+    python_executable = Path(os.environ.get("VIRTUAL_ENV", "")) / "bin" / "python"
+    if not python_executable.exists():
+        python_executable = Path(os.sys.executable)
     try:
         result = subprocess.run(
-            ["python3", str(GEN_SCRIPT), "build"],
+            [str(python_executable), str(GEN_SCRIPT), "build"],
             cwd=BASE_DIR,
             capture_output=True,
             text=True,
@@ -292,7 +310,7 @@ def unauthorized(_: Any):
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    if not os.environ.get("CMS_TOKEN"):
+    if not auth_enabled() or not os.environ.get("CMS_TOKEN"):
         return redirect(url_for("index"))
     if request.method == "POST":
         submitted = request.form.get("token", "")
@@ -315,142 +333,130 @@ def logout():
 def index():
     require_auth()
     rows = []
-    for post in list_posts():
+    for note in list_notes():
         rows.append(
             f"<tr>"
-            f"<td><strong>{post.title}</strong><br><span class='muted'>{post.relative_path}</span></td>"
-            f"<td>{post.date}</td>"
-            f"<td>{post.slug}</td>"
-            f"<td><a href='{url_for('edit_post', relative_path=post.relative_path)}'>Edit</a></td>"
+            f"<td><strong>{note.title}</strong><br><span class='muted'>{note.relative_path}</span></td>"
+            f"<td>{note.date}</td>"
+            f"<td>{note.slug}</td>"
+            f"<td><a href='{url_for('edit_note', relative_path=note.relative_path)}'>Edit</a></td>"
             f"</tr>"
         )
     body = f"""
     <div class='panel'>
-      <h2>Posts</h2>
-      <p class='muted'>This CMS only manages long-form blog posts in <code>src/blogs/</code>.</p>
+      <h2>Notes</h2>
+      <p class='muted'>This CMS only manages notes in <code>src/notes/</code>.</p>
       <table>
-        <thead><tr><th>Post</th><th>Date</th><th>Slug</th><th>Action</th></tr></thead>
-        <tbody>{''.join(rows) or '<tr><td colspan="4">No posts found.</td></tr>'}</tbody>
+        <thead><tr><th>Note</th><th>Date</th><th>Slug</th><th>Action</th></tr></thead>
+        <tbody>{''.join(rows) or '<tr><td colspan="4">No notes found.</td></tr>'}</tbody>
       </table>
     </div>
     """
-    return render_page("Posts", body)
+    return render_page("Notes", body)
 
 
-@app.route("/posts/new", methods=["GET", "POST"])
-def new_post():
+@app.route("/notes/new", methods=["GET", "POST"])
+def new_note():
     require_auth()
+    now = datetime.now()
     defaults = {
-        "title": "",
-        "date": datetime.now().strftime("%Y-%m-%d"),
-        "slug": "",
-        "img": DEFAULT_IMAGE,
-        "img_alt": DEFAULT_IMAGE_ALT,
+        "date": now.strftime("%Y-%m-%dT%H:%M"),
+        "slug": now.strftime("%H%M"),
         "body": "",
         "build_after": "1",
     }
     if request.method == "POST":
-        form = {key: request.form.get(key, "").strip() for key in defaults}
-        title = form["title"]
-        date_str = form["date"]
-        slug = form["slug"] or slugify(title)
-        img = form["img"] or DEFAULT_IMAGE
-        img_alt = form["img_alt"]
+        date_str = request.form.get("date", "").strip()
+        slug = normalize_note_slug(request.form.get("slug", ""), date_str)
         body = request.form.get("body", "").rstrip()
         build_after = request.form.get("build_after") == "1"
 
-        if not title or not body or not date_str:
-            flash("Title, date, and body are required.", "error")
-            defaults.update(form)
+        if not body or not date_str:
+            flash("Date and body are required.", "error")
+            defaults.update({"date": date_str, "slug": slug, "body": body})
         else:
             try:
-                path = make_post_path(date_str, slug)
+                path = make_note_path(date_str, slug)
             except ValueError:
-                flash("Date must use YYYY-MM-DD.", "error")
-                defaults.update(form)
+                flash("Date must use YYYY-MM-DDTHH:MM.", "error")
+                defaults.update({"date": date_str, "slug": slug, "body": body})
             else:
                 if path.exists():
-                    flash(f"Post already exists at {path.relative_to(BASE_DIR)}.", "error")
-                    defaults.update(form)
+                    flash(f"Note already exists at {path.relative_to(BASE_DIR)}.", "error")
+                    defaults.update({"date": date_str, "slug": slug, "body": body})
                 else:
                     path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text(build_markdown(title, date_str, body, img, img_alt), encoding="utf-8")
+                    path.write_text(build_markdown(date_str, body), encoding="utf-8")
                     flash(f"Created {path.relative_to(BASE_DIR)}.", "success")
                     if build_after:
                         ok, output = run_build_command()
                         flash("Build completed." if ok else "Build failed. See log below.", "success" if ok else "error")
-                        return render_page("Build Result", f"<div class='panel'><h2>Build output</h2><pre>{output}</pre><p><a href='{url_for('edit_post', relative_path=path.relative_to(BASE_DIR).as_posix())}'>Edit post</a></p></div>")
-                    return redirect(url_for("edit_post", relative_path=path.relative_to(BASE_DIR).as_posix()))
+                        return render_page("Build Result", f"<div class='panel'><h2>Build output</h2><pre>{output}</pre><p><a href='{url_for('edit_note', relative_path=path.relative_to(BASE_DIR).as_posix())}'>Edit note</a></p></div>")
+                    return redirect(url_for("edit_note", relative_path=path.relative_to(BASE_DIR).as_posix()))
 
-    return render_page("New Post", render_post_form("Create post", url_for("new_post"), defaults, create_mode=True))
+    return render_page("New Note", render_note_form("Create note", url_for("new_note"), defaults, create_mode=True))
 
 
-@app.route("/posts/edit")
-def edit_post():
+@app.route("/notes/edit")
+def edit_note():
     require_auth()
     rel = request.args.get("relative_path", "")
     path = (BASE_DIR / rel).resolve()
-    if not str(path).startswith(str(BLOGS_DIR.resolve())) or not path.exists() or path.suffix != ".md":
+    if not str(path).startswith(str(NOTES_DIR.resolve())) or not path.exists() or path.suffix != ".md":
         abort(404)
-    post = load_post(path)
+    note = load_note(path)
     values = {
-        "title": post.title,
-        "date": post.date,
-        "slug": post.slug,
-        "img": post.img,
-        "img_alt": post.img_alt,
-        "body": post.body,
-        "relative_path": post.relative_path,
+        "date": note.date,
+        "slug": note.slug,
+        "body": note.body,
+        "relative_path": note.relative_path,
     }
-    body = render_post_form("Edit post", url_for("update_post"), values, create_mode=False)
-    body += f"<div class='panel'><h3>Current file</h3><code>{post.relative_path}</code></div>"
-    return render_page(post.title, body)
+    body = render_note_form("Edit note", url_for("update_note"), values, create_mode=False)
+    body += f"<div class='panel'><h3>Current file</h3><code>{note.relative_path}</code></div>"
+    return render_page(note.title, body)
 
 
-@app.post("/posts/update")
-def update_post():
+@app.post("/notes/update")
+def update_note():
     require_auth()
     rel = request.form.get("relative_path", "")
     original_path = (BASE_DIR / rel).resolve()
-    if not str(original_path).startswith(str(BLOGS_DIR.resolve())) or not original_path.exists() or original_path.suffix != ".md":
+    if not str(original_path).startswith(str(NOTES_DIR.resolve())) or not original_path.exists() or original_path.suffix != ".md":
         abort(404)
 
-    title = request.form.get("title", "").strip()
     date_str = request.form.get("date", "").strip()
-    slug = request.form.get("slug", "").strip() or slugify(title)
-    img = request.form.get("img", "").strip() or DEFAULT_IMAGE
-    img_alt = request.form.get("img_alt", "").strip()
+    slug = normalize_note_slug(request.form.get("slug", ""), date_str) or original_path.stem
     body = request.form.get("body", "").rstrip()
     build_after = request.form.get("build_after") == "1"
 
-    if not title or not date_str or not body:
-        flash("Title, date, and body are required.", "error")
-        return redirect(url_for("edit_post", relative_path=rel))
+    if not date_str or not body:
+        flash("Date and body are required.", "error")
+        return redirect(url_for("edit_note", relative_path=rel))
 
     try:
-        target_path = make_post_path(date_str, slug)
+        target_path = make_note_path(date_str, slug)
     except ValueError:
-        flash("Date must use YYYY-MM-DD.", "error")
-        return redirect(url_for("edit_post", relative_path=rel))
+        flash("Date must use YYYY-MM-DDTHH:MM.", "error")
+        return redirect(url_for("edit_note", relative_path=rel))
 
     if target_path != original_path and target_path.exists():
-        flash(f"Cannot move post. Destination already exists: {target_path.relative_to(BASE_DIR)}", "error")
-        return redirect(url_for("edit_post", relative_path=rel))
+        flash(f"Cannot move note. Destination already exists: {target_path.relative_to(BASE_DIR)}", "error")
+        return redirect(url_for("edit_note", relative_path=rel))
 
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    target_path.write_text(build_markdown(title, date_str, body, img, img_alt), encoding="utf-8")
+    target_path.write_text(build_markdown(date_str, body), encoding="utf-8")
     if target_path != original_path:
         original_path.unlink()
-        flash(f"Updated and moved post to {target_path.relative_to(BASE_DIR)}.", "success")
+        flash(f"Updated and moved note to {target_path.relative_to(BASE_DIR)}.", "success")
     else:
         flash(f"Updated {target_path.relative_to(BASE_DIR)}.", "success")
 
     if build_after:
         ok, output = run_build_command()
         flash("Build completed." if ok else "Build failed. See log below.", "success" if ok else "error")
-        return render_page("Build Result", f"<div class='panel'><h2>Build output</h2><pre>{output}</pre><p><a href='{url_for('edit_post', relative_path=target_path.relative_to(BASE_DIR).as_posix())}'>Return to editor</a></p></div>")
+        return render_page("Build Result", f"<div class='panel'><h2>Build output</h2><pre>{output}</pre><p><a href='{url_for('edit_note', relative_path=target_path.relative_to(BASE_DIR).as_posix())}'>Return to editor</a></p></div>")
 
-    return redirect(url_for("edit_post", relative_path=target_path.relative_to(BASE_DIR).as_posix()))
+    return redirect(url_for("edit_note", relative_path=target_path.relative_to(BASE_DIR).as_posix()))
 
 
 @app.post("/build")
@@ -458,12 +464,12 @@ def build_site():
     require_auth()
     ok, output = run_build_command()
     flash("Build completed." if ok else "Build failed.", "success" if ok else "error")
-    return render_page("Build Result", f"<div class='panel'><h2>Build output</h2><pre>{output}</pre><p><a href='{url_for('index')}'>Back to posts</a></p></div>")
+    return render_page("Build Result", f"<div class='panel'><h2>Build output</h2><pre>{output}</pre><p><a href='{url_for('index')}'>Back to notes</a></p></div>")
 
 
-def render_post_form(title: str, action: str, values: dict[str, str], create_mode: bool) -> str:
+def render_note_form(title: str, action: str, values: dict[str, str], create_mode: bool) -> str:
     checked = "checked" if values.get("build_after", "1") == "1" else ""
-    slug_help = "Leave blank to derive from title." if create_mode else "Changing slug or date will move the file."
+    slug_help = "Leave blank to use the note time as HHMM, matching the existing bot-style notes." if create_mode else "Changing slug or date will move the file. Leave blank to use the note time as HHMM."
     return f"""
     <div class='panel'>
       <h2>{title}</h2>
@@ -471,32 +477,20 @@ def render_post_form(title: str, action: str, values: dict[str, str], create_mod
         {'<input type="hidden" name="relative_path" value="' + values.get('relative_path', '') + '">' if not create_mode else ''}
         <div class='row'>
           <div>
-            <label>Title</label>
-            <input name='title' value='{html_escape(values.get('title', ''))}' required>
+            <label>Date/time</label>
+            <input name='date' type='datetime-local' value='{html_escape(values.get('date', ''))}' required>
           </div>
           <div>
-            <label>Date</label>
-            <input name='date' type='date' value='{html_escape(values.get('date', ''))}' required>
-          </div>
-        </div>
-        <div class='row'>
-          <div>
-            <label>Slug</label>
+            <label>Slug / filename</label>
             <input name='slug' value='{html_escape(values.get('slug', ''))}'>
             <div class='muted'>{slug_help}</div>
           </div>
-          <div>
-            <label>Image path</label>
-            <input name='img' value='{html_escape(values.get('img', DEFAULT_IMAGE))}'>
-          </div>
         </div>
-        <label>Image alt text</label>
-        <input name='img_alt' value='{html_escape(values.get('img_alt', ''))}'>
         <label>Markdown body</label>
         <textarea name='body' required>{html_escape(values.get('body', ''))}</textarea>
         <label><input type='checkbox' name='build_after' value='1' {checked}> Run <code>python3 gen.py build</code> after saving</label>
         <div class='actions' style='margin-top: 14px;'>
-          <button type='submit'>{'Create post' if create_mode else 'Save changes'}</button>
+          <button type='submit'>{'Create note' if create_mode else 'Save changes'}</button>
           <a class='button secondary' href='{url_for('index')}'>Cancel</a>
         </div>
       </form>
@@ -515,7 +509,7 @@ def html_escape(value: str) -> str:
 
 
 if __name__ == "__main__":
-    BLOGS_DIR.mkdir(parents=True, exist_ok=True)
+    NOTES_DIR.mkdir(parents=True, exist_ok=True)
     app.run(
         host=os.environ.get("CMS_HOST", "127.0.0.1"),
         port=int(os.environ.get("CMS_PORT", "5000")),
