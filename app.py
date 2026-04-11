@@ -32,6 +32,11 @@ from typing import Any
 
 from flask import Flask, abort, flash, redirect, render_template_string, request, session, url_for
 
+try:
+    import markdown as md_lib  # type: ignore
+except ImportError:  # pragma: no cover
+    md_lib = None
+
 BASE_DIR = Path(__file__).resolve().parent
 SRC_DIR = BASE_DIR / "src"
 NOTES_DIR = SRC_DIR / "notes"
@@ -53,7 +58,7 @@ class NoteRecord:
     file_path: Path
 
 
-PAGE_TEMPLATE = """
+PAGE_TEMPLATE = r"""
 <!doctype html>
 <html lang="en">
 <head>
@@ -97,15 +102,60 @@ PAGE_TEMPLATE = """
     .muted { color: var(--muted); }
     .grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
     @media (min-width: 900px) {
-      .grid.notes { grid-template-columns: 1.1fr 1.9fr; }
+      .grid.notes { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.95fr); }
     }
     label { display: block; margin: 0 0 6px; font-weight: 600; }
     input, textarea {
-      width: 100%; padding: 10px 12px; border-radius: 10px;
+      width: 100%; max-width: 100%; padding: 10px 12px; border-radius: 10px;
       border: 1px solid var(--border); background: #0d1016; color: var(--text);
       margin-bottom: 12px;
     }
     textarea { min-height: 320px; resize: vertical; font-family: ui-monospace, monospace; }
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+    }
+    .toolbar button {
+      background: transparent; color: var(--text); font-weight: 600;
+      padding: 8px 12px;
+    }
+    .toolbar button:hover, .toolbar button:focus-visible {
+      border-color: var(--accent); color: var(--accent);
+    }
+    .toolbar .spacer {
+      flex: 1 1 auto;
+    }
+    .editor-grid {
+      display: grid; grid-template-columns: 1fr; gap: 16px;
+    }
+    @media (min-width: 980px) {
+      .editor-grid { grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr); }
+    }
+    .preview {
+      border: 1px solid var(--border); border-radius: 12px; background: #0d1016;
+      padding: 14px; min-height: 320px; overflow-wrap: anywhere;
+    }
+    .preview img { max-width: 100%; height: auto; }
+    .preview pre, .preview code {
+      max-width: 100%; overflow-x: auto;
+    }
+    .help-text { font-size: 0.95rem; }
+    .notes-table-wrap {
+      width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      border: 1px solid var(--border); border-radius: 12px;
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    .notes-table-wrap table {
+      margin: 0;
+    }
+    .notes-table-wrap td, .notes-table-wrap th {
+      word-break: break-word;
+    }
+    .note-path {
+      overflow-wrap: anywhere; word-break: break-word;
+    }
+    .stack-on-mobile {
+      display: none;
+    }
     .row { display: grid; grid-template-columns: 1fr; gap: 12px; }
     @media (min-width: 760px) { .row { grid-template-columns: 1fr 1fr; } }
     .actions { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -115,13 +165,135 @@ PAGE_TEMPLATE = """
       padding: 10px 14px; border-radius: 10px;
     }
     button.secondary, .button.secondary { background: transparent; color: var(--text); }
-    table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
     code, pre { background: #0d1016; border-radius: 8px; }
     pre { padding: 12px; overflow: auto; }
     .flash { padding: 12px 14px; border-radius: 10px; margin-bottom: 14px; border: 1px solid var(--border); }
     .flash.success { border-color: #1f6f46; color: #b5f3cb; }
     .flash.error { border-color: #7f1d1d; color: #fecaca; }
+    @media (max-width: 760px) {
+      .wrap { padding: 14px; }
+      .panel { padding: 14px; }
+      .topbar { align-items: stretch; }
+      .topbar .actions { width: 100%; }
+      .topbar .actions > * { flex: 1 1 auto; }
+      .notes-table-wrap { border: 0; overflow: visible; }
+      table { min-width: 0; }
+      thead { display: none; }
+      tbody, tr, td { display: block; width: 100%; }
+      tr {
+        border-bottom: 1px solid var(--border);
+        padding: 10px 0;
+      }
+      td {
+        border-bottom: 0;
+        padding: 4px 0;
+      }
+      .stack-on-mobile {
+        display: inline;
+        color: var(--muted);
+        font-weight: 600;
+        margin-right: 6px;
+      }
+      .toolbar button {
+        flex: 1 1 calc(50% - 8px);
+      }
+    }
+  </style>
+  <script>
+    function escapeHtml(value) {
+      return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function applyWrap(textarea, prefix, suffix = prefix, placeholder = 'text') {
+      const start = textarea.selectionStart ?? 0;
+      const end = textarea.selectionEnd ?? 0;
+      const selected = textarea.value.slice(start, end) || placeholder;
+      const replacement = `${prefix}${selected}${suffix}`;
+      textarea.setRangeText(replacement, start, end, 'end');
+      const cursorStart = start + prefix.length;
+      const cursorEnd = cursorStart + selected.length;
+      textarea.focus();
+      textarea.setSelectionRange(cursorStart, cursorEnd);
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function applyLinePrefix(textarea, prefix, placeholder = 'List item') {
+      const start = textarea.selectionStart ?? 0;
+      const end = textarea.selectionEnd ?? 0;
+      const selected = textarea.value.slice(start, end) || placeholder;
+      const lines = selected.split('\n').map(line => `${prefix}${line}`);
+      textarea.setRangeText(lines.join('\n'), start, end, 'end');
+      textarea.focus();
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function insertLink(textarea) {
+      const start = textarea.selectionStart ?? 0;
+      const end = textarea.selectionEnd ?? 0;
+      const selected = textarea.value.slice(start, end).trim();
+      const url = window.prompt('URL for the link:', 'https://');
+      if (!url) return;
+      const label = selected || window.prompt('Link text:', 'link') || 'link';
+      const replacement = `[${label}](${url})`;
+      textarea.setRangeText(replacement, start, end, 'end');
+      textarea.focus();
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function autoFormatLinks(textarea) {
+      const urlRegex = /(^|\s)(https?:\/\/[^\s<]+[^\s<.,;:!?\)\]])/g;
+      textarea.value = textarea.value.replace(urlRegex, (match, leading, url) => {
+        if (leading + url === match && match.includes('](')) return match;
+        return `${leading}[${url}](${url})`;
+      });
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function updatePreview(textarea, preview) {
+      const value = textarea.value || '';
+      const escaped = escapeHtml(value)
+        .replace(/^### (.*)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.*)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.*)$/gm, '<h1>$1</h1>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\[(.+?)\]\((https?:\/\/[^\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer noopener">$1</a>');
+      preview.innerHTML = escaped
+        .split(/\n{2,}/)
+        .map(block => block.includes('<h') ? block : `<p>${block.replace(/\n/g, '<br>')}</p>`)
+        .join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const textarea = document.querySelector('[data-markdown-editor]');
+      const preview = document.querySelector('[data-markdown-preview]');
+      if (!textarea) return;
+
+      document.querySelectorAll('[data-editor-action]').forEach(button => {
+        button.addEventListener('click', () => {
+          const action = button.getAttribute('data-editor-action');
+          if (action === 'bold') applyWrap(textarea, '**');
+          if (action === 'italic') applyWrap(textarea, '*');
+          if (action === 'heading') applyLinePrefix(textarea, '## ', 'Heading');
+          if (action === 'bullet') applyLinePrefix(textarea, '- ');
+          if (action === 'quote') applyLinePrefix(textarea, '> ', 'Quote');
+          if (action === 'code') applyWrap(textarea, '`');
+          if (action === 'link') insertLink(textarea);
+          if (action === 'autolink') autoFormatLinks(textarea);
+        });
+      });
+
+      if (preview) {
+        textarea.addEventListener('input', () => updatePreview(textarea, preview));
+        updatePreview(textarea, preview);
+      }
+    });
+  </script>
   </style>
 </head>
 <body>
@@ -180,6 +352,15 @@ def auth_enabled() -> bool:
 
 def render_page(title: str, body: str) -> str:
     return render_template_string(PAGE_TEMPLATE, title=title, body=body, authed=is_authenticated(), auth_enabled=auth_enabled())
+
+
+def markdown_preview_html(text: str) -> str:
+    if md_lib is not None:
+        return md_lib.markdown(text, extensions=["extra", "sane_lists"])
+    return (
+        html_escape(text)
+        .replace("\n", "<br>")
+    )
 
 
 def is_authenticated() -> bool:
@@ -336,20 +517,22 @@ def index():
     for note in list_notes():
         rows.append(
             f"<tr>"
-            f"<td><strong>{note.title}</strong><br><span class='muted'>{note.relative_path}</span></td>"
-            f"<td>{note.date}</td>"
-            f"<td>{note.slug}</td>"
-            f"<td><a href='{url_for('edit_note', relative_path=note.relative_path)}'>Edit</a></td>"
+            f"<td><strong>{note.title}</strong><br><span class='muted note-path'>{note.relative_path}</span></td>"
+            f"<td><span class='stack-on-mobile'>Date:</span>{note.date}</td>"
+            f"<td><span class='stack-on-mobile'>Slug:</span>{note.slug}</td>"
+            f"<td><span class='stack-on-mobile'>Action:</span><a href='{url_for('edit_note', relative_path=note.relative_path)}'>Edit</a></td>"
             f"</tr>"
         )
     body = f"""
     <div class='panel'>
       <h2>Notes</h2>
       <p class='muted'>This CMS only manages notes in <code>src/notes/</code>.</p>
-      <table>
-        <thead><tr><th>Note</th><th>Date</th><th>Slug</th><th>Action</th></tr></thead>
-        <tbody>{''.join(rows) or '<tr><td colspan="4">No notes found.</td></tr>'}</tbody>
-      </table>
+      <div class='notes-table-wrap'>
+        <table>
+          <thead><tr><th>Note</th><th>Date</th><th>Slug</th><th>Action</th></tr></thead>
+          <tbody>{''.join(rows) or '<tr><td colspan="4">No notes found.</td></tr>'}</tbody>
+        </table>
+      </div>
     </div>
     """
     return render_page("Notes", body)
@@ -470,6 +653,7 @@ def build_site():
 def render_note_form(title: str, action: str, values: dict[str, str], create_mode: bool) -> str:
     checked = "checked" if values.get("build_after", "1") == "1" else ""
     slug_help = "Leave blank to use the note time as HHMM, matching the existing bot-style notes." if create_mode else "Changing slug or date will move the file. Leave blank to use the note time as HHMM."
+    preview_html = markdown_preview_html(values.get("body", ""))
     return f"""
     <div class='panel'>
       <h2>{title}</h2>
@@ -483,11 +667,29 @@ def render_note_form(title: str, action: str, values: dict[str, str], create_mod
           <div>
             <label>Slug / filename</label>
             <input name='slug' value='{html_escape(values.get('slug', ''))}'>
-            <div class='muted'>{slug_help}</div>
+            <div class='muted help-text'>{slug_help}</div>
           </div>
         </div>
         <label>Markdown body</label>
-        <textarea name='body' required>{html_escape(values.get('body', ''))}</textarea>
+        <div class='toolbar' role='toolbar' aria-label='Markdown formatting tools'>
+          <button type='button' data-editor-action='bold'>Bold</button>
+          <button type='button' data-editor-action='italic'>Italic</button>
+          <button type='button' data-editor-action='heading'>Heading</button>
+          <button type='button' data-editor-action='bullet'>List</button>
+          <button type='button' data-editor-action='quote'>Quote</button>
+          <button type='button' data-editor-action='code'>Code</button>
+          <button type='button' data-editor-action='link'>Link</button>
+          <button type='button' data-editor-action='autolink'>Auto-link URLs</button>
+        </div>
+        <div class='editor-grid'>
+          <div>
+            <textarea name='body' required data-markdown-editor>{html_escape(values.get('body', ''))}</textarea>
+          </div>
+          <div>
+            <label>Preview</label>
+            <div class='preview' data-markdown-preview>{preview_html}</div>
+          </div>
+        </div>
         <label><input type='checkbox' name='build_after' value='1' {checked}> Run <code>python3 gen.py build</code> after saving</label>
         <div class='actions' style='margin-top: 14px;'>
           <button type='submit'>{'Create note' if create_mode else 'Save changes'}</button>
