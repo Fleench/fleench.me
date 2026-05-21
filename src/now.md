@@ -1,4 +1,4 @@
 ---
-template: src/now.html.temp
+template: src/templates/now.html.temp
 ---
 oh

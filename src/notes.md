@@ -1,4 +1,4 @@
 ---
-template: src/note-full.html.temp
+template: src/templates/note-full.html.temp
 ---
 uh

@@ -1,0 +1,28 @@
+<!-- meta start -->
+<!-- 
+extends: src/templates/page.html.temp
+-->
+<!-- meta end -->
+
+~{block left_sidebar}~
+<div id="webmentions"></div>
+~{endblock}~
+
+~{block content_block}~
+<div class="blog e-content">
+  <h1>{{ title }}</h1>
+  <img alt="{{ img-alt }}" src="{{ img }}">
+  {{ content }}
+</div>
+<div style="display:none;">
+  <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
+  <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
+  <div class="p-author h-card">
+    <a class="u-url n" href="https://flench.me">Glenn Sutherland</a>
+  </div>
+</div>
+~{endblock}~
+
+~{block right_sidebar}~
+~{src/elements/author.element}~
+~{endblock}~

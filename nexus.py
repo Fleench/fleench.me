@@ -35,14 +35,14 @@ except Exception:
 DEFAULT_CONFIG: dict[str, Any] = {
     "src_dir": "src",
     "out_dir": "dist",
-    "default_template": "src/page.html.temp",
+    "default_template": "src/templates/page.html.temp",
     "plugins": [],
     "site_url": "https://flench.me",
     "rss": False,
     "cmds": {},
 }
 LOGGER = logging.getLogger("gen")
-FEATURE_DOC_PATH = Path(__file__).with_name("nexus_features.md")
+FEATURE_DOC_PATH = Path(__file__).parent / "docs" / "plans" / "nexus_features.md"
 
 
 @dataclass
@@ -799,7 +799,7 @@ def main() -> None:
 
     src_dir = Path(str(config.get("src_dir", "src")))
     out_dir = Path(str(config.get("out_dir", "dist")))
-    template_path = Path(str(config.get("default_template", "src/page.html.temp")))
+    template_path = Path(str(config.get("default_template", "src/templates/page.html.temp")))
 
     built, _all_pages = build_site(src_dir, out_dir, template_path, config)
     LOGGER.info("Built %s markdown page(s)", built)

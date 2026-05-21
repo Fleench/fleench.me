@@ -122,9 +122,7 @@ def _build_feed_xml(
     return "\n".join(rss_lines) + "\n"
 
 
-def _to_rfc2822(value: datetime) -> str:
-    return format_datetime(value)
-
+def main(src_dir: Path, out_dir: Path, config: dict[str, Any], all_pages: list[Any]) -> None:
     site_url = str(config.get("site_url", "https://flench.me")).rstrip("/")
     feed_paths = _normalize_feed_paths(config)
     feed_groups: dict[str, list[tuple[str, str, str, str, datetime]]] = {path: [] for path in feed_paths}

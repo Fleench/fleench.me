@@ -11,18 +11,28 @@ def main(src_dir, out_dir, config, files):
     # should build mobile site we see
     print("Building Mobile Site")
     nout_dir = out_dir / "mobile"
+    special_mobile_pages = {
+        src_dir / "school-year-review-2526.md",
+    }
     #print(nout_dir)
     for page in files:
         
         #print(f"{str(page.md_file)} has {str((src_dir / "notes"))} in it is { str((src_dir / "notes")) in str(page.md_file)}")
-        if str((src_dir / "notes")) in str(page.md_file) or str((src_dir / "blogs")) in str(page.md_file) or str((src_dir / "about")) in str(page.md_file):
+        if (
+            str((src_dir / "notes")) in str(page.md_file)
+            or str((src_dir / "blogs")) in str(page.md_file)
+            or str((src_dir / "about")) in str(page.md_file)
+            or page.md_file in special_mobile_pages
+        ):
             page.out_dir = nout_dir
-            td_path = src_dir / "mobile.html.temp"
+            templates_dir = src_dir / "templates"
+            td_path = templates_dir / "mobile.html.temp"
             other_temps = {
-                "src/note-full.html.temp":src_dir / "mobile" / "mobile-note-full.html.temp",
-                "src/note.html.temp":src_dir / "mobile" / "mobile-note.html.temp",
-                "src/blogs-full.html.temp":src_dir / "mobile" / "mobile-blog-full.html.temp",
-                "src/blog.html.temp":src_dir / "mobile" / "mobile-blog.html.temp"
+                "src/templates/note-full.html.temp": templates_dir / "mobile" / "mobile-note-full.html.temp",
+                "src/templates/note.html.temp": templates_dir / "mobile" / "mobile-note.html.temp",
+                "src/templates/blogs-full.html.temp": templates_dir / "mobile" / "mobile-blog-full.html.temp",
+                "src/templates/blog.html.temp": templates_dir / "mobile" / "mobile-blog.html.temp",
+                "src/templates/school-year-review.html.temp": templates_dir / "school-year-review.html.temp",
             }
             template = config["API"]["parse_frontmatter"](page.md_file.read_text(encoding="utf-8")).metadata.get("template","")
             t_path = other_temps.get(template,td_path)
@@ -41,9 +51,15 @@ def main(src_dir, out_dir, config, files):
             page.write()
             """
            
+    skip_suffixes = {".md", ".element", ".py", ".temp", ".bak", ".html", ".pyc"}
+    skip_names = {".env"}
+    skip_dirs = {"__pycache__", "elements", ".elements", "templates"}
     for asset in src_dir.rglob("*"):
-        skip = [".md", ".element", ".py", ".temp", ".bak", ".html"]
-        if not asset.is_file() or asset.suffix.lower() in skip:
+        if not asset.is_file():
+            continue
+        if asset.suffix.lower() in skip_suffixes or asset.name in skip_names:
+            continue
+        if any(part in skip_dirs for part in asset.relative_to(src_dir).parts[:-1]):
             continue
         dist_path = out_dir / asset.relative_to(src_dir)
         #print(dist_path)

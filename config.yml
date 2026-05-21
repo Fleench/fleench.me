@@ -1,6 +1,6 @@
 src_dir: src
 out_dir: dist
-default_template: src/page.html.temp
+default_template: src/templates/page.html.temp
 plugins:
   - scripts.mobile
   - scripts.rss_plugin

@@ -22,7 +22,7 @@ The site uses a hybrid **Inheritance + Composition** model for its layouts.
 -   **Base Shell (`page.html.temp`)**: The primary HTML structure.
 -   **Sub-templates**: Specialized layouts like `blog.html.temp` or `note.html.temp` that extend the base shell.
 -   **Template Blocks**: Named regions (`~{block NAME}~...~{endblock}~`) that can be overridden by sub-templates or even specific Markdown files.
--   **Template Elements (`src/.elements/`)**:
+-   **Template Elements (`src/elements/`)**:
     -   **Static Elements (`.element`)**: HTML snippets like `nav.element` or `footer.element`.
     -   **Dynamic Elements (`.py`)**: Python scripts that generate HTML programmatically, such as `blogs.py` for listing posts or `spotify.py` for music integration.
 
@@ -30,10 +30,10 @@ The site uses a hybrid **Inheritance + Composition** model for its layouts.
 
 ## 3. Styling Framework
 
--   **Primary Styles (`style.css`)**: Global typography and defaults.
--   **Structural Grid (`style-grid.css`)**: Handles the site's responsive 3-column layout.
--   **Theming**: `dark.css` and `theme-mode.js` provide client-side theme persistence.
--   **Mobile Layer (`mobile.css`)**: Overrides styles for smaller viewports, working alongside specialized mobile templates in `src/mobile/`.
+-   **Primary Styles (`src/css/style.css`)**: Global typography and defaults.
+-   **Structural Grid (`src/css/style-grid.css`)**: Handles the site's responsive 3-column layout.
+-   **Theming**: `src/css/dark.css` and `src/js/theme-mode.js` provide client-side theme persistence.
+-   **Mobile Layer (`src/css/mobile.css`)**: Overrides styles for smaller viewports, working alongside specialized mobile templates in `src/templates/mobile/`.
 
 ---
 

@@ -1,0 +1,36 @@
+<!-- meta start -->
+<!-- 
+extends: src/templates/page.html.temp
+-->
+<!-- meta end -->
+
+~{block head_extra}~
+<link rel="alternate" type="application/rss+xml" title="Notes RSS" href="/notes/rss.xml" />
+~{endblock}~
+
+~{block left_sidebar}~~{endblock}~
+
+~{block content_block}~
+<div class="note-page">
+  <h1>{{ title }}</h1>
+  <div class="e-content">
+    {{ content }}
+    <a class="bridgy-fed-webping" href="https://fed.brid.gy/">Bridgy Fed</a>
+  </div>
+  <p><a class="u-url" href="{{ output }}">Permalink</a></p>
+  <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
+  <div style="display:none;">
+    <a class="u-url p-name" href="/">Home</a>
+    <div class="p-author h-card">
+      <a class="u-url n" href="https://flench.me">Flench04</a>
+      <img class="u-photo" src="/profile.png"/>
+    </div>
+  </div>
+</div>
+~{endblock}~
+
+~{block right_sidebar}~~{endblock}~
+
+~{block main_extras}~
+<div id="webmentions"></div>
+~{endblock}~

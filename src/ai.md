@@ -1,5 +1,5 @@
 ---
-template: src/ai.html.temp
+template: src/templates/ai.html.temp
 ---
 
 # AI Policies

@@ -1,5 +1,5 @@
 ---
-template: src/blog.html.temp
+template: src/templates/blog.html.temp
 date: 1900/01/01
 ---
 # Welcome

@@ -1,4 +1,4 @@
 ---
-template: src/blogs-full.html.temp
+template: src/templates/blogs-full.html.temp
 ---
 uh

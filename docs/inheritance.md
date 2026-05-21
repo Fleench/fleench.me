@@ -5,9 +5,9 @@ The site generator uses a powerful, recursive template inheritance system combin
 ## Overview
 The architecture follows a hierarchical structure:
 
-1.  **Base Template**: Provides the global HTML shell (e.g., `src/page.html.temp`).
-2.  **Sub-template**: Extends the base template and overrides specific regions (e.g., `src/blog.html.temp`).
-3.  **Composition (Elements)**: Reusable snippets or dynamic scripts (e.g., `src/.elements/`).
+1.  **Base Template**: Provides the global HTML shell (e.g., `src/templates/page.html.temp`).
+2.  **Sub-template**: Extends the base template and overrides specific regions (e.g., `src/templates/blog.html.temp`).
+3.  **Composition (Elements)**: Reusable snippets or dynamic scripts (e.g., `src/elements/`).
 4.  **Markdown Page**: Selects a template via frontmatter OR extends a template directly.
 
 ---
@@ -20,7 +20,7 @@ Templates declare their parent using a `meta` comment block:
 ```html
 <!-- meta start -->
 <!-- 
-extends: src/page.html.temp
+extends: src/templates/page.html.temp
 -->
 <!-- meta end -->
 ```
@@ -42,7 +42,7 @@ A Markdown file can extend a template directly. When it does, it can override na
 ```yaml
 ---
 title: Custom Page
-extends: src/page.html.temp
+extends: src/templates/page.html.temp
 ---
 ~{block content_block}~
   <section class="special-layout">
@@ -66,7 +66,7 @@ Inserts the content of a file directly into the template. This is useful for hea
 
 ```html
 <head>
-  ~{src/.elements/head.element}~
+  ~{src/elements/head.element}~
 </head>
 ```
 
@@ -75,7 +75,7 @@ Executes a Python script and inserts the returned string. The script should expo
 
 ```html
 <section class="blog-list">
-  :{src/.elements/blogs.py}:()
+  :{src/elements/blogs.py}:()
 </section>
 ```
 *Note: The generator passes a `context` dictionary to the script, which includes things like `project_root`, `src_dir`, and page-specific metadata.*
@@ -99,8 +99,8 @@ The generator processes files in a strict order:
 
 ### Example: The Sub-template Pattern
 
-1.  **Base (`src/page.html.temp`)**: Defines the outer shell with a `~{block content_block}~~{endblock}~`.
-2.  **Sub-template (`src/blog.html.temp`)**: Extends the base, provides a blog-specific article wrapper, and maybe overrides the sidebar with `~{src/.elements/author.element}~`.
-3.  **Page (`src/post.md`)**: Simply sets `template: src/blog.html.temp`.
+1.  **Base (`src/templates/page.html.temp`)**: Defines the outer shell with a `~{block content_block}~~{endblock}~`.
+2.  **Sub-template (`src/templates/blog.html.temp`)**: Extends the base, provides a blog-specific article wrapper, and maybe overrides the sidebar with `~{src/elements/author.element}~`.
+3.  **Page (`src/post.md`)**: Simply sets `template: src/templates/blog.html.temp`.
 
 Recursive resolution ensures that the final page includes the base shell, the blog layout, and the author element, all while the author writes simple Markdown.

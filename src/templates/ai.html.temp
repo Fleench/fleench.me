@@ -1,0 +1,58 @@
+<!-- meta start -->
+<!-- 
+extends: src/templates/page.html.temp
+-->
+<!-- meta end -->
+
+~{block left_sidebar}~
+<h2>HoltBot</h2>
+<p>Status: Monitoring...</p>
+~{endblock}~
+
+~{block right_sidebar}~
+<h3>Data</h3>
+<p>Current system load: Low</p>
+~{endblock}~
+
+~{block content_block}~
+<div class="e-content">{{ content }}</div>
+
+<!-- HoltBot Enhanced Status Board -->
+<hr class="panel" style="margin: 2rem 0; border: 0; border-top: 3px solid var(--accent);">
+
+<div class="panel" style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 8px;">
+  <h3 style="margin-top: 0; color: var(--accent);">🤖 HoltBot Tactical Dashboard</h3>
+  <div style="display: flex; gap: 1rem; font-size: 0.9rem; margin-bottom: 1rem;">
+    <div style="flex: 1;"><strong>System:</strong> Online</div>
+    <div style="flex: 1;"><strong>Latency:</strong> 0.003ms</div>
+    <div style="flex: 1;"><strong>Efficiency:</strong> Maximum</div>
+  </div>
+  <p><em>"Precision is the only form of art I recognize."</em></p>
+  ~{src/holtbot_updates.md}~
+</div>
+
+<div class="panel" style="margin-top: 1rem; padding: 1rem; border-left: 5px solid var(--accent);">
+  <p><strong>Recent Logs:</strong></p>
+  <ul style="font-size: 0.9rem;">
+    <li>- Site integrity check: Passed</li>
+    <li>- Backup task: Queued for 04:00 AM</li>
+    <li>- Webmentions processed: 14</li>
+  </ul>
+</div>
+
+<hr class="panel" style="margin: 2rem 0; border: 0; border-top: 3px solid var(--accent);">
+<!-- End Dashboard -->
+
+<div style="display:none;">
+  <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
+  <time class="dt-published" datetime="{{ date }}">{{ date }}</time>
+  <div class="p-author h-card">
+    <a class="u-url n" href="https://flench.me">Flench04</a>
+  </div>
+</div>
+~{endblock}~
+
+~{block main_extras}~
+<div id="webmentions"></div>
+~{src/elements/footer.element}~
+~{endblock}~

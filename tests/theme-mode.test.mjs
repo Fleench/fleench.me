@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-const script = fs.readFileSync(new URL('../src/theme-mode.js', import.meta.url), 'utf8');
+const script = fs.readFileSync(new URL('../src/js/theme-mode.js', import.meta.url), 'utf8');
 
 class LocalStorageMock {
   constructor(initial = {}) {
@@ -159,7 +159,7 @@ test('defaults to dark mode and injects stylesheet', () => {
 
   assert.equal(document.documentElement.getAttribute('data-mode'), 'dark');
   assert.equal(document.head.appended.length, 1);
-  assert.equal(document.head.appended[0].href, '/dark.css');
+  assert.equal(document.head.appended[0].href, '/css/dark.css');
   assert.equal(localStorage.getItem('flench.themeMode'), 'dark');
 });
 

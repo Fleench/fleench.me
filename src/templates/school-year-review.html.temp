@@ -1,0 +1,55 @@
+<!-- meta start -->
+<!--
+extends: src/templates/page.html.temp
+-->
+<!-- meta end -->
+
+~{block head_extra}~
+<link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
+<link rel="stylesheet" href="/css/indie-audio-player.css" />
+<script src="/js/indie-audio-player.js" defer></script>
+~{endblock}~
+
+~{block content_block}~
+<div class="e-content indie-audio-page">
+  <h1>School Year Review 25/26</h1>
+  <div
+    class="indie-audio-player"
+    data-video-id="MCkXBSWEIBA"
+    data-playlist-id="OLAK5uy_nLjiQl1yFCQs-27YJiEP4RLEs_7F6c0MM"
+    data-title="Loading school year review track"
+  >
+    <div class="indie-audio-youtube" aria-hidden="true"></div>
+    <div class="indie-audio-control-frame">
+      <button class="indie-audio-toggle" type="button" aria-label="Play audio">
+        <svg class="indie-audio-icon indie-audio-icon-play" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 5v14l11-7z"></path>
+        </svg>
+        <svg class="indie-audio-icon indie-audio-icon-pause" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 5h4v14H7zM13 5h4v14h-4z"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="indie-audio-main">
+      <div class="indie-audio-meta">
+        <div class="indie-audio-title" aria-live="polite">
+          <span class="indie-audio-title-text" data-placeholder="Loading track">Loading track</span>
+        </div>
+        <div class="indie-audio-time">0:00 / 0:00</div>
+      </div>
+      <div class="indie-audio-progress-wrap">
+        <div class="indie-audio-progress-track" aria-hidden="true">
+          <div class="indie-audio-progress-fill"></div>
+        </div>
+        <input class="indie-audio-progress" type="range" min="0" max="100" value="0" step="0.1" aria-label="Track progress">
+      </div>
+    </div>
+  </div>
+</div>
+<div style="display:none;">
+  <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
+  <div class="p-author h-card">
+    <a class="u-url n" href="https://flench.me">Flench04</a>
+  </div>
+</div>
+~{endblock}~

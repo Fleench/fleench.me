@@ -1,5 +1,5 @@
 ---
-template: src/test.html.temp
+template: src/templates/test.html.temp
 ---
 # HI THERE
 ### Test Ping

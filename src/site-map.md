@@ -1,4 +1,4 @@
 ---
-template: src/site-map.html.temp
+template: src/templates/site-map.html.temp
 ---
 uh

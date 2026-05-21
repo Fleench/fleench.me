@@ -1,6 +1,7 @@
 # Build output
 dist/
 .cache
+logs/
 
 # Virtual environment
 .venv/

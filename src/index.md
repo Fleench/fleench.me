@@ -1,5 +1,5 @@
 ---
-template: src/index.html.temp
+template: src/templates/index.html.temp
 ---
 Welcome
 Hello I am Flench04.

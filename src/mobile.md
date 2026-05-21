@@ -1,5 +1,5 @@
 ---
-template: src/mobile-in.html.temp
+template: src/templates/mobile-in.html.temp
 ---
 Welcome
 

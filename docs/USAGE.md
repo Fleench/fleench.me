@@ -71,7 +71,7 @@ Select a specialized template in your Markdown frontmatter:
 ```yaml
 ---
 title: My Blog Post
-template: src/blog.html.temp
+template: src/templates/blog.html.temp
 ---
 ```
 
@@ -83,7 +83,7 @@ Override specific blocks directly in your post without creating a new template:
 ```yaml
 ---
 title: One-off Special Page
-extends: src/page.html.temp
+extends: src/templates/page.html.temp
 ---
 ~{block content_block}~
   <div class="super-special">
@@ -100,7 +100,7 @@ Use a meta block at the top of your template to extend another:
 
 ```html
 <!-- meta start -->
-<!-- extends: src/page.html.temp -->
+<!-- extends: src/templates/page.html.temp -->
 <!-- meta end -->
 
 ~{block sidebar}~
