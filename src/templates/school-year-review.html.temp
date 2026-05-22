@@ -217,8 +217,8 @@ extends: src/templates/page.html.temp
   <h1>School Year Review 25/26</h1>
   <div
     class="yt-player"
-    data-id="MCkXBSWEIBA"
-    data-type = "video"
+    data-id="PLggCYnGwTiwbxlKocC4BqGHO7L4dfhySx"
+    data-type = "playlist"
   >
 
 </div>
