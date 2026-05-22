@@ -2,8 +2,10 @@
 <html lang="en">
   <head>
     ~{src/elements/head.element}~
+    ~{block head_extra}~
     <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
     <link rel="stylesheet" href="/css/mobile.css" />
+    ~{endblock}~
 
   </head>
   <body>
@@ -18,6 +20,7 @@
             <div class="content-row">
               <main class="layout h-entry">
                 <section class="content panel">
+                  ~{block content_block}~
                   <div class="e-content">{{ content }}</div>
                   <div style="display:none;">
                     <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
@@ -26,6 +29,7 @@
                       <a class="u-url n" href="https://flench.me">Flench04</a>
                     </div>
                   </div>
+                  ~{endblock}~
                 </section>
 
                 <section class="main-extras">

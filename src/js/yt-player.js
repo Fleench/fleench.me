@@ -12,6 +12,7 @@ function onYouTubeIframeAPIReady() {
     const mediaId = widget.getAttribute('data-id');
     const mediaType = widget.getAttribute('data-type');
     const isPlaylist = mediaType === "playlist"; // Simple boolean to make checks easier
+    const shouldRandomize = widget.hasAttribute('data-random') && widget.getAttribute('data-random') !== 'false';
 
     console.log("Preparing to load a", mediaType, "with ID:", mediaId);
 
@@ -155,6 +156,14 @@ function onYouTubeIframeAPIReady() {
 
     let progressTimer;
 
+    const updateTitle = (player) => {
+      const videoData = player.getVideoData();
+      if (videoData && videoData.title) {
+        titleDisplay.textContent = videoData.title;
+        checkMarquee();
+      }
+    };
+
     // --- The Marquee Checker ---
     const checkMarquee = () => {
       titleDisplay.classList.remove('is-scrolling');
@@ -178,22 +187,26 @@ function onYouTubeIframeAPIReady() {
       },
       events: {
         'onReady': (event) => {
-          const videoData = event.target.getVideoData();
-          if (videoData && videoData.title) {
-            titleDisplay.textContent = videoData.title;
-            checkMarquee();
+          if (isPlaylist && shouldRandomize) {
+            const playlist = event.target.getPlaylist();
+            if (playlist && playlist.length > 0) {
+              const randomIndex = Math.floor(Math.random() * playlist.length);
+              event.target.setShuffle(true);
+              event.target.cuePlaylist({
+                listType: 'playlist',
+                list: mediaId,
+                index: randomIndex
+              });
+            }
           }
+          updateTitle(event.target);
         },
         'onStateChange': (event) => {
           if (event.data === YT.PlayerState.PLAYING) {
             playBtn.textContent = '⏸';
 
             // PLAYLIST FIX: Update the title when the track changes natively
-            const videoData = event.target.getVideoData();
-            if (videoData && videoData.title) {
-              titleDisplay.textContent = videoData.title;
-              checkMarquee();
-            }
+            updateTitle(event.target);
 
             progressTimer = setInterval(() => {
               const current = event.target.getCurrentTime();
@@ -202,6 +215,8 @@ function onYouTubeIframeAPIReady() {
               // Make sure formatTime is defined in your script!
               timeDisplay.textContent = formatTime(current) + ' / ' + formatTime(total);
             }, 500);
+          } else if (event.data === YT.PlayerState.CUED) {
+            updateTitle(event.target);
           } else {
             playBtn.textContent = '▶';
             clearInterval(progressTimer);

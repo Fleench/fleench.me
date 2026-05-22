@@ -1,74 +1,66 @@
+from pathlib import Path
+
+
 class Node:
-    def __init__(self, name: str, value: str, parent = None):
+    def __init__(self, name: str, value: str, parent=None):
         self.name = name
         self.children = {}
         self.parent = parent
         self.value = value
+
     def add_child(self, node):
         self.children[node.name] = node
-    def add_parent(self, node):
-        self.parent = node
-    def add_value(self, value):
-        self.value = value
+
     def get_children(self):
         return self.children
-    def get_parent(self):
-        return self.parent
-    def get_value(self):
-        return self.value
-    def get_name(self):
-        return self.name
-    def get_child(self, name):
-        return self.children.get(name)
-    def __str__(self):
-        return str(f"Name: {self.name}, Value: {self.value}, Children: {self.children}")
-def print_nodes(t_node: Node, deep:int):
-    build = []
-    for node in t_node.children.values():
-        if not node.name:
-            print("Err")
-        item = f"{"-"*deep},{node.name},{node.value}"
-        build.append(item)
-        if node.get_children() is not {}:
-            #print("\n")
-            x = print_nodes(node, deep+1)
-            for item in x:
-                build.append(item)
-    return build
+
+
+def _page_url(page, src_dir: Path, out_dir: Path) -> str:
+    relative = page.md_file.relative_to(src_dir)
+    if relative.as_posix() == "index.md":
+        output_path = out_dir / "index.html"
+    else:
+        output_path = out_dir / relative.with_suffix("") / "index.html"
+
+    rel_url = "/" + output_path.relative_to(out_dir).as_posix()
+    if rel_url.endswith("/index.html"):
+        rel_url = rel_url[: -len("index.html")]
+    return rel_url
+
+
+def _walk_nodes(node: Node, depth: int = 0):
+    for child in node.children.values():
+        yield depth, child.name, child.value
+        yield from _walk_nodes(child, depth + 1)
+
+
 def main(**config):
     files = config["opages"]
-    print("INIT")
-    top_node = Node("Top Node", 0)
+    src_dir = Path(config["src_dir"])
+    out_dir = Path(config["out_dir"])
+    parse_frontmatter = config["config"]["API"]["parse_frontmatter"]
+
+    top_node = Node("Top Node", "")
     for page in files:
-        _ = page.parse_content()
-        p = page.parsed.metadata
-        #print(p)
-        if not p.get("hidden",False):
-            parts = page.rel_url.split("/")
-            cur_node = top_node
-            used_parts = []
-            for part in parts:
-                used_parts.append(part)
-                if part.strip() == "":
-                    continue
-                n_node = cur_node.children.get(part)
-                if n_node:
-                    cur_node = n_node
-                else:
-                    n_node = Node(part, "/".join(used_parts), parent = cur_node)
-                    cur_node.add_child(n_node)
-                    cur_node = n_node
-    print("PRINTING NODES")
-    z = print_nodes(top_node, 0)
-    li = ['<ul style =  "columns: 2;-webkit-columns: 2;-moz-columns: 2;column-width: 5px">']
-    for item in z:
-        it =item.split(",")
-        if len(it) == 3:
-            tab = len(it[0])
-        else:
-            tab = 0
-        name = it[1]
-        value = it[2]
-        li.append(f'<li style="margin-left:{tab*15}px"><a href="{value}">{name}</a></li>')
-    li.append("</ul")
-    return "\n".join(li)
+        parsed = parse_frontmatter(page.md_file.read_text(encoding="utf-8"))
+        if parsed.metadata.get("hidden", False):
+            continue
+
+        cur_node = top_node
+        used_parts = []
+        for part in _page_url(page, src_dir, out_dir).split("/"):
+            used_parts.append(part)
+            if not part.strip():
+                continue
+
+            next_node = cur_node.children.get(part)
+            if next_node is None:
+                next_node = Node(part, "/".join(used_parts), parent=cur_node)
+                cur_node.add_child(next_node)
+            cur_node = next_node
+
+    items = ['<ul style="columns: 2;-webkit-columns: 2;-moz-columns: 2;column-width: 5px">']
+    for depth, name, value in _walk_nodes(top_node):
+        items.append(f'<li style="margin-left:{depth * 15}px"><a href="{value}">{name}</a></li>')
+    items.append("</ul>")
+    return "\n".join(items)

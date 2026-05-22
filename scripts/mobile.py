@@ -11,18 +11,19 @@ def main(src_dir, out_dir, config, files):
     # should build mobile site we see
     print("Building Mobile Site")
     nout_dir = out_dir / "mobile"
-    special_mobile_pages = {
-        src_dir / "school-year-review-2526.md",
+    special_mobile_templates = {
+        "src/templates/school-year-review.html.temp",
     }
     #print(nout_dir)
     for page in files:
         
         #print(f"{str(page.md_file)} has {str((src_dir / "notes"))} in it is { str((src_dir / "notes")) in str(page.md_file)}")
+        template = config["API"]["parse_frontmatter"](page.md_file.read_text(encoding="utf-8")).metadata.get("template","")
         if (
             str((src_dir / "notes")) in str(page.md_file)
             or str((src_dir / "blogs")) in str(page.md_file)
             or str((src_dir / "about")) in str(page.md_file)
-            or page.md_file in special_mobile_pages
+            or template in special_mobile_templates
         ):
             page.out_dir = nout_dir
             templates_dir = src_dir / "templates"
@@ -32,9 +33,8 @@ def main(src_dir, out_dir, config, files):
                 "src/templates/note.html.temp": templates_dir / "mobile" / "mobile-note.html.temp",
                 "src/templates/blogs-full.html.temp": templates_dir / "mobile" / "mobile-blog-full.html.temp",
                 "src/templates/blog.html.temp": templates_dir / "mobile" / "mobile-blog.html.temp",
-                "src/templates/school-year-review.html.temp": templates_dir / "school-year-review.html.temp",
+                "src/templates/school-year-review.html.temp": templates_dir / "mobile" / "mobile-school-year-review.html.temp",
             }
-            template = config["API"]["parse_frontmatter"](page.md_file.read_text(encoding="utf-8")).metadata.get("template","")
             t_path = other_temps.get(template,td_path)
             page.template_path = t_path
             page.default_template = t_path

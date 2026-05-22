@@ -1,11 +1,12 @@
 <!-- meta start -->
 <!--
-extends: src/templates/page.html.temp
+extends: src/templates/mobile.html.temp
 -->
 <!-- meta end -->
 
 ~{block head_extra}~
 <link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
+<link rel="stylesheet" href="/css/mobile.css" />
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="/js/yt-player.js" defer></script>
 <style>
