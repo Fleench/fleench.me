@@ -154,6 +154,43 @@ a:hover {
   padding-left: 1.25rem;
   
 }
+
+.list-card ul,
+.list-card ol,
+ul.list-card,
+ol.list-card,
+.content ul:has(> li.list-card),
+.content ol:has(> li.list-card) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.list-card li,
+ul.list-card li,
+ol.list-card li,
+.content ul:has(> li.list-card) > li,
+.content ol:has(> li.list-card) > li {
+  background: #f8fbff;
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 2px 0 #e2e6ef;
+  color: var(--text);
+  padding: 0.75rem;
+  min-height: 3rem;
+  line-height: 1.35;
+}
+
+.list-card li::marker,
+ul.list-card li::marker,
+ol.list-card li::marker,
+.content ul:has(> li.list-card) > li::marker,
+.content ol:has(> li.list-card) > li::marker {
+  content: "";
+}
+
 #changes ul {
 	list-style-type: none
 }

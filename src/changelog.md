@@ -1,5 +1,6 @@
 # {} ---{}---{}---changes
 - #### [View roadmap](/todo)
+- **<2026-May-21>** --- Added a new school year in review page
 - **<2026-Apr-03>** --- Added a code to add my button on another site
 - **<2026-Apr-03>** --- Added an android lock down banner
 - **<2026-Apr-03>** --- Removed the Spotify Widget on the homepage

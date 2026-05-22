@@ -555,6 +555,8 @@ class Page:
         locs: dict[str, str] = {}
         body = ""
         for block in blocks:
+            if not block[0].strip() and not "\n".join(block[1]).strip():
+                continue
             parts = block[0].split("---")
             lef = ""
             rig = ""
@@ -569,7 +571,8 @@ class Page:
                 rig = "</div>"
             if len(parts) > 1 and parts[1] != "{}":
                 if "{}" not in parts[0]:
-                    x = "# " + parts[0] + "\n" + "\n".join(block[1])
+                    prefix = "" if parts[0].lstrip().startswith("#") else "# "
+                    x = prefix + parts[0] + "\n" + "\n".join(block[1])
                 else:
                     x = "\n".join(block[1])
                 if parts[1] not in locs:
@@ -577,7 +580,8 @@ class Page:
                 locs[parts[1]] += "\n" + lef + markdown_to_html(x) + rig
             else:
                 if "{}" not in parts[0]:
-                    x = "# " + parts[0] + "\n" + "\n".join(block[1])
+                    prefix = "" if parts[0].lstrip().startswith("#") else "# "
+                    x = prefix + parts[0] + "\n" + "\n".join(block[1])
                 else:
                     x = "\n".join(block[1])
                 body = body + (lef + markdown_to_html(x) + rig)

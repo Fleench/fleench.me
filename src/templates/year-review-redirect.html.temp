@@ -1,0 +1,25 @@
+<!-- meta start -->
+<!--
+extends: src/templates/page.html.temp
+-->
+<!-- meta end -->
+
+~{block head_extra}~
+<link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
+<script>
+  window.location.replace("/year-review/25-26/");
+</script>
+~{endblock}~
+
+~{block content_block}~
+<div class="e-content">
+  <h1>Year Review</h1>
+  <p>Redirecting to <a href="/year-review/25-26/">School Year Review 25/26</a>.</p>
+</div>
+<div style="display:none;">
+  <a class="u-url p-name" href="{{ output }}">{{ title }}</a>
+  <div class="p-author h-card">
+    <a class="u-url n" href="https://flench.me">Flench04</a>
+  </div>
+</div>
+~{endblock}~

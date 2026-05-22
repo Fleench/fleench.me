@@ -53,6 +53,17 @@ html[data-mode="dark"] .mention-card {
   border-color: #333;
 }
 
+html[data-mode="dark"] .list-card li,
+html[data-mode="dark"] ul.list-card li,
+html[data-mode="dark"] ol.list-card li,
+html[data-mode="dark"] .content ul:has(> li.list-card) > li,
+html[data-mode="dark"] .content ol:has(> li.list-card) > li {
+  background: #1a1a1a;
+  border-color: #333;
+  box-shadow: 0 2px 0 #000;
+  color: var(--text);
+}
+
 html[data-mode="dark"] .mention-header {
   border-bottom-color: #333;
 }
