@@ -27,11 +27,16 @@ def load_env():
     return config
 
 
+def get_spotify_credentials():
+    env = load_env()
+    client_id = env.get("SPOTIFY_CLIENT_ID") or os.environ.get("SPOTIFY_CLIENT_ID")
+    client_secret = env.get("SPOTIFY_CLIENT_SECRET") or os.environ.get("SPOTIFY_CLIENT_SECRET")
+    return client_id, client_secret
+
+
 def main(**context):
     # 1. Load Credentials
-    env = load_env()
-    client_id = env.get("SPOTIFY_CLIENT_ID")
-    client_secret = env.get("SPOTIFY_CLIENT_SECRET")
+    client_id, client_secret = get_spotify_credentials()
 
     if not client_id or not client_secret:
         args = context.get("args", [])
