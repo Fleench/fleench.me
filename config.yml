@@ -7,6 +7,7 @@ plugins:
   - scripts.webmentions
 site_url: https://flench.me
 cmds:
+  ipost: scripts.ipost
   publish: scripts.webmentions
 mobile:
   test:

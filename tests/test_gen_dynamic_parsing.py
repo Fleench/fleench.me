@@ -3,8 +3,10 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import gen
+from src.elements import spotify
 
 
 class DynamicElementParsingTests(unittest.TestCase):
@@ -106,6 +108,25 @@ extends: src/templates/page.html.temp
             output = (out / "index.html").read_text(encoding="utf-8")
             self.assertIn("<article>Hello</article>", output)
             self.assertNotIn("~{block", output)
+
+
+class SpotifyElementTests(unittest.TestCase):
+    def test_get_spotify_credentials_falls_back_to_system_env(self) -> None:
+        with (
+            mock.patch.object(spotify, "load_env", return_value={}),
+            mock.patch.dict(
+                "os.environ",
+                {
+                    "SPOTIFY_CLIENT_ID": "system-client-id",
+                    "SPOTIFY_CLIENT_SECRET": "system-client-secret",
+                },
+                clear=True,
+            ),
+        ):
+            self.assertEqual(
+                spotify.get_spotify_credentials(),
+                ("system-client-id", "system-client-secret"),
+            )
 
 
 if __name__ == "__main__":
