@@ -1,0 +1,379 @@
+<html lang="en">
+<head>
+<style>
+
+.fav {
+  position: relative;
+  width: 16em;
+  margin: 0;
+  padding: 0;
+  background-size: cover;
+  overflow: hidden;
+}
+.fav img {
+  object-fit: cover;
+  width: 100%;
+  height: 15em;
+  display: block;
+}
+.fav h1 {
+  position: absolute;
+  bottom: -0.6em;
+  text-wrap: auto;
+  margin-top: -1.9em;
+  font-size: clamp(0.5rem, 2vw, 1.35rem);
+}
+.fav .ricon {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  z-index: 2;
+}
+.fav[data-href] {
+  cursor: pointer;
+}
+.fav .fav-cta {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transition: opacity 180ms ease-in-out;
+  pointer-events: none;
+  z-index: 1;
+}
+.fav:hover .fav-cta,
+.fav:focus-visible .fav-cta {
+  opacity: 1;
+}
+.ricon img {
+  width: auto !important;
+  height: 32px !important;
+  margin: 0 !important;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+.ricon:hover {
+  transform: scale(1.1);
+}
+.crow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 16em);
+  overflow: scroll;
+  scrollbar-width: none;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  visibility: visible;
+  justify-content: start;
+  border-radius: 8px;
+}
+
+</style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>
+Now
+</title>
+<link rel="stylesheet" href="/css/style.css">
+<link id="Canonical" rel="canonical" href="https://flench.me/now/">
+<link rel="webmention" href="https://webmention.io/flench.me/webmention">
+<link rel="pingback" href="https://webmention.io/flench.me/xmlrpc">
+<script src="/js/theme-mode.js">
+</script>
+<script src="/js/layout.js" defer="defer">
+</script>
+<script src="/js/mentions.js" defer="defer">
+</script>
+</head>
+<body>
+<div class="page-wrap">
+<header class="marquee-frame" style="display: block">
+<script src="https://keepandroidopen.org/banner.js">
+</script>
+</header>
+<div class="site-layout">
+<div class="center-column">
+<div class="content-shell">
+<button class="sidebar-toggle-button panel" type="button" aria-controls="left-sidebar" aria-expanded="false" hidden="">
+
+              Toggle sidebar
+            
+</button>
+<div id="Nav">
+<nav class="top-nav panel top-nav-main" aria-label="Primary navigation" id="NAV">
+<span id="rate_badge">
+</span>
+<a href="/">
+Home
+</a>
+<a href="/changelog">
+Changelog
+</a>
+<a href="/notes/">
+Notes
+</a>
+<a href="/blogs/">
+Blogs
+</a>
+<a href="/about">
+About me
+</a>
+<a href="/site-map">
+ Site Map
+</a>
+</nav>
+</div>
+<div class="content-row">
+<aside class="sidebar sidebar-left panel" id="left-sidebar">
+</aside>
+<main class="layout h-entry">
+<section class="content panel" id="ContentPanel">
+<div class="e-content" id="Content">
+</div>
+<div id="PostInfo" style="display:none;">
+<div class="p-author h-card">
+<a class="u-url n" href="https://flench.me">
+Flench04
+</a>
+</div>
+</div>
+<div class="crow" id="crow">
+<div class="fav" data-href="https://open.spotify.com/search/Ben+Rector">
+<a href="https://open.spotify.com/search/Ben+Rector" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="Ben Rector">
+<h1>
+Ben Rector
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/Luminati+Suns">
+<a href="https://open.spotify.com/search/Luminati+Suns" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="Luminati Suns">
+<h1>
+Luminati Suns
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/Josiah+Queen">
+<a href="https://open.spotify.com/search/Josiah+Queen" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="Josiah Queen">
+<h1>
+Josiah Queen
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/Owl+City">
+<a href="https://open.spotify.com/search/Owl+City" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="Owl City">
+<h1>
+Owl City
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/Mercy+Me">
+<a href="https://open.spotify.com/search/Mercy+Me" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="Mercy Me">
+<h1>
+Mercy Me
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/5AfoxZl8Y5VJgC9nK0DvBV">
+<a href="https://open.spotify.com/search/5AfoxZl8Y5VJgC9nK0DvBV" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="Inhale (Exhale)">
+<h1>
+Inhale (Exhale)
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/3Mb8bYV4FKmdnmrlSYqp3j">
+<a href="https://open.spotify.com/search/3Mb8bYV4FKmdnmrlSYqp3j" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="Magic">
+<h1>
+Magic
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/2IDUIQkIrI8EREUvVNPxm2">
+<a href="https://open.spotify.com/search/2IDUIQkIrI8EREUvVNPxm2" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="The Prodigal (Deluxe Edition)">
+<h1>
+The Prodigal (Deluxe Edition)
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/0PXMY36QVuybwHDfdtDuOB">
+<a href="https://open.spotify.com/search/0PXMY36QVuybwHDfdtDuOB" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="How We Love">
+<h1>
+How We Love
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/0k79A6mTLVAwJLEnF6bZz6">
+<a href="https://open.spotify.com/search/0k79A6mTLVAwJLEnF6bZz6" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="The Middle">
+<h1>
+The Middle
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/6UZfwVJdXRqM9N3lR94JeO">
+<a href="https://open.spotify.com/search/6UZfwVJdXRqM9N3lR94JeO" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="Are You Looking Up">
+<h1>
+Are You Looking Up
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/1GgoypuXSxpTKOxEYiZ3JJ">
+<a href="https://open.spotify.com/search/1GgoypuXSxpTKOxEYiZ3JJ" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="Drive">
+<h1>
+Drive
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/0MXF8sxW0k2QYrSEaSeeUz">
+<a href="https://open.spotify.com/search/0MXF8sxW0k2QYrSEaSeeUz" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="The Summons">
+<h1>
+The Summons
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://open.spotify.com/search/57X5CeMMlrFDmvAyUxMkgV">
+<a href="https://open.spotify.com/search/57X5CeMMlrFDmvAyUxMkgV" target="_blank" class="ricon">
+<img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="View on Spotify">
+</a>
+<img src="/profile.png" alt="note to self (Acoustic Version)">
+<h1>
+note to self (Acoustic Version)
+</h1>
+<span class="fav-cta">
+View on Spotify
+</span>
+</div>
+<div class="fav" data-href="https://www.themoviedb.org/tv/79744-the-rookie">
+<a href="https://www.themoviedb.org/tv/79744-the-rookie" target="_blank" class="ricon">
+<img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="View on TMDB">
+</a>
+<img src="https://media.themoviedb.org/t/p/w440_and_h660_face/70kTz0OmjjZe7zHvIDrq2iKW7PJ.jpg" alt="">
+<h1>
+
+</h1>
+<span class="fav-cta">
+View on TMDB
+</span>
+</div>
+<div class="fav" data-href="https://www.themoviedb.org/tv/79744-the-rookie">
+<a href="https://www.themoviedb.org/tv/79744-the-rookie" target="_blank" class="ricon">
+<img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="View on TMDB">
+</a>
+<img src="https://media.themoviedb.org/t/p/w440_and_h660_face/lO4tP5y1iwCSWeeetcJhiRzn9C8.jpg" alt="The Neighborhood">
+<h1>
+The Neighborhood
+</h1>
+<span class="fav-cta">
+View on TMDB
+</span>
+</div>
+</div>
+</section>
+<section class="main-extras">
+<div id="webmentions">
+<a href="/plans/now">
+
+</a>
+</div>
+<div id="Footer">
+<footer class="panel footer">
+<a rel="me" class="Link--primary" href="https://github.com/fleench">
+Fleench on Github
+</a>
+<p>
+© 2026 The Void — E-mail: webmaster@flench.me
+</p>
+<div id="Built">
+<p>
+Last built: 2026-06-04
+</p>
+</div>
+</footer>
+</div>
+</section>
+</main>
+<aside class="sidebar sidebar-left panel" id="right-sidebar">
+</aside>
+</div>
+</div>
+</div>
+</div>
+<div>
+</div>
+<p>
+Last built: 2026-06-04
+</p>
+Last built: 2026-06-04
+Now
+</div>
+</body>
+</html>

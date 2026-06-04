@@ -1,0 +1,222 @@
+<html lang="en">
+<head>
+<link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>
+Test
+</title>
+<link rel="stylesheet" href="/css/style.css">
+<link id="Canonical" rel="canonical" href="https://flench.me/test/">
+<link rel="webmention" href="https://webmention.io/flench.me/webmention">
+<link rel="pingback" href="https://webmention.io/flench.me/xmlrpc">
+<script src="/js/theme-mode.js">
+</script>
+<script src="/js/layout.js" defer="defer">
+</script>
+<script src="/js/mentions.js" defer="defer">
+</script>
+</head>
+<body>
+<div class="page-wrap">
+<header class="marquee-frame" style="display: block">
+<script src="https://keepandroidopen.org/banner.js">
+</script>
+</header>
+<div class="site-layout">
+<div class="center-column">
+<div class="content-shell">
+<button class="sidebar-toggle-button panel" type="button" aria-controls="left-sidebar" aria-expanded="false" hidden="">
+
+              Toggle sidebar
+            
+</button>
+<div id="Nav">
+<nav class="top-nav panel top-nav-main" aria-label="Primary navigation" id="NAV">
+<span id="rate_badge">
+</span>
+<a href="/">
+Home
+</a>
+<a href="/changelog">
+Changelog
+</a>
+<a href="/notes/">
+Notes
+</a>
+<a href="/blogs/">
+Blogs
+</a>
+<a href="/about">
+About me
+</a>
+<a href="/site-map">
+ Site Map
+</a>
+</nav>
+</div>
+<div class="content-row">
+<aside class="sidebar sidebar-left panel" id="left-sidebar">
+<aside id="left_sidebar">
+</aside>
+<div>
+<h1>
+HI
+</h1>
+<p>
+<img alt="" src="/profile.png">
+</p>
+</div>
+</aside>
+<main class="layout h-entry">
+<section class="content panel" id="ContentPanel">
+<div class="e-content" id="Content">
+</div>
+<div id="PostInfo" style="display:none;">
+<div class="p-author h-card">
+<a class="u-url n" href="https://flench.me">
+Flench04
+</a>
+</div>
+</div>
+<section id="content_block">
+<div class="e-content" id="TestContent">
+<div>
+<h1>
+HI THERE
+</h1>
+<h3>
+Test Ping
+</h3>
+<p>
+I am testing my 
+<a href="https://flench.me/">
+homepage
+</a>
+</p>
+<p>
+And now my blog 
+<a href="https://flench.me/blogs/test/">
+test page
+</a>
+
+But I think it is 
+<a href="https://flench.me/blogs/test">
+broken
+</a>
+</p>
+<h2>
+Local storage status
+</h2>
+<p>
+<strong>
+Pages visited:
+</strong>
+</p>
+<ol id="visited-pages-list">
+</ol>
+<script>
+
+(function () {
+  const VISITS_STORAGE_KEY = 'flench.pageVisits';
+  const visitsEl = document.getElementById('visited-pages-list');
+
+  if (!visitsEl) {
+    return;
+  }
+
+  let visits = [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(VISITS_STORAGE_KEY) || '[]');
+    if (Array.isArray(parsed)) {
+      visits = parsed;
+    }
+  } catch (_error) {
+    visits = [];
+  }
+
+  if (visits.length === 0) {
+    const item = document.createElement('li');
+    item.textContent = 'No visits saved yet.';
+    visitsEl.appendChild(item);
+    return;
+  }
+
+  visits
+    .slice()
+    .reverse()
+    .forEach((visit) =&gt; {
+      const item = document.createElement('li');
+      const visitUrl = typeof visit.url === 'string' ? visit.url : '(unknown url)';
+      const visitedAt = typeof visit.visitedAt === 'string' ? visit.visitedAt : '(unknown time)';
+      item.textContent = `${visitUrl} - ${visitedAt}`;
+      visitsEl.appendChild(item);
+    });
+})();
+
+</script>
+</div>
+</div>
+<div id="PostInfo" style="display:none;">
+<div class="p-author h-card">
+<a class="u-url n" href="https://flench.me">
+Flench04
+</a>
+</div>
+</div>
+</section>
+<div id="test_output">
+<div id="UP">
+<h1>
+BOO
+</h1>
+<p>
+Yo this is at the bottom
+</p>
+</div>
+</div>
+</section>
+<section class="main-extras">
+<div id="webmentions">
+</div>
+<div id="Footer">
+<footer class="panel footer">
+<a rel="me" class="Link--primary" href="https://github.com/fleench">
+Fleench on Github
+</a>
+<p>
+© 2026 The Void — E-mail: webmaster@flench.me
+</p>
+<div id="Built">
+<p>
+Last built: 2026-06-04
+</p>
+</div>
+</footer>
+</div>
+</section>
+</main>
+<aside class="sidebar sidebar-left panel" id="right-sidebar">
+</aside>
+</div>
+</div>
+</div>
+</div>
+<div>
+</div>
+<div data-template="test">
+<div id="top">
+</div>
+<section id="main_extras">
+<div id="webmentions">
+</div>
+</section>
+</div>
+<p>
+Last built: 2026-06-04
+</p>
+Last built: 2026-06-04
+Test
+</div>
+</body>
+</html>
