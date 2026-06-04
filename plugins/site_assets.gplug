@@ -85,5 +85,5 @@ def HELP():
 
 Description:
   Queues this site's static assets through assets.asset_copy so current dist
-  paths match the legacy OLD/dist asset locations.
+  paths match the legacy static asset locations.
 """
