@@ -4,7 +4,7 @@ from gen.html.elements import Element, Page, Text
 from gen.html.parser import GenHTMLParser
 
 
-NOTE_ROOT = Path("OLD/src/notes")
+NOTE_ROOT = Path("src/notes")
 
 
 def _split_frontmatter(text):

@@ -3,7 +3,7 @@ from pathlib import Path
 from gen.html.elements import Element, Page, Text
 
 
-SOURCE = Path("OLD/src/year-review/25-26.md")
+SOURCE = Path("src/year-review/25-26.md")
 
 
 YEAR_REVIEW_STYLE = """

@@ -1,0 +1,32 @@
+# {} ---{}---{}---changes
+- #### [View roadmap](/todo)
+- **<2026-May-21>** --- Added a new school year in review page
+- **<2026-Apr-03>** --- Added a code to add my button on another site
+- **<2026-Apr-03>** --- Added an android lock down banner
+- **<2026-Apr-03>** --- Removed the Spotify Widget on the homepage
+- **<2026-Apr-03>** --- Added an [AI policies](/ai) page and placed the site-map in the nav bar.
+- **<2026-Mar-31>** --- Add a last built tracker to the footer
+- **<2026-Mar-31>** --- Changed the nav bar to cover the width of the page on all pages.
+- **<2026-Mar-29>** --- Published my now Page and Site Map
+- **<2026-Mar-26>** --- Added a surprise
+- **<2026-Mar-26>** --- Added an atabook guestbook to the guestbook page
+- **<2026-Mar-24>** --- Added about the author to my blog pages
+- **<2026-Mar-18>** --- Moved all blogs from vivaldi.net blog to here
+- **<2026-Mar-15>** --- Add new blogs page
+- **<2026-Mar-14>** --- Updated mobile site
+- **<2026-Mar-14>** --- Added About me page
+- **<2026-Mar-13>** --- Added guestbook
+- **<2026-Mar-11>** --- Started working on mobile specific site
+- **<2026-Mar-02>** --- Switched back to flexbox from grid
+- **<2026-Mar-02>** --- Fixed broken layout on lack of sidebars
+- **<2026-Mar-01>** --- Fixed webmention sending and receiving
+- **<2026-Mar-01>** --- Fixed layout.js empty-sidebar detection
+- **<2026-Feb-26>** --- Fixed RSS Generation
+- **<2026-Feb-26>** --- Update notes page styling to follow more of the site wide theme
+- **<2026-Feb-25>** --- Added Changelog to nav
+- **<2026-Feb-25>** --- Update static site generator to support class and id tags in the .md files. See the new changes on the test page. If you can find it.
+- **<2026-Feb-24>** --- Update static site generator to properly use the location tags of the .html.temp files when in a .md file.
+- **<2026-Feb-23>** --- As a temporary fix use dynamic python for custom content locations
+- **<2026-Feb-23>** --- Fix navbar length on only 1 sidebar
+- **<2026-Feb-23>** --- Fix generation issue when left or right sidebar are not set
+- **<2026-Feb-23>** --- Added changelog and todo

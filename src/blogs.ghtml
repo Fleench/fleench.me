@@ -4,7 +4,7 @@ from gen.html.elements import Element, Page, Text
 from gen.html.parser import GenHTMLParser
 
 
-BLOG_ROOT = Path("OLD/src/blogs")
+BLOG_ROOT = Path("src/blogs")
 
 
 def _split_frontmatter(text):
