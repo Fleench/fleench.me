@@ -1,0 +1,28 @@
+MANIFEST = {
+    "name": "test",
+    "priority": 999,
+    "depends": [],
+}
+
+
+def _test(*args):
+    return list(args)
+
+
+def API(api):
+    api["register"]["method"]("test", _test)
+    return api
+
+
+def HELP():
+    return """Plugin: test
+
+Usage:
+  api["methods"]["test"](*args)
+
+Description:
+  Returns the provided arguments as a list.
+"""
+
+
+COMMANDS = {}

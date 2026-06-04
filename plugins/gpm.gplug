@@ -1,0 +1,479 @@
+import argparse
+import json
+from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import urlopen
+
+import yaml
+
+
+MANIFEST = {
+    "name": "gpm",
+    "priority": 3,
+    "depends": [],
+}
+
+DEFAULT_MANIFEST_CACHE = "plugins/manifest.json"
+DEFAULT_PLUGINS_DIR = "plugins"
+DEFAULT_REQUIREMENTS_FILE = "requirements.txt"
+DEFAULT_INSTALL_STATE_FILE = "plugins/.gpm-installed.json"
+
+
+def API(api):
+    return api
+
+
+def _config_data():
+    config_file = Path("gen.yaml")
+    if not config_file.exists():
+        return {}
+
+    data = yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict):
+        raise TypeError("gen.yaml must contain a mapping at the top level")
+    return data
+
+
+def _lookup(config, key, default=None):
+    if not key:
+        return default
+
+    current = config
+    for part in key.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return default
+        current = current[part]
+    return current
+
+
+def _config(key, default=None):
+    return _lookup(_config_data(), key, default)
+
+
+def _manifest_source(override=None):
+    return override or _config("gpm.manifest_url") or _config("gpm.manifest")
+
+
+def _manifest_cache_path(override=None):
+    value = override or _config("gpm.manifest_cache") or _config("gpm.cache") or DEFAULT_MANIFEST_CACHE
+    return Path(value)
+
+
+def _plugins_dir(override=None):
+    value = override or _config("gpm.plugins_dir") or _config("gpm.dir") or DEFAULT_PLUGINS_DIR
+    return Path(value)
+
+
+def _requirements_file(override=None):
+    value = override or _config("gpm.requirements_file") or _config("gpm.requirements") or DEFAULT_REQUIREMENTS_FILE
+    return Path(value)
+
+
+def _install_state_file(override=None):
+    value = override or _config("gpm.install_state_file") or _config("gpm.installs_file") or DEFAULT_INSTALL_STATE_FILE
+    return Path(value)
+
+
+def _read_text(source):
+    path = Path(str(source))
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+
+    parsed = urlparse(str(source))
+    if parsed.scheme in ("http", "https", "file"):
+        with urlopen(str(source)) as response:
+            return response.read().decode("utf-8")
+
+    with urlopen(str(source)) as response:
+        return response.read().decode("utf-8")
+
+
+def _load_manifest_data(source=None, cache=None, refresh=False):
+    cache_path = _manifest_cache_path(cache)
+    manifest_source = _manifest_source(source)
+
+    if refresh or not cache_path.exists():
+        if not manifest_source:
+            raise ValueError("No gpm manifest source configured in gen.yaml")
+        text = _read_text(manifest_source)
+        data = json.loads(text)
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        return data, cache_path
+
+    data = json.loads(cache_path.read_text(encoding="utf-8"))
+    return data, cache_path
+
+
+def _manifest_entries(data):
+    entries = []
+    if isinstance(data, dict) and {"name", "url"} <= set(data.keys()):
+        data = [data]
+
+    if isinstance(data, dict):
+        items = data.items()
+    elif isinstance(data, list):
+        items = enumerate(data)
+    else:
+        raise TypeError("gpm manifest must be a list of plugin entries or a mapping of names to entries")
+
+    for key, value in items:
+        if isinstance(value, str):
+            entry = {"name": str(key), "url": value}
+        elif isinstance(value, dict):
+            entry = dict(value)
+            entry.setdefault("name", str(key) if not isinstance(key, int) else None)
+        else:
+            raise TypeError("Each manifest entry must be a url string or a mapping")
+
+        if not entry.get("name"):
+            parsed = urlparse(str(entry.get("url", "")))
+            entry["name"] = Path(parsed.path).stem or str(key)
+        if "url" not in entry or not entry["url"]:
+            raise ValueError(f"Manifest entry '{entry['name']}' is missing a url")
+        dependencies = entry.get("dependencies", {})
+        if dependencies is None:
+            dependencies = {}
+        if isinstance(dependencies, list):
+            dependencies = {"gplug": dependencies, "python": []}
+        if not isinstance(dependencies, dict):
+            raise TypeError(
+                f"Manifest entry '{entry['name']}' dependencies must be a mapping"
+            )
+
+        gplug_deps = dependencies.get("gplug", [])
+        python_deps = dependencies.get("python", [])
+        if isinstance(gplug_deps, str):
+            gplug_deps = [gplug_deps]
+        if isinstance(python_deps, str):
+            python_deps = [python_deps]
+        if not isinstance(gplug_deps, list) or not all(isinstance(dep, str) for dep in gplug_deps):
+            raise TypeError(
+                f"Manifest entry '{entry['name']}' gplug dependencies must be a list of strings"
+            )
+        if not isinstance(python_deps, list) or not all(isinstance(dep, str) for dep in python_deps):
+            raise TypeError(
+                f"Manifest entry '{entry['name']}' python dependencies must be a list of strings"
+            )
+        entry["dependencies"] = {
+            "gplug": gplug_deps,
+            "python": python_deps,
+        }
+        entries.append(entry)
+
+    return entries
+
+
+def _normalize_query(value):
+    return (value or "").strip().lower()
+
+
+def _search_entries(entries, query):
+    query = _normalize_query(query)
+    if not query:
+        return list(entries)
+
+    matches = []
+    for entry in entries:
+        haystack = " ".join(
+            str(entry.get(field, ""))
+            for field in ("name", "url", "author", "version", "description", "summary", "repo")
+        ).lower()
+        deps = entry.get("dependencies", {})
+        haystack += " " + " ".join(deps.get("gplug", []) + deps.get("python", [])).lower()
+        if query in haystack:
+            matches.append(entry)
+    return matches
+
+
+def _manifest_entry(entries, name):
+    for entry in entries:
+        if entry.get("name") == name:
+            return entry
+    return None
+
+
+def _download_text(url):
+    return _read_text(url)
+
+
+def _download_file(url, destination):
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    text = _download_text(url)
+    destination.write_text(text, encoding="utf-8")
+    return destination
+
+
+def _read_requirements(path):
+    path = Path(path)
+    if not path.exists():
+        return []
+    return [
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
+def _write_requirements(path, requirements):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(requirements) + ("\n" if requirements else ""), encoding="utf-8")
+
+
+def _add_requirements(requirements_path, packages):
+    existing = _read_requirements(requirements_path)
+    seen = set(existing)
+    changed = False
+    for package in packages:
+        if package not in seen:
+            existing.append(package)
+            seen.add(package)
+            changed = True
+    if changed:
+        _write_requirements(requirements_path, existing)
+    return changed
+
+
+def _read_install_state(path):
+    path = Path(path)
+    if not path.exists():
+        return {"gpm": []}
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return {"gpm": []}
+    gpm = data.get("gpm", [])
+    if not isinstance(gpm, list):
+        gpm = []
+    gpm = [name for name in gpm if isinstance(name, str)]
+    return {"gpm": gpm}
+
+
+def _write_install_state(path, state):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _mark_gpm_installed(state_file, name):
+    state = _read_install_state(state_file)
+    if name not in state["gpm"]:
+        state["gpm"].append(name)
+        _write_install_state(state_file, state)
+
+
+def _unmark_gpm_installed(state_file, name):
+    state = _read_install_state(state_file)
+    if name in state["gpm"]:
+        state["gpm"].remove(name)
+        _write_install_state(state_file, state)
+
+
+def _installed_origin(state_file, name, plugins_dir):
+    installed_path = Path(plugins_dir) / f"{name}.gplug"
+    if not installed_path.exists():
+        return "missing"
+    state = _read_install_state(state_file)
+    return "gpm" if name in state["gpm"] else "local"
+
+
+def refresh(args):
+    parser = argparse.ArgumentParser(prog="gpm.refresh", add_help=False)
+    parser.add_argument("--manifest", dest="manifest_source")
+    parser.add_argument("--cache", dest="cache_path")
+    ns = parser.parse_args(args or [])
+
+    data, cache_path = _load_manifest_data(ns.manifest_source, ns.cache_path, refresh=True)
+    entries = _manifest_entries(data)
+    print(f"Refreshed {len(entries)} gplug entries into {cache_path}")
+    return cache_path
+
+
+def search(args):
+    parser = argparse.ArgumentParser(prog="gpm.search", add_help=False)
+    parser.add_argument("query", nargs="?", default="")
+    parser.add_argument("--manifest", dest="manifest_source")
+    parser.add_argument("--cache", dest="cache_path")
+    ns = parser.parse_args(args or [])
+
+    data, _ = _load_manifest_data(ns.manifest_source, ns.cache_path, refresh=False)
+    entries = _manifest_entries(data)
+    matches = _search_entries(entries, ns.query)
+
+    if not matches:
+        print("No matching gplugs found.")
+        return []
+
+    for entry in matches:
+        line = f"{entry['name']}: {entry['url']}"
+        description = entry.get("description") or entry.get("summary")
+        if description:
+            line += f" - {description}"
+        print(line)
+    return matches
+
+
+def install(args):
+    parser = argparse.ArgumentParser(prog="gpm.install", add_help=False)
+    parser.add_argument("name")
+    parser.add_argument("--manifest", dest="manifest_source")
+    parser.add_argument("--cache", dest="cache_path")
+    parser.add_argument("--dir", dest="plugins_dir")
+    ns = parser.parse_args(args or [])
+
+    plugins_dir = _plugins_dir(ns.plugins_dir)
+    requirements_file = _requirements_file()
+    install_state_file = _install_state_file()
+    data, _ = _load_manifest_data(ns.manifest_source, ns.cache_path, refresh=False)
+    entries = _manifest_entries(data)
+
+    installed = set()
+    visited = set()
+
+    def _install(name):
+        if name in installed:
+            return plugins_dir / f"{name}.gplug"
+        if name in visited:
+            return plugins_dir / f"{name}.gplug"
+        visited.add(name)
+
+        entry = _manifest_entry(entries, name)
+        if entry is None:
+            raise KeyError(f"No gplug named '{name}' was found in the manifest")
+
+        deps = entry.get("dependencies", {})
+        for dependency in deps.get("gplug", []):
+            _install(dependency)
+
+        destination = plugins_dir / f"{entry['name']}.gplug"
+        _download_file(entry["url"], destination)
+        _add_requirements(requirements_file, deps.get("python", []))
+        _mark_gpm_installed(install_state_file, entry["name"])
+        installed.add(name)
+        print(f"Installed {entry['name']} to {destination}")
+        return destination
+
+    return _install(ns.name)
+
+
+def list_cmd(args):
+    parser = argparse.ArgumentParser(prog="gpm.list", add_help=False)
+    parser.add_argument("--manifest", dest="manifest_source")
+    parser.add_argument("--cache", dest="cache_path")
+    parser.add_argument("--dir", dest="plugins_dir")
+    parser.add_argument("--state", dest="state_path")
+    ns = parser.parse_args(args or [])
+
+    data, _ = _load_manifest_data(ns.manifest_source, ns.cache_path, refresh=False)
+    entries = _manifest_entries(data)
+    plugins_dir = _plugins_dir(ns.plugins_dir)
+    state_file = _install_state_file(ns.state_path)
+
+    rows = []
+    for entry in entries:
+        origin = _installed_origin(state_file, entry["name"], plugins_dir)
+        if origin == "missing":
+            continue
+        row = {
+            "name": entry["name"],
+            "version": entry.get("version"),
+            "author": entry.get("author"),
+            "installed": origin != "missing",
+            "origin": origin,
+            "url": entry["url"],
+        }
+        rows.append(row)
+        if origin == "gpm":
+            status = "installed by gpm"
+        elif origin == "local":
+            status = "added locally"
+        else:
+            status = "missing"
+        parts = [entry["name"]]
+        if entry.get("version"):
+            parts.append(f"v{entry['version']}")
+        if entry.get("author"):
+            parts.append(f"by {entry['author']}")
+        parts.append(f"[{status}]")
+        print(" ".join(parts))
+    return rows
+
+
+def remove(args):
+    parser = argparse.ArgumentParser(prog="gpm.remove", add_help=False)
+    parser.add_argument("name")
+    parser.add_argument("--dir", dest="plugins_dir")
+    ns = parser.parse_args(args or [])
+
+    destination = _plugins_dir(ns.plugins_dir) / f"{ns.name}.gplug"
+    state_file = _install_state_file()
+    if destination.exists() and _installed_origin(state_file, ns.name, _plugins_dir(ns.plugins_dir)) == "gpm":
+        destination.unlink()
+        _unmark_gpm_installed(state_file, ns.name)
+        print(f"Removed {destination}")
+        return True
+
+    if destination.exists():
+        print(f"Refusing to remove locally added gplug at {destination}")
+        return False
+
+    print(f"No gpm-installed gplug found at {destination}")
+    return False
+
+
+def HELP():
+    return """Plugin: gpm
+
+Usage:
+  gen run gpm.refresh
+  gen run gpm.search [query]
+  gen run gpm.install name
+  gen run gpm.list
+  gen run gpm.remove name
+
+Description:
+  Manage project gplugs from a JSON manifest of basic URLs. The manifest can
+  live anywhere that provides a URL or file path, including GitHub raw URLs,
+  plain HTTPS URLs, or local file paths.
+
+Config:
+  gpm.manifest_url   Remote or local manifest source
+  gpm.manifest       Alias for gpm.manifest_url
+  gpm.manifest_cache Local cache file for the manifest
+  gpm.plugins_dir    Directory where installed gplugs are written
+  gpm.requirements   Optional requirements file path
+  gpm.install_state_file  Optional install-state file path
+
+Manifest Format:
+  A list of plugin entries:
+    [
+      {
+        "name": "spotify-now",
+        "url": "https://example.test/spotify-now.gplug",
+        "author": "You",
+        "version": "1.0.0",
+        "dependencies": {
+          "gplug": ["auth"],
+          "python": ["requests", "spotipy"]
+        }
+      }
+    ]
+
+Commands:
+  refresh   Download the manifest and save it locally.
+  search    Search names, urls, and descriptions in the manifest.
+  install   Download a gplug listed in the manifest.
+  list      Show registry entries with local install status.
+  remove    Delete an installed gplug from the local plugins directory.
+"""
+
+
+COMMANDS = {
+    "refresh": refresh,
+    "search": search,
+    "install": install,
+    "list": list_cmd,
+    "remove": remove,
+}

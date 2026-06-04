@@ -1,0 +1,62 @@
+from gen.html.elements import Element, Page, Text
+from gen.html.parser import GenHTMLParser
+
+
+BODY = """Welcome
+
+Hello I am Flench04. This is the soon to be finished mobile site of [https://flench.me](https://flench.me). As I build the mobile site feel free to explore around. If you see issues please report them to flench04 using the email **webmaster@flench.me.**"""
+
+
+def CONTEXT(api):
+    return {
+        "route": "/mobile/",
+        "title": "Mobile",
+        "canonical": "https://flench.me/mobile/",
+    }
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown = api["methods"]["markdown"]
+    parser = GenHTMLParser()
+    parsed = parser.parse_text(f"<div>{markdown(BODY)}</div>")
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            page.add_before(page.find("class", "site-layout")[0].uuid, fragment("elements/marquee"))
+            with page_wrap:
+                fragment("elements/head")
+                fragment("elements/nav")
+                template = fragment("templates/mobile-in")
+                for head_extra in template.find("id", "head_extra"):
+                    for child in list(head_extra.children):
+                        head_extra.children.remove(child)
+                        child.parent = None
+                        child.attrs["gHoist"] = "head"
+                        template.add(child)
+                    head_extra.parent.children.remove(head_extra)
+                template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+                template.find("id", "Content")[0].attrs["id"] = "MobileContent"
+                with Element("div", {"gHoist": "MobileContent"}) as content:
+                    for child in list(parsed.children):
+                        child.parent = None
+                        content.add(child)
+                api["methods"]["foot"]()
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page
+
+
+def main():
+    from gen.ssg.dispatcher import GenSSGDispatcher
+
+    dispatcher = GenSSGDispatcher()
+    api = dispatcher.create_api()
+    print(dispatcher.build_page(api, __import__(__name__), CONTEXT(api)))
+
+
+if __name__ == "__main__":
+    main()

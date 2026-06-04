@@ -1,0 +1,194 @@
+from datetime import date
+from pathlib import Path
+
+from gen.html.elements import Element, Page, Text
+from gen.html.parser import GenHTMLParser
+
+
+BLOG_ROOT = Path("OLD/src/blogs")
+
+
+def _split_frontmatter(text):
+    if not text.startswith("---"):
+        return {}, text
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}, text
+    meta = {}
+    for line in parts[1].splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        meta[key.strip()] = value.strip().strip('"').strip("'")
+    return meta, parts[2].strip()
+
+
+def _route_for(path):
+    rel = path.relative_to(BLOG_ROOT).with_suffix("")
+    return f"/blogs/{rel.as_posix()}/"
+
+
+def _mobile_route_for(path):
+    rel = path.relative_to(BLOG_ROOT).with_suffix("")
+    return f"/mobile/blogs/{rel.as_posix()}/"
+
+
+def _date_value(md_file, meta):
+    raw = str(meta.get("date", "") or "")
+    if raw:
+        try:
+            year, month, day = raw.split("/")[:3]
+            return date(int(year), int(month), int(day))
+        except Exception:
+            return date.min
+    return date.min
+
+
+def _date_label(value):
+    return "" if value == date.min else value.strftime("%B %d, %Y")
+
+
+def _first_paragraph(text):
+    for paragraph in text.strip().split("\n\n"):
+        if paragraph.strip():
+            return paragraph.strip()
+    return ""
+
+
+def _html_children(html):
+    root = GenHTMLParser().parse_text(f"<div>{html}</div>")
+    children = list(root.children)
+    for child in children:
+        child.parent = None
+    return children
+
+
+def _move_head_extra(template):
+    for head_extra in template.find("id", "head_extra"):
+        for child in list(head_extra.children):
+            head_extra.children.remove(child)
+            child.parent = None
+            child.attrs["gHoist"] = "head"
+            template.add(child)
+        head_extra.parent.children.remove(head_extra)
+
+
+def CONTEXT(api):
+    contexts = [
+        {
+            "route": "/mobile/blogs/",
+            "title": "Blogs",
+            "canonical": "https://flench.me/blogs/",
+            "cache": "dynamic",
+        }
+    ]
+    for md_file in sorted(BLOG_ROOT.glob("**/*.md")):
+        meta, body_text = _split_frontmatter(md_file.read_text(encoding="utf-8"))
+        contexts.append(
+            {
+                "route": _mobile_route_for(md_file),
+                "title": str(meta.get("title") or "Untitled"),
+                "canonical": f"https://flench.me{_route_for(md_file)}",
+                "MD file": str(md_file),
+                "body": body_text,
+                "image": str(meta.get("img") or ""),
+                "image_alt": str(meta.get("img-alt") or ""),
+                "cache": "dynamic",
+            }
+        )
+    return contexts
+
+
+def _build_shell(api, context):
+    fragment = api["methods"]["fragment"]
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            with page_wrap:
+                fragment("elements/head")
+                nav = fragment("elements/m-nav")
+                nav.attrs["gHoist"] = "Nav"
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page, page_wrap
+
+
+def _build_index(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown = api["methods"]["markdown"]
+    posts = []
+    for md_file in sorted(BLOG_ROOT.glob("**/*.md")):
+        meta, body_text = _split_frontmatter(md_file.read_text(encoding="utf-8"))
+        posts.append((_date_value(md_file, meta), md_file, meta, body_text))
+
+    page, page_wrap = _build_shell(api, context)
+    with page_wrap:
+                template = fragment("templates/mobile")
+                _move_head_extra(template)
+                template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+                template.find("id", "Content")[0].attrs["id"] = "MobileContent"
+                with Element("div", {"class": "notes-index", "gHoist": "MobileContent"}):
+                    with Element("h1"):
+                        Text("Blogs")
+                    with Element("p"):
+                        with Element("a", {"href": "/rss.xml"}):
+                            Text("Subscribe via RSS")
+                    with Element("div", {"class": "notes-list"}):
+                        for date_value, md_file, meta, body_text in sorted(posts, reverse=True):
+                            with Element("article", {"class": "blog-preview panel"}):
+                                with Element("h2", {"class": "blog-title"}):
+                                    with Element("a", {"href": _route_for(md_file)}):
+                                        Text(str(meta.get("title") or "Untitled"))
+                                label = _date_label(date_value)
+                                if label:
+                                    with Element("div", {"class": "blog-date"}):
+                                        with Element("small"):
+                                            Text(label)
+                                if meta.get("img"):
+                                    with Element("a", {"href": _route_for(md_file), "class": "blog-cover"}):
+                                        Element("img", {"src": str(meta["img"]), "alt": str(meta.get("img-alt", ""))})
+                                with Element("div", {"class": "blog-excerpt"}) as excerpt:
+                                    for child in _html_children(markdown(_first_paragraph(body_text))):
+                                        excerpt.add(child)
+                api["methods"]["foot"]()
+    return page
+
+
+def _build_post(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown = api["methods"]["markdown"]
+    page, page_wrap = _build_shell(api, context)
+    with page_wrap:
+        template = fragment("templates/mobile/mobile-blog")
+        _move_head_extra(template)
+        template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+        template.find("id", "Content")[0].attrs["id"] = "MobileBlogContent"
+        template.find("id", "Title")[0].add(Text(context["title"]))
+        hero = template.find("id", "HeroImage")[0]
+        if context.get("image"):
+            hero.attrs["src"] = context["image"]
+            hero.attrs["alt"] = context.get("image_alt", "")
+        else:
+            hero.pop()
+        with Element("div", {"gHoist": "MobileBlogContent"}) as content:
+            for child in _html_children(markdown(context["body"])):
+                content.add(child)
+        api["methods"]["foot"]()
+    return page
+
+
+def Build(api, context):
+    if "MD file" in context:
+        return _build_post(api, context)
+    return _build_index(api, context)
+
+
+def main():
+    page = Build({}, CONTEXT({}))
+    print(page.render())
+
+
+if __name__ == "__main__":
+    main()

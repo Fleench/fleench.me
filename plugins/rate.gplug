@@ -1,0 +1,28 @@
+MANIFEST = {
+    "name": "rate",
+    "priority": 999,
+    "depends": [],
+}
+
+
+def _rate():
+    return '<img style="height: 100%" alt="A cute green monster showing the text WebG in red tounge. Represents the page rating." src="/media/webRatings/WebG.png">'
+
+
+def API(api):
+    api["register"]["method"]("rate", _rate)
+    return api
+
+
+def HELP():
+    return """Plugin: rate
+
+Usage:
+  api["methods"]["rate"]()
+
+Description:
+  Returns the WebG rating image HTML.
+"""
+
+
+COMMANDS = {}

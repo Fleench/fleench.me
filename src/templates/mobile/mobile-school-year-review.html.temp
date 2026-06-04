@@ -1,0 +1,524 @@
+<!-- meta start -->
+<!--
+extends: src/templates/mobile.html.temp
+-->
+<!-- meta end -->
+
+~{block head_extra}~
+<link rel="alternate" type="application/rss+xml" title="Site RSS" href="/rss.xml" />
+<link rel="stylesheet" href="/css/mobile.css" />
+<script src="https://www.youtube.com/iframe_api"></script>
+<script src="/js/yt-player.js" defer></script>
+<style>
+  .year-favorites {
+    margin-top: 2rem;
+  }
+
+  .year-favorites-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 16em);
+    overflow: auto;
+    scrollbar-width: none;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    visibility: hidden;
+    justify-content: start;
+    border-radius: 8px;
+  }
+
+  .year-favorites-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .year-favorites .fav {
+    position: relative;
+    width: 16em;
+    margin: 0;
+    padding: 0;
+    background-size: cover;
+    overflow: hidden;
+  }
+
+  .year-favorites .fav img {
+    object-fit: cover;
+    width: 100%;
+    height: 15em;
+    display: block;
+  }
+
+  .year-favorites .fav h1 {
+    position: absolute;
+    bottom: -0.6em;
+    margin-top: -1.9em;
+    font-size: clamp(0.5rem, 2vw, 1.35rem);
+    text-wrap: auto;
+  }
+
+  .year-favorites .fav .ricon {
+    position: absolute;
+    right: 3px;
+    top: 3px;
+    z-index: 2;
+  }
+
+  .year-favorites .fav[data-href] {
+    cursor: pointer;
+  }
+
+  .year-favorites .fav .fav-cta {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    transition: opacity 180ms ease-in-out;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .year-favorites .fav:hover .fav-cta,
+  .year-favorites .fav:focus-visible .fav-cta {
+    opacity: 1;
+  }
+
+  .year-favorites .ricon img {
+    width: auto !important;
+    height: 32px !important;
+    margin: 0 !important;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  }
+
+  .year-favorites .ricon:hover {
+    transform: scale(1.1);
+  }
+
+  .year-review-photo {
+    width: min(100%, 30rem);
+    margin: 1rem auto;
+    padding: 0.5rem;
+    background: var(--bg-shade);
+    border: 1px solid var(--panel-border);
+    box-shadow: 0 2px 0 #e2e6ef;
+  }
+
+  .year-review-photo img {
+    display: block;
+    width: 100%;
+    max-height: 24rem;
+    object-fit: contain;
+  }
+
+  .year-review-photo figcaption {
+    margin-top: 0.5rem;
+    color: var(--muted-text);
+    font-size: 0.9rem;
+    line-height: 1.35;
+    text-align: center;
+  }
+
+  html[data-mode="dark"] .year-review-photo {
+    background: #1a1a1a;
+    border-color: #333;
+    box-shadow: 0 2px 0 #000;
+  }
+
+  .year-review-month-left,
+  .year-review-month-right {
+    display: grid;
+    grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+    margin: 1.5rem 0;
+    padding-top: 1.5rem;
+    border-top: 1px dashed var(--panel-border);
+  }
+
+  .year-review-month-left > .year-review-photo,
+  .year-review-month-right > .year-review-photo {
+    width: 100%;
+    margin: 0;
+  }
+
+  .year-review-month-left > .year-review-photo {
+    grid-column: 1;
+    grid-row: 1 / span 5;
+  }
+
+  .year-review-month-left > :not(.year-review-photo) {
+    grid-column: 2;
+  }
+
+  .year-review-month-right {
+    grid-template-columns: minmax(0, 1fr) minmax(12rem, 18rem);
+  }
+
+  .year-review-month-right > .year-review-photo {
+    grid-column: 2;
+    grid-row: 1 / span 5;
+  }
+
+  .year-review-month-right > :not(.year-review-photo) {
+    grid-column: 1;
+  }
+
+  .year-review-month-left h1,
+  .year-review-month-right h1 {
+    margin-bottom: 0.5rem;
+    font-size: clamp(2rem, 5vw, 3.25rem);
+    line-height: 1;
+  }
+
+  .year-review-month-left p,
+  .year-review-month-right p {
+    font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+    line-height: 1.45;
+    margin: 0 0 1rem;
+  }
+
+  .year-review-month-left h3,
+  .year-review-month-right h3 {
+    font-size: clamp(1.15rem, 2.6vw, 1.6rem);
+    margin: 1rem 0 0.5rem;
+  }
+
+  .year-review-month-left li,
+  .year-review-month-right li {
+    font-size: clamp(1rem, 2.1vw, 1.2rem);
+  }
+
+  .year-review-month-left > :not(.year-review-photo),
+  .year-review-month-right > :not(.year-review-photo) {
+    align-self: stretch;
+  }
+
+  @media (max-width: 760px) {
+    .year-review-month-left,
+    .year-review-month-right {
+      display: block;
+    }
+
+    .year-review-month-left > .year-review-photo,
+    .year-review-month-right > .year-review-photo {
+      width: min(100%, 30rem);
+      margin: 1rem auto;
+    }
+  }
+</style>
+~{endblock}~
+
+~{block content_block}~
+<div class="e-content indie-audio-page">
+  <h1>School Year Review 25/26</h1>
+  <div
+    class="yt-player"
+    data-id="PLggCYnGwTiwbxlKocC4BqGHO7L4dfhySx"
+    data-type = "playlist"
+    data-random="true"
+  >
+
+</div>
+  <div id="Content"></div>
+  <section class="year-favorites" aria-labelledby="year-favorites-title">
+    <h1 id="year-favorites-title">Favorites of the Year</h1>
+    <div class="year-favorites-grid" id="year-favorites-grid">
+      <!-- SONGS -->
+      <div class="fav" data-href=":{src/elements/spotify.py}:(2Py6zIEeWhrTLQQDm9s2gy,trackID,1)">
+        <a href=":{src/elements/spotify.py}:(2Py6zIEeWhrTLQQDm9s2gy,trackID,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(2Py6zIEeWhrTLQQDm9s2gy,trackID)" alt="">
+        <h1>Time to Go</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(1qPHLYNljoGTbL98ZA23ru,trackID,1)">
+        <a href=":{src/elements/spotify.py}:(1qPHLYNljoGTbL98ZA23ru,trackID,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(1qPHLYNljoGTbL98ZA23ru,trackID)" alt="">
+        <h1>Brand New - Live</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(20K3Xj4fwVonF8ZsmMN4Cj,trackID,1)">
+        <a href=":{src/elements/spotify.py}:(20K3Xj4fwVonF8ZsmMN4Cj,trackID,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(20K3Xj4fwVonF8ZsmMN4Cj,trackID)" alt="">
+        <h1>Stone's Throw</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(3YRlgBrj4XpsJxBFAeLYYH,trackID,1)">
+        <a href=":{src/elements/spotify.py}:(3YRlgBrj4XpsJxBFAeLYYH,trackID,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(3YRlgBrj4XpsJxBFAeLYYH,trackID)" alt="">
+        <h1>Knock Em Down</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(7xOB82ELg70RoIM3mMTkt4,trackID,1)">
+        <a href=":{src/elements/spotify.py}:(7xOB82ELg70RoIM3mMTkt4,trackID,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(7xOB82ELg70RoIM3mMTkt4,trackID)" alt="">
+        <h1>A Symptom of Being Human</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(7EL9YtzL4qYOcxYlf4mbVi,trackID,1)">
+        <a href=":{src/elements/spotify.py}:(7EL9YtzL4qYOcxYlf4mbVi,trackID,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(7EL9YtzL4qYOcxYlf4mbVi,trackID)" alt="">
+        <h1>Wintergreen</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+
+      <!-- ARTISTS -->
+      <div class="fav" data-href=":{src/elements/spotify.py}:(Sheppard,artist,1)">
+        <a href=":{src/elements/spotify.py}:(Sheppard,artist,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(Sheppard,artist)" alt="">
+        <h1>Sheppard</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(Ben Rector,artist,1)">
+        <a href=":{src/elements/spotify.py}:(Ben Rector,artist,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(Ben Rector,artist)" alt="">
+        <h1>Ben Rector</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(White Knight Instrumental,artist,1)">
+        <a href=":{src/elements/spotify.py}:(White Knight Instrumental,artist,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(White Knight Instrumental,artist)" alt="">
+        <h1>White Knight Instrumental</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(Owl City,artist,1)">
+        <a href=":{src/elements/spotify.py}:(Owl City,artist,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(Owl City,artist)" alt="">
+        <h1>Owl City</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(Walk off the Earth,artist,1)">
+        <a href=":{src/elements/spotify.py}:(Walk off the Earth,artist,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(Walk off the Earth,artist)" alt="">
+        <h1>Walk off the Earth</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+
+      <!-- ALBUMS -->
+      <div class="fav" data-href=":{src/elements/spotify.py}:(3Mb8bYV4FKmdnmrlSYqp3j,albumID,1)">
+        <a href=":{src/elements/spotify.py}:(3Mb8bYV4FKmdnmrlSYqp3j,albumID,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(3Mb8bYV4FKmdnmrlSYqp3j,albumID)" alt="">
+        <h1>Magic</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(2j7XoLBm3tQZQtulc5NR6a,albumID,1)">
+        <a href=":{src/elements/spotify.py}:(2j7XoLBm3tQZQtulc5NR6a,albumID,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(2j7XoLBm3tQZQtulc5NR6a,albumID)" alt="">
+        <h1>Stardew Valley Lofi</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(5dnPXvyAYqUXAg7IpCpnGI,albumID,1)">
+        <a href=":{src/elements/spotify.py}:(5dnPXvyAYqUXAg7IpCpnGI,albumID,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(5dnPXvyAYqUXAg7IpCpnGI ,albumID)" alt="">
+        <h1>Instrumental Covers of Owl City</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(06n6A4hjeslmQ60FEHUFiZ,albumID,1)">
+        <a href=":{src/elements/spotify.py}:(06n6A4hjeslmQ60FEHUFiZ,albumID,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(06n6A4hjeslmQ60FEHUFiZ,albumID)" alt="">
+        <h1>Kaleidoscope Eyes</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+      <div class="fav" data-href=":{src/elements/spotify.py}:(14JkAa6IiFaOh5s0nMyMU9,albumID,1)">
+        <a href=":{src/elements/spotify.py}:(14JkAa6IiFaOh5s0nMyMU9,albumID,1)" target="_blank" class="ricon">
+          <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Listen on Spotify">
+        </a>
+        <img src=":{src/elements/spotify.py}:(14JkAa6IiFaOh5s0nMyMU9,albumID)" alt="">
+        <h1>KPop Demon Hunters(Soundtrack from the Netflix Film)</h1>
+        <span class="fav-cta">View on Spotify</span>
+      </div>
+
+      <!-- TV SHOWS -->
+      <div class="fav" data-href="https://www.themoviedb.org/tv/251941-st-denis-medical">
+        <a href="https://www.themoviedb.org/tv/251941-st-denis-medical" target="_blank" class="ricon">
+          <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="View on TMDB">
+        </a>
+        <img src="https://media.themoviedb.org/t/p/w300_and_h450_bestv2/2LVXrQVsEzLlekzNmxZqKa06CV3.jpg" alt="">
+        <h1>St. Denis Medical</h1>
+        <span class="fav-cta">View on TMDB</span>
+      </div>
+      <div class="fav" data-href="https://www.themoviedb.org/tv/75219-9-1-1">
+        <a href="https://www.themoviedb.org/tv/75219-9-1-1" target="_blank" class="ricon">
+          <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="View on TMDB">
+        </a>
+        <img src="https://media.themoviedb.org/t/p/w300_and_h450_bestv2/9dNWZPjFWdKo5Avr5JEEzLShLMZ.jpg" alt="">
+        <h1>9-1-1</h1>
+        <span class="fav-cta">View on TMDB</span>
+      </div>
+      <div class="fav" data-href="https://www.themoviedb.org/tv/284838-9-1-1-nashville">
+        <a href="https://www.themoviedb.org/tv/284838-9-1-1-nashville" target="_blank" class="ricon">
+          <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="View on TMDB">
+        </a>
+        <img src="https://media.themoviedb.org/t/p/w533_and_h300_bestv2/11uukKn0kSol7GVrLEspzJo2ZoT.jpg" alt="">
+        <h1>9-1-1: Nashville</h1>
+        <span class="fav-cta">View on TMDB</span>
+      </div>
+      <div class="fav" data-href="https://www.themoviedb.org/tv/79744-the-rookie">
+        <a href="https://www.themoviedb.org/tv/79744-the-rookie" target="_blank" class="ricon">
+          <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="View on TMDB">
+        </a>
+        <img src="https://media.themoviedb.org/t/p/w440_and_h660_face/70kTz0OmjjZe7zHvIDrq2iKW7PJ.jpg" alt="">
+        <h1>The Rookie</h1>
+        <span class="fav-cta">View on TMDB</span>
+      </div>
+      <div class="fav" data-href="https://www.themoviedb.org/tv/81144-the-neighborhood">
+        <a href="https://www.themoviedb.org/tv/81144-the-neighborhood" target="_blank" class="ricon">
+          <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="View on TMDB">
+        </a>
+        <img src="https://media.themoviedb.org/t/p/w220_and_h330_face/uItUViUsFAY7wzufTS2zWNbuuAm.jpg" alt="">
+        <h1>The Neighborhood</h1>
+        <span class="fav-cta">View on TMDB</span>
+      </div>
+
+      <!-- MOVIES -->
+      <div class="fav" data-href="https://www.themoviedb.org/movie/1327819-hoppers">
+        <a href="https://www.themoviedb.org/movie/1327819-hoppers" target="_blank" class="ricon">
+          <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="View on TMDB">
+        </a>
+        <img src="https://media.themoviedb.org/t/p/w300_and_h450_bestv2/6M170ISCzxx5CYUMjIRyzIEv8CO.jpg" alt="">
+        <h1>Hoppers</h1>
+        <span class="fav-cta">View on TMDB</span>
+      </div>
+      <div class="fav" data-href="https://www.themoviedb.org/movie/803796-k-pop-demon-hunters">
+        <a href="https://www.themoviedb.org/movie/803796-k-pop-demon-hunters" target="_blank" class="ricon">
+          <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="View on TMDB">
+        </a>
+        <img src="https://media.themoviedb.org/t/p/w300_and_h450_bestv2/22AouvwlhlXbe3nrFcjzL24bvWH.jpg" alt="">
+        <h1>KPop Demon Hunters</h1>
+        <span class="fav-cta">View on TMDB</span>
+      </div>
+
+      <!-- GAMES -->
+      <div class="fav" data-href="https://www.minecraft.net/">
+        <a href="https://www.minecraft.net/" target="_blank" class="ricon">
+          <img src="https://www.startpage.com/av/proxy-image?piurl=https%3A%2F%2Fupload.wikimedia.org%2Fwikipedia%2Fcommons%2Fthumb%2Ff%2Fff%2FMojang_Studios_Logo_%25282020%252C_slim%2529.svg%2F330px-Mojang_Studios_Logo_%25282020%252C_slim%2529.svg.png&sp=1779411738T75ec796d3cd46b17c3f46a40c41c17783d2f9ece1279300eff6e626918129f45" alt="View on Minecraft">
+        </a>
+        <img src="https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/key-art/Homepage_Discover-our-games_MC-Vanilla-KeyArt_864x864.jpg" alt="">
+        <h1>Minecraft</h1>
+        <span class="fav-cta">View on Minecraft</span>
+      </div>
+      <div class="fav" data-href="https://store.steampowered.com/app/413150/Stardew_Valley/">
+        <a href="https://store.steampowered.com/app/413150/Stardew_Valley/" target="_blank" class="ricon">
+          <img src="https://store.steampowered.com/favicon.ico" alt="View on Steam">
+        </a>
+        <img src="https://cdn.akamai.steamstatic.com/steam/apps/413150/header.jpg" alt="">
+        <h1>Stardew Valley</h1>
+        <span class="fav-cta">View on Steam</span>
+      </div>
+      <div class="fav" data-href="https://store.steampowered.com/app/255710/Cities_Skylines/">
+        <a href="https://store.steampowered.com/app/255710/Cities_Skylines/" target="_blank" class="ricon">
+          <img src="https://store.steampowered.com/favicon.ico" alt="View on Steam">
+        </a>
+        <img src="https://cdn.akamai.steamstatic.com/steam/apps/255710/header.jpg" alt="">
+        <h1>Cities: Skylines</h1>
+        <span class="fav-cta">View on Steam</span>
+      </div>
+      <div class="fav" data-href="https://store.steampowered.com/app/233450/Prison_Architect/">
+        <a href="https://store.steampowered.com/app/233450/Prison_Architect/" target="_blank" class="ricon">
+          <img src="https://store.steampowered.com/favicon.ico" alt="View on Steam">
+        </a>
+        <img src="https://cdn.akamai.steamstatic.com/steam/apps/233450/header.jpg" alt="">
+        <h1>Prison Architect</h1>
+        <span class="fav-cta">View on Steam</span>
+      </div>
+    </div>
+  </section>
+</div>
+<div style="display:none;">
+  <div id="PostInfo"></div>
+  <div class="p-author h-card">
+    <a class="u-url n" href="https://flench.me">Flench04</a>
+  </div>
+</div>
+<script>
+  window.addEventListener("load", function() {
+    const grid = document.getElementById("year-favorites-grid");
+
+    if (!grid) {
+      return;
+    }
+
+    const items = Array.from(grid.children).filter((item) => item.classList.contains("fav"));
+
+    if (items.length > 1) {
+      for (let i = items.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [items[i], items[j]] = [items[j], items[i]];
+      }
+
+      grid.innerHTML = "";
+      items.forEach((item) => grid.appendChild(item));
+    }
+
+    if (items.length > 0) {
+      grid.style.visibility = "visible";
+    }
+
+    grid.querySelectorAll(".fav[data-href]").forEach((card) => {
+      const href = card.dataset.href;
+      if (!href) return;
+
+      card.addEventListener("click", (event) => {
+        if (event.target.closest("a")) return;
+        window.open(href, "_blank");
+      });
+
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          window.open(href, "_blank");
+        }
+      });
+
+      card.setAttribute("role", "link");
+      card.setAttribute("tabindex", "0");
+    });
+
+    function resizeYearFavorites() {
+      grid.style.width = "auto";
+      const columns = window.getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean);
+      const width = columns.reduce((total, column) => total + parseInt(column, 10), 0);
+      if (width > 0) {
+        grid.style.width = width + "px";
+      }
+    }
+
+    resizeYearFavorites();
+    window.addEventListener("resize", resizeYearFavorites);
+  });
+</script>
+~{endblock}~

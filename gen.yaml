@@ -1,0 +1,31 @@
+site:
+  name: Gen Site
+  url: http://localhost:8000
+build:
+  src: src
+  dist: dist
+cache:
+  templates_dir: src
+assets:
+  src: static
+  dist: dist/assets
+  filter:
+    mode: deny
+    files:
+      - ghtml
+      - gcss
+      - gplug
+markdown:
+  extensions: []
+gHoist:
+  enabled: true
+webmentions:
+  enabled: true
+  state: .webmention-state.json
+spotify:
+  fallback_image: /profile.png
+gpm:
+  manifest_url: https://example.com/manifest.json
+  manifest_cache: plugins/manifest.json
+  plugins_dir: plugins
+secrets: {}

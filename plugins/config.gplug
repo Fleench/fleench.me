@@ -1,0 +1,142 @@
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+import yaml
+
+
+MANIFEST = {
+    "name": "config",
+    "priority": 0,
+    "depends": [],
+}
+
+DEFAULT_CONFIG = """site:
+  name: Gen Site
+  url: http://localhost:8000
+build:
+  src: src
+  dist: dist
+cache:
+  templates_dir: src
+assets:
+  src: static
+  dist: dist/assets
+  filter:
+    mode: deny
+    files:
+      - ghtml
+      - gcss
+      - gplug
+markdown:
+  extensions: []
+gHoist:
+  enabled: true
+webmentions:
+  enabled: true
+  state: .webmention-state.json
+secrets: {}
+"""
+
+
+def _env_names(path):
+    full = "_".join(part.upper() for part in path)
+    names = [full]
+    if path and path[0] == "secrets" and len(path) > 1:
+        names.append("_".join(part.upper() for part in path[1:]))
+    return names
+
+
+def _coerce_env_value(value):
+    parsed = yaml.safe_load(value)
+    return value if parsed is None else parsed
+
+
+def _apply_env_overrides(value, path=None):
+    path = path or []
+    if isinstance(value, dict):
+        return {key: _apply_env_overrides(item, path + [str(key)]) for key, item in value.items()}
+
+    if path and path[0] == "secrets":
+        for name in _env_names(path):
+            if name in os.environ:
+                return _coerce_env_value(os.environ[name])
+    return value
+
+
+def _lookup(config, key):
+    if not key:
+        return config
+
+    current = config
+    parts = key.split(".")
+    for index, part in enumerate(parts):
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+            continue
+
+        env_path = parts[: index + 1]
+        if env_path and env_path[0] == "secrets":
+            for name in _env_names(env_path):
+                if name in os.environ:
+                    return _coerce_env_value(os.environ[name])
+        return None
+    return current
+
+
+def API(api):
+    root = Path.cwd()
+    load_dotenv(root / ".env")
+    load_dotenv(root / "local.env")
+
+    config_file = root / "gen.yaml"
+    if config_file.exists():
+        data = yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}
+    else:
+        data = {}
+
+    if not isinstance(data, dict):
+        raise TypeError("gen.yaml must contain a mapping at the top level")
+
+    data = _apply_env_overrides(data)
+    api["config"] = data
+    api["register"]["method"]("config", lambda key=None: _lookup(data, key))
+    return api
+
+
+def reset(args=None):
+    answer = input("Reset gen.yaml to Gen defaults? [y/N] ").strip().lower()
+    if answer not in ("y", "yes"):
+        print("Skipped gen.yaml reset")
+        return False
+
+    Path("gen.yaml").write_text(DEFAULT_CONFIG, encoding="utf-8")
+    print("Reset gen.yaml")
+    return True
+
+
+def HELP():
+    return """Plugin: config
+
+Usage:
+  api["methods"]["config"]("site.name")
+  gen run config.reset
+
+Description:
+  Loads gen.yaml, .env, and local.env from the project root. This is the
+  default config layer every other gplug should assume exists in a normal Gen
+  project. Values under secrets can be provided by env files or overridden by
+  system environment variables.
+
+Examples:
+  api["methods"]["config"]("build.dist")
+  api["methods"]["config"]("markdown.extensions")
+
+Commands:
+  reset    Interactively reset gen.yaml to Gen defaults.
+"""
+
+
+COMMANDS = {
+    "reset": reset,
+}

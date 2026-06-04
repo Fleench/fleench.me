@@ -1,0 +1,178 @@
+from pathlib import Path
+from fnmatch import fnmatch
+import shutil
+
+
+MANIFEST = {
+    "name": "assets",
+    "priority": 2,
+    "depends": ["config"],
+}
+
+
+DEFAULT_FILTER_FILES = ["ghtml", "gcss", "gplug"]
+
+
+def _as_list(value, fallback):
+    if value is None:
+        return list(fallback)
+    if isinstance(value, str):
+        return [value]
+    return list(value)
+
+
+def _matches_filter(path, filters):
+    path = path.as_posix()
+    name = Path(path).name
+    suffix = Path(path).suffix.lower().lstrip(".")
+
+    for item in filters:
+        pattern = str(item).strip()
+        if not pattern:
+            continue
+        normalized = pattern.lower().lstrip(".")
+        if "*" in pattern or "?" in pattern or "[" in pattern:
+            if fnmatch(path, pattern) or fnmatch(name, pattern):
+                return True
+        elif "/" in pattern:
+            if path == pattern:
+                return True
+        elif suffix == normalized:
+            return True
+    return False
+
+
+def _should_copy(path, mode, filters):
+    matched = _matches_filter(path, filters)
+    if mode == "allow":
+        return matched
+    if mode == "deny":
+        return not matched
+    raise ValueError("assets.filter.mode must be 'allow' or 'deny'")
+
+
+def _copy_assets(api):
+    config = api["methods"]["config"]
+    src_dir = Path(config("assets.src") or "static")
+    dist_dir = Path(config("assets.dist") or "dist/assets")
+    mode = str(config("assets.filter.mode") or config("assets.mode") or "deny").lower()
+    filters = _as_list(config("assets.filter.files") or config("assets.files"), DEFAULT_FILTER_FILES)
+
+    if not src_dir.exists():
+        return
+    if not src_dir.is_dir():
+        raise NotADirectoryError(f"assets.src must be a directory: {src_dir}")
+
+    for source in src_dir.rglob("*"):
+        if source.is_file():
+            relative_source = source.relative_to(src_dir)
+            if not _should_copy(relative_source, mode, filters):
+                continue
+            destination = dist_dir / relative_source
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+
+
+def _dist_root(api):
+    config = api["methods"]["config"]
+    return Path(config("build.dist") or "dist")
+
+
+def _src_root(api):
+    config = api["methods"]["config"]
+    return Path(config("build.src") or "src")
+
+
+def _resolve_source(api, source):
+    source = Path(str(source))
+    if source.is_absolute():
+        return source
+    return _src_root(api) / source
+
+
+def _resolve_destination(api, destination):
+    destination = Path(str(destination))
+    if destination.is_absolute():
+        return destination
+    return _dist_root(api) / str(destination).lstrip("/")
+
+
+def _asset_href(destination):
+    destination = str(destination)
+    if destination.startswith(("http://", "https://", "/")):
+        return destination
+    return "/" + destination.lstrip("/")
+
+
+def _copy_one(source, destination):
+    if source.is_dir():
+        for child in source.rglob("*"):
+            if not child.is_file():
+                continue
+            child_destination = destination / child.relative_to(source)
+            child_destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(child, child_destination)
+        return
+
+    if not source.exists():
+        raise FileNotFoundError(f"asset_copy source not found: {source}")
+    if not source.is_file():
+        raise ValueError(f"asset_copy source must be a file or directory: {source}")
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, destination)
+
+
+def _copy_registered_assets(api):
+    assets = api.get("assets", {})
+    pending = assets.get("copies", {})
+    copied = assets.setdefault("copied", set())
+    for key, (source, destination) in pending.items():
+        if key in copied:
+            continue
+        _copy_one(source, destination)
+        copied.add(key)
+
+
+def API(api):
+    assets = api.setdefault("assets", {})
+    assets.setdefault("copies", {})
+    assets.setdefault("copied", set())
+
+    def asset_copy(source, destination):
+        source = _resolve_source(api, source)
+        resolved_destination = _resolve_destination(api, destination)
+        key = (str(source.resolve()), str(resolved_destination.resolve()))
+        api["assets"]["copies"].setdefault(key, (source, resolved_destination))
+        return _asset_href(destination)
+
+    api["register"]["method"]("asset_copy", asset_copy)
+    api["register"]["post_build"](_copy_assets)
+    api["register"]["post_build"](_copy_registered_assets)
+    return api
+
+
+def HELP():
+    return """Plugin: assets
+
+Usage:
+  Configure assets in gen.yaml, then run gen build.
+  api["methods"]["asset_copy"]("src/image.png", "images/image.png")
+
+Description:
+  Copies files from assets.src into assets.dist after the site build. The
+  default filter protects source files like .ghtml, .gcss, and .gplug from
+  being published as static assets.
+  Pages can also call asset_copy(source, destination) during Build() to queue
+  explicit file or directory copies into build.dist.
+
+Config:
+  assets.src: static
+  assets.dist: dist/assets
+  assets.filter.mode: deny
+  assets.filter.files: [ghtml, gcss, gplug]
+
+Behavior:
+  deny  copy everything except matching files
+  allow copy only matching files
+"""

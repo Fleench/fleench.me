@@ -1,0 +1,70 @@
+from gen.html.elements import Element, Page, Text
+from gen.html.parser import GenHTMLParser
+
+
+BODY = """If you found this gem then cool. It will be gone when I build my now page.
+
+My now page needs to be a 1-month status update.
+- My top artists, top tracks, top albums from lastfm
+  - do top 5 of each
+- a current quote
+  - take from posted quotes on mastodon
+- current project(s)
+  - select 3 besides website and classes
+  - link music brainz or last fm page
+  - use images from music brainz if possible
+- prayer requests
+  - just a few not too many
+- top games
+  - top 3 games of the month
+- current TV shows
+  - separate from the list I watch with my mom
+  - do like 5 of what I watch recently including repeating yt series
+- an online character version of myself
+  - make one in clip studio"""
+
+
+def CONTEXT(api):
+    return {
+        "route": "/plans/now/",
+        "title": "Now Plan",
+        "canonical": "https://flench.me/plans/now/",
+        "hidden": True,
+        "cache": "dynamic",
+    }
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown = api["methods"]["markdown"]
+    parsed = GenHTMLParser().parse_text(f"<div>{markdown(BODY)}</div>")
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            page.add_before(page.find("class", "site-layout")[0].uuid, fragment("elements/marquee"))
+            with page_wrap:
+                fragment("elements/head")
+                fragment("elements/nav")
+                template = fragment("templates/default")
+                template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+                template.find("id", "Content")[0].attrs["id"] = "DefaultContent"
+                with Element("div", {"gHoist": "DefaultContent"}) as content:
+                    for child in list(parsed.children):
+                        child.parent = None
+                        content.add(child)
+                api["methods"]["foot"]()
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page
+
+
+def main():
+    page = Build({}, CONTEXT({}))
+    print(page.render())
+
+
+if __name__ == "__main__":
+    main()

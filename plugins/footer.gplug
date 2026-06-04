@@ -1,0 +1,36 @@
+from gen.html.parser import GenHTMLParser
+
+
+MANIFEST = {
+    "name": "footer",
+    "priority": 999,
+    "depends": ["cache", "built"],
+}
+
+
+def API(api):
+    def _foot():
+        footer = api["methods"]["fragment"]("elements/footer")
+        built = footer.find("id", "Built")[0]
+        for child in built.children[:]:
+            child.pop()
+        built.add(GenHTMLParser().parse_text(api["methods"]["built"]()))
+        return footer
+
+    api["register"]["method"]("foot", _foot)
+    return api
+
+
+def HELP():
+    return """Plugin: footer
+
+Usage:
+  api["methods"]["foot"]()
+
+Description:
+  Loads src/elements/footer.html through cache.gplug and fills the build
+  placeholder with api["methods"]["built"]().
+"""
+
+
+COMMANDS = {}

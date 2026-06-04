@@ -1,0 +1,36 @@
+from gen.html.elements import Element, Page, Text
+
+
+def CONTEXT(api):
+    return {
+        "route": "/do-not-link/now/",
+        "title": "Redirect",
+        "canonical": "https://flench.me/do-not-link/now/",
+        "hidden": True,
+    }
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        with Element("head"):
+            with Element("title"):
+                Text(context["title"])
+        with Element("body"):
+            redirect = fragment("templates/replace")
+            redirect.attrs["data-location"] = "/now"
+    return page
+
+
+def main():
+    from gen.ssg.dispatcher import GenSSGDispatcher
+
+    dispatcher = GenSSGDispatcher()
+    api = dispatcher.create_api()
+    print(dispatcher.build_page(api, __import__(__name__), CONTEXT(api)))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,184 @@
+from gen.html.elements import Element, Page, Text
+
+
+FAV_STYLE = """
+.fav {
+  position: relative;
+  width: 16em;
+  margin: 0;
+  padding: 0;
+  background-size: cover;
+  overflow: hidden;
+}
+.fav img {
+  object-fit: cover;
+  width: 100%;
+  height: 15em;
+  display: block;
+}
+.fav h1 {
+  position: absolute;
+  bottom: -0.6em;
+  text-wrap: auto;
+  margin-top: -1.9em;
+  font-size: clamp(0.5rem, 2vw, 1.35rem);
+}
+.fav .ricon {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  z-index: 2;
+}
+.fav[data-href] {
+  cursor: pointer;
+}
+.fav .fav-cta {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transition: opacity 180ms ease-in-out;
+  pointer-events: none;
+  z-index: 1;
+}
+.fav:hover .fav-cta,
+.fav:focus-visible .fav-cta {
+  opacity: 1;
+}
+.ricon img {
+  width: auto !important;
+  height: 32px !important;
+  margin: 0 !important;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+.ricon:hover {
+  transform: scale(1.1);
+}
+.crow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 16em);
+  overflow: scroll;
+  scrollbar-width: none;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  visibility: visible;
+  justify-content: start;
+  border-radius: 8px;
+}
+"""
+
+
+FAVORITES = [
+    {"kind": "spotify", "label": "Ben Rector", "query": "Ben Rector", "type": "artist"},
+    {"kind": "spotify", "label": "Luminati Suns", "query": "Luminati Suns", "type": "artist"},
+    {"kind": "spotify", "label": "Josiah Queen", "query": "Josiah Queen", "type": "artist"},
+    {"kind": "spotify", "label": "Owl City", "query": "Owl City", "type": "artist"},
+    {"kind": "spotify", "label": "Mercy Me", "query": "Mercy Me", "type": "artist"},
+    {"kind": "spotify", "label": "Inhale (Exhale)", "query": "5AfoxZl8Y5VJgC9nK0DvBV", "type": "albumID"},
+    {"kind": "spotify", "label": "Magic", "query": "3Mb8bYV4FKmdnmrlSYqp3j", "type": "albumID"},
+    {"kind": "spotify", "label": "The Prodigal (Deluxe Edition)", "query": "2IDUIQkIrI8EREUvVNPxm2", "type": "albumID"},
+    {"kind": "spotify", "label": "How We Love", "query": "0PXMY36QVuybwHDfdtDuOB", "type": "albumID"},
+    {"kind": "spotify", "label": "The Middle", "query": "0k79A6mTLVAwJLEnF6bZz6", "type": "albumID"},
+    {"kind": "spotify", "label": "Are You Looking Up", "query": "6UZfwVJdXRqM9N3lR94JeO", "type": "trackID"},
+    {"kind": "spotify", "label": "Drive", "query": "1GgoypuXSxpTKOxEYiZ3JJ", "type": "trackID"},
+    {"kind": "spotify", "label": "The Summons", "query": "0MXF8sxW0k2QYrSEaSeeUz", "type": "trackID"},
+    {"kind": "spotify", "label": "note to self (Acoustic Version)", "query": "57X5CeMMlrFDmvAyUxMkgV", "type": "trackID"},
+    {
+        "kind": "tmdb",
+        "label": "",
+        "href": "https://www.themoviedb.org/tv/79744-the-rookie",
+        "image": "https://media.themoviedb.org/t/p/w440_and_h660_face/70kTz0OmjjZe7zHvIDrq2iKW7PJ.jpg",
+    },
+    {
+        "kind": "tmdb",
+        "label": "The Neighborhood",
+        "href": "https://www.themoviedb.org/tv/79744-the-rookie",
+        "image": "https://media.themoviedb.org/t/p/w440_and_h660_face/lO4tP5y1iwCSWeeetcJhiRzn9C8.jpg",
+    },
+]
+
+
+def CONTEXT(api):
+    return {
+        "route": "/now/",
+        "title": "Now",
+        "canonical": "https://flench.me/now/",
+        "cache": "dynamic",
+    }
+
+
+def _spotify_urls(api, favorite):
+    spotify = api["methods"]["spotify"]
+    return (
+        spotify(favorite["query"], favorite["type"], True),
+        spotify(favorite["query"], favorite["type"]),
+        "https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png",
+        "View on Spotify",
+    )
+
+
+def _tmdb_urls(favorite):
+    return (
+        favorite["href"],
+        favorite["image"],
+        "https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg",
+        "View on TMDB",
+    )
+
+
+def _fav_card(api, favorite):
+    if favorite["kind"] == "spotify":
+        href, image, icon, cta = _spotify_urls(api, favorite)
+    else:
+        href, image, icon, cta = _tmdb_urls(favorite)
+
+    with Element("div", {"class": "fav", "data-href": href}):
+        with Element("a", {"href": href, "target": "_blank", "class": "ricon"}):
+            Element("img", {"src": icon, "alt": cta})
+        Element("img", {"src": image, "alt": favorite["label"]})
+        with Element("h1"):
+            Text(favorite["label"])
+        with Element("span", {"class": "fav-cta"}):
+            Text(cta)
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            page.add_before(page.find("class", "site-layout")[0].uuid, fragment("elements/marquee"))
+            with page_wrap:
+                fragment("elements/head")
+                fragment("elements/nav")
+                with Element("style", {"gHoist": "head"}):
+                    Text(FAV_STYLE)
+                with Element("div", {"class": "crow", "id": "crow", "gHoist": "ContentPanel"}):
+                    for favorite in FAVORITES:
+                        _fav_card(api, favorite)
+                with Element("a", {"href": "/plans/now", "gHoist": "webmentions"}):
+                    Text("")
+                api["methods"]["foot"]()
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page
+
+
+def main():
+    page = Build({}, CONTEXT({}))
+    print(page.render())
+
+
+if __name__ == "__main__":
+    main()

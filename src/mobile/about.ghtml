@@ -1,0 +1,69 @@
+from gen.html.elements import Element, Page, Text
+from gen.html.parser import GenHTMLParser
+
+
+BODY = """Greetings
+I am Flench04. The webmaster for the Void. I am College Student from Colorado and my pronouns are he/him. I am currently studying computer science and hope to go into video games.
+
+In my free time I love to create video games and play them. Most recently I've been playing Idle Breakout. I'm currently at Level 25531 on my 7th prestige.
+
+I am also Catholic and believe in respecting the human dignity in all forms.
+
+If you have any questions feel free to ask by sending a webmention to this page.
+P.S if you are on mobile then remove the m. in the url before sending the webmention."""
+
+
+def CONTEXT(api):
+    return {
+        "route": "/mobile/about/",
+        "title": "About",
+        "canonical": "https://flench.me/about/",
+        "cache": "dynamic",
+    }
+
+
+def _move_head_extra(template):
+    for head_extra in template.find("id", "head_extra"):
+        for child in list(head_extra.children):
+            head_extra.children.remove(child)
+            child.parent = None
+            child.attrs["gHoist"] = "head"
+            template.add(child)
+        head_extra.parent.children.remove(head_extra)
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown = api["methods"]["markdown"]
+    parsed = GenHTMLParser().parse_text(f"<div>{markdown(BODY)}</div>")
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            with page_wrap:
+                fragment("elements/head")
+                nav = fragment("elements/m-nav")
+                nav.attrs["gHoist"] = "Nav"
+                template = fragment("templates/mobile")
+                _move_head_extra(template)
+                template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+                template.find("id", "Content")[0].attrs["id"] = "MobileContent"
+                with Element("div", {"gHoist": "MobileContent"}) as content:
+                    for child in list(parsed.children):
+                        child.parent = None
+                        content.add(child)
+                api["methods"]["foot"]()
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page
+
+
+def main():
+    page = Build({}, CONTEXT({}))
+    print(page.render())
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,184 @@
+from datetime import date
+from pathlib import Path
+
+from gen.html.elements import Element, Page, Text
+from gen.html.parser import GenHTMLParser
+
+
+BLOG_ROOT = Path("OLD/src/blogs")
+
+
+def _split_frontmatter(text):
+    if not text.startswith("---"):
+        return {}, text
+
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}, text
+
+    meta = {}
+    for line in parts[1].splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        meta[key.strip()] = value.strip().strip('"').strip("'")
+    return meta, parts[2].strip()
+
+
+def _route_for(path):
+    rel = path.relative_to(BLOG_ROOT).with_suffix("")
+    return f"/blogs/{rel.as_posix()}/"
+
+
+def _date_value(md_file, meta):
+    raw = str(meta.get("date", "") or "")
+    if raw:
+        try:
+            year, month, day = raw.split("/")[:3]
+            return date(int(year), int(month), int(day))
+        except Exception:
+            return date.min
+
+    rel = md_file.relative_to(BLOG_ROOT)
+    parts = rel.parts
+    if len(parts) >= 3:
+        try:
+            return date(int(parts[0]), int(parts[1]), int(Path(parts[2]).stem))
+        except Exception:
+            return date.min
+    return date.min
+
+
+def _date_label(value):
+    if value == date.min:
+        return ""
+    return value.strftime("%B %d, %Y")
+
+
+def _first_paragraph(text):
+    for paragraph in text.strip().split("\n\n"):
+        if paragraph.strip():
+            return paragraph.strip()
+    return ""
+
+
+def _title(meta):
+    return str(meta.get("title") or "Untitled")
+
+
+def _html_children(html):
+    root = GenHTMLParser().parse_text(f"<div>{html}</div>")
+    children = list(root.children)
+    for child in children:
+        child.parent = None
+    return children
+
+
+def _remove(element):
+    if element.parent is not None:
+        element.parent.children.remove(element)
+        element.parent = None
+
+
+def _move_head_extra(template):
+    for head_extra in template.find("id", "head_extra"):
+        for child in list(head_extra.children):
+            head_extra.children.remove(child)
+            child.parent = None
+            child.attrs["gHoist"] = "head"
+            template.add(child)
+        _remove(head_extra)
+
+
+def CONTEXT(api):
+    return {
+        "route": "/blogs/",
+        "title": "Blogs",
+        "canonical": "https://flench.me/blogs/",
+        "cache": "dynamic",
+    }
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown = api["methods"]["markdown"]
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            page.add_before(page.find("class", "site-layout")[0].uuid, fragment("elements/marquee"))
+            with page_wrap:
+                fragment("elements/head")
+                fragment("elements/nav")
+
+                content_panel = page.find("id", "ContentPanel")[0]
+                for child in list(content_panel.children):
+                    _remove(child)
+
+                template = fragment("templates/blogs-full")
+                _move_head_extra(template)
+                for sidebar in [*template.find("id", "left_sidebar"), *template.find("id", "right_sidebar")]:
+                    _remove(sidebar)
+                template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+                for child in list(template.children):
+                    template.children.remove(child)
+                    child.parent = None
+                    page_wrap.add(child)
+
+                posts = []
+                for md_file in sorted(BLOG_ROOT.glob("**/*.md")):
+                    meta, body_text = _split_frontmatter(md_file.read_text(encoding="utf-8"))
+                    posts.append((_date_value(md_file, meta), md_file, meta, body_text))
+
+                for date_value, md_file, meta, body_text in sorted(posts, reverse=True):
+                    article = Element("article", {"class": "blog-preview panel", "gHoist": "BlogsList"}, _auto_add=False)
+
+                    h2 = Element("h2", {"class": "blog-title"}, _auto_add=False)
+                    link = Element("a", {"href": _route_for(md_file)}, _auto_add=False)
+                    link.add(Text(_title(meta)))
+                    h2.add(link)
+                    article.add(h2)
+
+                    label = _date_label(date_value)
+                    if label:
+                        date_div = Element("div", {"class": "blog-date"}, _auto_add=False)
+                        small = Element("small", _auto_add=False)
+                        small.add(Text(label))
+                        date_div.add(small)
+                        article.add(date_div)
+
+                    if meta.get("img"):
+                        cover = Element("a", {"href": _route_for(md_file), "class": "blog-cover"}, _auto_add=False)
+                        cover.add(
+                            Element(
+                                "img",
+                                {"src": str(meta["img"]), "alt": str(meta.get("img-alt", ""))},
+                                _auto_add=False,
+                            )
+                        )
+                        article.add(cover)
+
+                    excerpt = Element("div", {"class": "blog-excerpt"}, _auto_add=False)
+                    for child in _html_children(markdown(_first_paragraph(body_text))):
+                        excerpt.add(child)
+                    article.add(excerpt)
+                    page_wrap.add(article)
+
+                api["methods"]["foot"]()
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page
+
+
+def main():
+    from gen.ssg.dispatcher import GenSSGDispatcher
+
+    dispatcher = GenSSGDispatcher()
+    api = dispatcher.create_api()
+    print(dispatcher.build_page(api, __import__(__name__), CONTEXT(api)))
+
+
+if __name__ == "__main__":
+    main()

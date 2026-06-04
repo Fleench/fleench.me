@@ -1,0 +1,318 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+import re
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+import urllib.error
+import urllib.parse
+import urllib.request
+
+
+MANIFEST = {
+    "name": "webmentions",
+    "priority": 1000,
+    "depends": ["config"],
+}
+
+DEFAULT_STATE_PATH = ".webmention-state.json"
+DEFAULT_ENDPOINT = "https://fed.brid.gy/webmention"
+
+LOGGER = logging.getLogger("gen")
+_LINK_RE = re.compile(r"""(?:href|src)=["']([^"']+)["']""", re.IGNORECASE)
+
+
+def _config(api, key=None, default=None):
+    lookup = api.get("methods", {}).get("config")
+    if callable(lookup):
+        value = lookup(key)
+    elif key is None:
+        value = api.get("config", {})
+    else:
+        value = None
+    return default if value is None else value
+
+
+def _webmention_config(api):
+    value = _config(api, "webmentions", {})
+    return value if isinstance(value, dict) else {}
+
+
+def _is_enabled(api):
+    value = _webmention_config(api).get("enabled", True)
+    if isinstance(value, str):
+        return value.strip().lower() not in {"0", "false", "no", "off"}
+    return bool(value)
+
+
+def _state_path(api=None):
+    config = _webmention_config(api or {})
+    return Path(str(config.get("state", DEFAULT_STATE_PATH)))
+
+
+def _site_url(api):
+    value = _config(api, "site.url", "")
+    if not value:
+        value = _config(api, "site_url", "")
+    return str(value).strip().rstrip("/")
+
+
+def _source_url(api, context):
+    site_url = _site_url(api)
+    route = str(context.get("route", "/") or "/")
+    if not site_url:
+        return ""
+    if route.startswith(("http://", "https://")):
+        return route
+    return f"{site_url}/{route.lstrip('/')}"
+
+
+def _extract_links(html):
+    return {link.strip() for link in _LINK_RE.findall(html) if link.strip()}
+
+
+def _is_external_http(link, site_host):
+    parsed = urllib.parse.urlparse(link)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return False
+    return parsed.netloc != site_host
+
+
+def _source_fingerprint(content):
+    normalized = " ".join(str(content).split())
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _empty_state():
+    return {"version": 1, "queue": [], "published": [], "current_links": {}}
+
+
+def _load_state(path):
+    if not path.exists():
+        return _empty_state()
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return _empty_state()
+    if not isinstance(state, dict):
+        return _empty_state()
+    state.setdefault("version", 1)
+    state.setdefault("queue", [])
+    state.setdefault("published", [])
+    state.setdefault("current_links", {})
+    return state
+
+
+def _save_state(path, state):
+    path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _previous_current_links(state):
+    current = {}
+    raw = state.get("current_links", {})
+    if not isinstance(raw, dict):
+        return current
+    for source, targets in raw.items():
+        if not isinstance(source, str) or not isinstance(targets, list):
+            continue
+        current[source] = {str(target).strip() for target in targets if str(target).strip()}
+    return current
+
+
+def _event_key(item):
+    return (
+        str(item.get("source", "")).strip(),
+        str(item.get("target", "")).strip(),
+        str(item.get("source_hash", "")).strip(),
+        str(item.get("event", "added") or "added").strip(),
+    )
+
+
+def _merge_discoveries(api):
+    state_path = _state_path(api)
+    state = _load_state(state_path)
+    queue = [item for item in state.get("queue", []) if isinstance(item, dict)]
+    published = [item for item in state.get("published", []) if isinstance(item, dict)]
+    current_links = api.get("webmentions", {}).get("current_links", {})
+    discovered = api.get("webmentions", {}).get("discovered", {})
+
+    previous = _previous_current_links(state)
+    existing = {_event_key(item) for item in [*queue, *published]}
+    queued_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    added = 0
+    removed = 0
+
+    for (source, target), source_hash in sorted(discovered.items()):
+        key = (source, target, source_hash, "added")
+        if key in existing:
+            continue
+        queue.append(
+            {
+                "source": source,
+                "target": target,
+                "source_hash": source_hash,
+                "event": "added",
+                "queued_at": queued_at,
+            }
+        )
+        existing.add(key)
+        added += 1
+
+    for source, previous_targets in previous.items():
+        removed_targets = previous_targets - current_links.get(source, set())
+        if not removed_targets:
+            continue
+        removal_hash = _source_fingerprint(f"{source}\nremoved\n" + "\n".join(sorted(removed_targets)))
+        for target in sorted(removed_targets):
+            key = (source, target, removal_hash, "removed")
+            if key in existing:
+                continue
+            queue.append(
+                {
+                    "source": source,
+                    "target": target,
+                    "source_hash": removal_hash,
+                    "event": "removed",
+                    "queued_at": queued_at,
+                }
+            )
+            existing.add(key)
+            removed += 1
+
+    state["queue"] = queue
+    state["current_links"] = {source: sorted(targets) for source, targets in sorted(current_links.items())}
+    _save_state(state_path, state)
+    return {"added": added, "removed": removed, "queued": len(queue), "state": state_path}
+
+
+def _record_page(api, context, page):
+    if not _is_enabled(api):
+        return page
+
+    site_url = _site_url(api)
+    site_host = urllib.parse.urlparse(site_url).netloc
+    source = _source_url(api, context)
+    if not site_host or not source:
+        return page
+
+    html = page.render()
+    source_hash = _source_fingerprint(html)
+    found = set()
+    for link in _extract_links(html):
+        if _is_external_http(link, site_host):
+            found.add(link)
+
+    for target in found:
+        api["webmentions"]["discovered"].setdefault((source, target), source_hash)
+    api["webmentions"]["current_links"][source] = found
+    return page
+
+
+def _print_status(api):
+    if not _is_enabled(api):
+        print("Webmentions: disabled")
+        return
+
+    stats = _merge_discoveries(api)
+    print(
+        "Webmentions: "
+        f"{stats['queued']} queued "
+        f"({stats['added']} new, {stats['removed']} removed) "
+        f"in {stats['state']}"
+    )
+
+
+def _send_webmention(source, target, endpoint):
+    payload = urllib.parse.urlencode({"source": source, "target": target}).encode("utf-8")
+    request = urllib.request.Request(endpoint, data=payload, method="POST")
+    request.add_header("Content-Type", "application/x-www-form-urlencoded")
+    with urllib.request.urlopen(request, timeout=15):
+        return
+
+
+def _publish_config(args):
+    args = args or []
+    config = {"dry_run": False, "state": DEFAULT_STATE_PATH, "endpoint": DEFAULT_ENDPOINT}
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if arg in {"--dry-run", "-n"}:
+            config["dry_run"] = True
+        elif arg == "--state" and index + 1 < len(args):
+            index += 1
+            config["state"] = args[index]
+        elif arg == "--endpoint" and index + 1 < len(args):
+            index += 1
+            config["endpoint"] = args[index]
+        else:
+            raise ValueError(f"Unknown webmentions.publish argument: {arg}")
+        index += 1
+    return config
+
+
+def publish(args=None):
+    config = _publish_config(args)
+    state_path = Path(str(config["state"]))
+    endpoint = str(config["endpoint"])
+    state = _load_state(state_path)
+    queue = [item for item in state.get("queue", []) if isinstance(item, dict)]
+    published = [item for item in state.get("published", []) if isinstance(item, dict)]
+
+    remaining = []
+    sent = 0
+    failed = 0
+    for item in queue:
+        source = str(item.get("source", "")).strip()
+        target = str(item.get("target", "")).strip()
+        if not source or not target:
+            continue
+        if config["dry_run"]:
+            LOGGER.info("DRY RUN publish %s -> %s", source, target)
+            remaining.append(item)
+            continue
+        try:
+            _send_webmention(source, target, endpoint)
+        except urllib.error.URLError as exc:
+            failed += 1
+            remaining.append(item)
+            LOGGER.error("Failed publishing %s -> %s: %s", source, target, exc)
+            continue
+        sent += 1
+        published.append({**item, "published_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+
+    state["queue"] = remaining
+    state["published"] = published
+    _save_state(state_path, state)
+    LOGGER.info("Published %s webmention(s); %s failed; %s queued", sent, failed, len(remaining))
+    return {"sent": sent, "failed": failed, "queued": len(remaining)}
+
+
+def API(api):
+    api["webmentions"] = {"discovered": {}, "current_links": {}}
+    api["register"]["pre_render"](_record_page)
+    api["register"]["post_build"](_print_status)
+    return api
+
+
+def HELP():
+    return """Plugin: webmentions
+
+Usage:
+  gen run webmentions.publish [--dry-run] [--state PATH] [--endpoint URL]
+
+Description:
+  Discovers external http(s) links from pages after each page build,
+  queues changed source/target pairs in .webmention-state.json, prints queue
+  status at post_build, and publishes queued webmentions on command.
+
+Config:
+  webmentions:
+    enabled: true
+    state: .webmention-state.json
+"""
+
+
+COMMANDS = {"publish": publish}

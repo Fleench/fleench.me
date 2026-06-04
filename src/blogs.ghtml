@@ -1,0 +1,149 @@
+from pathlib import Path
+
+from gen.html.elements import Element, Page, Text
+from gen.html.parser import GenHTMLParser
+
+
+BLOG_ROOT = Path("OLD/src/blogs")
+
+
+def _split_frontmatter(text):
+    if not text.startswith("---"):
+        return {}, text
+
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}, text
+
+    meta = {}
+    for line in parts[1].splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        meta[key.strip()] = value.strip().strip('"')
+    return meta, parts[2].strip()
+
+
+def _title_from_body(body):
+    for line in body.splitlines():
+        if line.startswith("# "):
+            return line[2:].strip()
+    return "Blog"
+
+
+def _route_for(path):
+    rel = path.relative_to(BLOG_ROOT).with_suffix("")
+    return f"/blogs/{rel.as_posix()}/"
+
+
+def CONTEXT(api):
+    contexts = []
+    for md_file in sorted(BLOG_ROOT.glob("**/*.md")):
+        meta, body = _split_frontmatter(md_file.read_text(encoding="utf-8"))
+        route = _route_for(md_file)
+        title = meta.get("title") or _title_from_body(body)
+        contexts.append(
+            {
+                "route": route,
+                "title": title,
+                "canonical": f"https://flench.me{route}",
+                "MD file": str(md_file),
+                "date": meta.get("date", ""),
+                "image": meta.get("img", ""),
+                "image_alt": meta.get("img-alt", ""),
+                "cache": "dynamic",
+            }
+        )
+    return contexts
+
+
+def _html_children(html):
+    root = GenHTMLParser().parse_text(f"<div>{html}</div>")
+    children = list(root.children)
+    for child in children:
+        child.parent = None
+    return children
+
+
+def _remove(element):
+    if element.parent is not None:
+        element.parent.children.remove(element)
+        element.parent = None
+
+
+def _move_head_extra(template):
+    for head_extra in template.find("id", "head_extra"):
+        for child in list(head_extra.children):
+            head_extra.children.remove(child)
+            child.parent = None
+            child.attrs["gHoist"] = "head"
+            template.add(child)
+        _remove(head_extra)
+
+
+def _read_body(md_file):
+    _, body = _split_frontmatter(Path(md_file).read_text(encoding="utf-8"))
+    return body
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown = api["methods"]["markdown"]
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            page.add_before(page.find("class", "site-layout")[0].uuid, fragment("elements/marquee"))
+            with page_wrap:
+                fragment("elements/head")
+                fragment("elements/nav")
+
+                content_panel = page.find("id", "ContentPanel")[0]
+                for child in list(content_panel.children):
+                    _remove(child)
+                for webmentions in list(page.find("id", "webmentions")):
+                    _remove(webmentions)
+
+                template = fragment("templates/blog")
+                _move_head_extra(template)
+                template.find("id", "left_sidebar")[0].attrs["gHoist"] = "left-sidebar"
+                template.find("id", "right_sidebar")[0].attrs["gHoist"] = "right-sidebar"
+                template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+                template.find("id", "Content")[0].attrs["id"] = "BlogContent"
+
+                title = template.find("id", "Title")[0]
+                title.add(Text(context["title"]))
+
+                hero = template.find("id", "HeroImage")[0]
+                if context.get("image"):
+                    hero.attrs["src"] = context["image"]
+                    hero.attrs["alt"] = context.get("image_alt", "")
+                else:
+                    _remove(hero)
+
+                with Element("div", {"gHoist": "BlogContent"}) as content:
+                    for child in _html_children(markdown(_read_body(context["MD file"]))):
+                        content.add(child)
+
+                author = fragment("elements/author")
+                author.attrs["gHoist"] = "author"
+
+                api["methods"]["foot"]()
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page
+
+
+def main():
+    from gen.ssg.dispatcher import GenSSGDispatcher
+
+    dispatcher = GenSSGDispatcher()
+    api = dispatcher.create_api()
+    for context in CONTEXT(api):
+        print(dispatcher.build_page(api, __import__(__name__), context))
+
+
+if __name__ == "__main__":
+    main()

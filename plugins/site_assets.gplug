@@ -1,0 +1,89 @@
+MANIFEST = {
+    "name": "site_assets",
+    "priority": 3,
+    "depends": ["assets"],
+}
+
+
+SITE_ASSETS = [
+    ".htaccess",
+    "profile.png",
+    "blogs/2026/01/01/seek.jpg",
+    "css/dark.css",
+    "css/indie-audio-player.css",
+    "css/mobile.css",
+    "css/style-grid.css",
+    "css/style.css",
+    "js/ai-audio-player.js",
+    "js/layout.js",
+    "js/mentions.js",
+    "js/mobile.js",
+    "js/theme-mode.js",
+    "js/yt-player.js",
+    "media/webRatings/WebG.png",
+    "theme/button.gif",
+    "year-review/25-26/april.jpg",
+    "year-review/25-26/august.jpg",
+    "year-review/25-26/december.jpg",
+    "year-review/25-26/february.jpg",
+    "year-review/25-26/january.jpg",
+    "year-review/25-26/march.jpg",
+    "year-review/25-26/may.jpg",
+    "year-review/25-26/november.jpg",
+    "year-review/25-26/october.jpg",
+    "year-review/25-26/september.jpg",
+    "year-review/25-26/winter-break.jpg",
+]
+
+
+MOBILE_ASSET_DESTINATIONS = [
+    ".htaccess",
+    "profile.png",
+    "blogs/2026/01/01/seek.jpg",
+    "css/dark.css",
+    "css/indie-audio-player.css",
+    "css/mobile.css",
+    "css/style-grid.css",
+    "css/style.css",
+    "js/ai-audio-player.js",
+    "js/layout.js",
+    "js/mentions.js",
+    "js/mobile.js",
+    "js/theme-mode.js",
+    "js/yt-player.js",
+    "media/webRatings/WebG.png",
+    "theme/button.gif",
+    "year-review/25-26/april.jpg",
+    "year-review/25-26/august.jpg",
+    "year-review/25-26/december.jpg",
+    "year-review/25-26/february.jpg",
+    "year-review/25-26/january.jpg",
+    "year-review/25-26/march.jpg",
+    "year-review/25-26/may.jpg",
+    "year-review/25-26/november.jpg",
+    "year-review/25-26/october.jpg",
+    "year-review/25-26/september.jpg",
+    "year-review/25-26/winter-break.jpg",
+]
+
+
+def _queue_site_assets(api):
+    asset_copy = api["methods"]["asset_copy"]
+    for asset in SITE_ASSETS:
+        asset_copy(asset, asset)
+    for asset in MOBILE_ASSET_DESTINATIONS:
+        asset_copy(asset, f"mobile/{asset}")
+
+
+def API(api):
+    api["register"]["pre_build"](_queue_site_assets)
+    return api
+
+
+def HELP():
+    return """Plugin: site_assets
+
+Description:
+  Queues this site's static assets through assets.asset_copy so current dist
+  paths match the legacy OLD/dist asset locations.
+"""

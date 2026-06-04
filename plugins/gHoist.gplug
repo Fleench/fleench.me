@@ -1,0 +1,92 @@
+MANIFEST = {
+    "name": "gHoist",
+    "priority": 999,
+    "depends": [],
+}
+
+
+def _matches(element, name):
+    if element.tag == name:
+        return True
+    if element.attrs.get("id") == name:
+        return True
+    return name in element.attrs.get("class", "").split()
+
+
+def _find_child(parent, name):
+    for child in parent.children:
+        if _matches(child, name):
+            return child
+    return None
+
+
+def _find_by_id(parent, target_id):
+    if parent.attrs.get("id") == target_id:
+        return parent
+    for child in parent.children:
+        found = _find_by_id(child, target_id)
+        if found is not None:
+            return found
+    return None
+
+
+def _resolve_path(page, path):
+    if "." not in path:
+        target = _find_by_id(page, path)
+        if target is not None:
+            return target
+
+    current = page
+    for name in path.split("."):
+        if not name:
+            continue
+        child = _find_child(current, name)
+        if child is None:
+            raise AttributeError(f"gHoist target '{path}' not found at '{name}'")
+        current = child
+    return current
+
+
+def _hoist(api, context, page):
+    targets = list(page.find("has_attr", "gHoist"))
+    targets.extend(page.find("has_attr", "ghoist"))
+    for element in targets:
+        path = element.attrs.pop("gHoist", None)
+        if path is None:
+            path = element.attrs.pop("ghoist")
+        target = _resolve_path(page, path)
+        if element.parent:
+            element.parent.children.remove(element)
+            element.parent = None
+        target.add(element)
+    return page
+
+
+def API(api):
+    api["register"]["pre_render"](_hoist)
+    return api
+
+
+def HELP():
+    return """Plugin: gHoist
+
+Usage:
+  Add gHoist="target.path" to the element you want to move.
+
+Description:
+  Moves an element before render into another part of the page tree. The
+  target can be a bare HTML id anywhere in the page, or a dotted path resolved
+  one segment at a time. Each dotted segment can match a child by tag name,
+  HTML id, or class name.
+
+Examples:
+  Link(rel="stylesheet", href="/style.css", gHoist="head")
+  P("Moved", gHoist="link1")
+  P("Moved", gHoist="body.nav.link1")
+
+How Targeting Works:
+  link1           move under the element with id="link1"
+  head            move under the page's head element
+  body.nav        move under the child matched by nav inside body
+  body.nav.link1  keep walking until link1 is found, then move there
+"""

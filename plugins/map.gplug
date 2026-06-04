@@ -1,0 +1,95 @@
+from __future__ import annotations
+
+
+MANIFEST = {
+    "name": "map",
+    "priority": 999,
+    "depends": [],
+}
+
+
+class Node:
+    def __init__(self, name: str, value: str, parent=None):
+        self.name = name
+        self.children = {}
+        self.parent = parent
+        self.value = value
+
+    def add_child(self, node):
+        self.children[node.name] = node
+
+
+def _walk_nodes(node: Node, depth: int = 0):
+    for child in node.children.values():
+        yield depth, child.name, child.value
+        yield from _walk_nodes(child, depth + 1)
+
+
+def _route_from_context(context):
+    route = str(context.get("route", "") or "")
+    if not route:
+        return ""
+    if route.startswith(("http://", "https://")):
+        return route
+    if not route.startswith("/"):
+        route = "/" + route
+    if not route.endswith("/"):
+        route += "/"
+    return route
+
+
+def _is_hidden(context):
+    value = context.get("hidden", False)
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
+def _site_map(api):
+    top_node = Node("Top Node", "")
+    pages = api.get("pages", {})
+    for page in pages.values():
+        for context in page.get("contexts", []):
+            if _is_hidden(context):
+                continue
+            route = _route_from_context(context)
+            if not route:
+                continue
+            cur_node = top_node
+            used_parts = []
+            for part in route.split("/"):
+                used_parts.append(part)
+                if not part.strip():
+                    continue
+                next_node = cur_node.children.get(part)
+                if next_node is None:
+                    next_node = Node(part, "/".join(used_parts), parent=cur_node)
+                    cur_node.add_child(next_node)
+                cur_node = next_node
+
+    items = ['<ul style="columns: 2;-webkit-columns: 2;-moz-columns: 2;column-width: 5px">']
+    for depth, name, value in _walk_nodes(top_node):
+        items.append(f'<li style="margin-left:{depth * 15}px"><a href="{value}">{name}</a></li>')
+    items.append("</ul>")
+    return "\n".join(items)
+
+
+def API(api):
+    api["register"]["method"]("map", lambda: _site_map(api))
+    api["register"]["method"]("site_map", lambda: _site_map(api))
+    return api
+
+
+def HELP():
+    return """Plugin: map
+
+Usage:
+  api["methods"]["map"]()
+  api["methods"]["site_map"]()
+
+Description:
+  Builds a site map from the routes discovered by gen-ssg.
+"""
+
+
+COMMANDS = {}

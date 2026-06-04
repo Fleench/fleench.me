@@ -1,0 +1,172 @@
+from datetime import datetime
+from pathlib import Path
+
+from gen.html.elements import Element, Page, Text
+from gen.html.parser import GenHTMLParser
+
+
+NOTE_ROOT = Path("OLD/src/notes")
+
+
+def _split_frontmatter(text):
+    if not text.startswith("---"):
+        return {}, text
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}, text
+    meta = {}
+    for line in parts[1].splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        meta[key.strip()] = value.strip().strip('"').strip("'")
+    return meta, parts[2].strip()
+
+
+def _route_for(path):
+    rel = path.relative_to(NOTE_ROOT).with_suffix("")
+    return f"/notes/{rel.as_posix()}/"
+
+
+def _mobile_route_for(path):
+    rel = path.relative_to(NOTE_ROOT).with_suffix("")
+    return f"/mobile/notes/{rel.as_posix()}/"
+
+
+def _date_value(meta):
+    raw = str(meta.get("date", "") or "")
+    for pattern in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(raw, pattern)
+        except Exception:
+            continue
+    return datetime.min
+
+
+def _html_children(html):
+    root = GenHTMLParser().parse_text(f"<div>{html}</div>")
+    children = list(root.children)
+    for child in children:
+        child.parent = None
+    return children
+
+
+def _move_head_extra(template):
+    for head_extra in template.find("id", "head_extra"):
+        for child in list(head_extra.children):
+            head_extra.children.remove(child)
+            child.parent = None
+            child.attrs["gHoist"] = "head"
+            template.add(child)
+        head_extra.parent.children.remove(head_extra)
+
+
+def CONTEXT(api):
+    contexts = [
+        {
+            "route": "/mobile/notes/",
+            "title": "Notes",
+            "canonical": "https://flench.me/notes/",
+            "cache": "dynamic",
+        }
+    ]
+    for md_file in sorted(NOTE_ROOT.glob("**/*.md")):
+        meta, body_text = _split_frontmatter(md_file.read_text(encoding="utf-8"))
+        contexts.append(
+            {
+                "route": _mobile_route_for(md_file),
+                "title": str(meta.get("title") or md_file.stem),
+                "canonical": f"https://flench.me{_route_for(md_file)}",
+                "MD file": str(md_file),
+                "body": body_text,
+                "date": str(meta.get("date") or ""),
+                "type": str(meta.get("type") or "note"),
+                "cache": "dynamic",
+            }
+        )
+    return contexts
+
+
+def _build_shell(api, context):
+    fragment = api["methods"]["fragment"]
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            with page_wrap:
+                fragment("elements/head")
+                nav = fragment("elements/m-nav")
+                nav.attrs["gHoist"] = "Nav"
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page, page_wrap
+
+
+def _build_index(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown = api["methods"]["markdown"]
+    notes = []
+    for md_file in sorted(NOTE_ROOT.glob("**/*.md")):
+        meta, body_text = _split_frontmatter(md_file.read_text(encoding="utf-8"))
+        notes.append((_date_value(meta), md_file, meta, body_text))
+
+    page, page_wrap = _build_shell(api, context)
+    with page_wrap:
+                template = fragment("templates/mobile")
+                _move_head_extra(template)
+                template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+                template.find("id", "Content")[0].attrs["id"] = "MobileContent"
+                with Element("div", {"class": "notes-index", "gHoist": "MobileContent"}):
+                    with Element("h1"):
+                        Text("Notes")
+                    with Element("p"):
+                        with Element("a", {"href": "/rss.xml"}):
+                            Text("Subscribe via RSS")
+                    with Element("div", {"class": "notes-list"}):
+                        for _date, md_file, meta, body_text in sorted(notes, reverse=True):
+                            title = str(meta.get("title") or md_file.stem)
+                            note_type = str(meta.get("type") or "note")
+                            date_text = str(meta.get("date") or "")
+                            with Element("article", {"class": "note-item panel h-entry"}):
+                                with Element("a", {"class": "u-url note-permalink", "href": _route_for(md_file)}):
+                                    Text(title)
+                                with Element("div", {"class": "note-meta"}):
+                                    Text(f"{note_type} • {date_text}")
+                                with Element("div", {"class": "e-content"}) as content:
+                                    for child in _html_children(markdown(body_text)):
+                                        content.add(child)
+                api["methods"]["foot"]()
+    return page
+
+
+def _build_note(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown = api["methods"]["markdown"]
+    page, page_wrap = _build_shell(api, context)
+    with page_wrap:
+        template = fragment("templates/mobile/mobile-note")
+        _move_head_extra(template)
+        template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+        template.find("id", "Content")[0].attrs["id"] = "MobileNoteContent"
+        template.find("id", "Title")[0].add(Text(context["title"]))
+        with Element("div", {"gHoist": "MobileNoteContent"}) as content:
+            for child in _html_children(markdown(context["body"])):
+                content.add(child)
+        api["methods"]["foot"]()
+    return page
+
+
+def Build(api, context):
+    if "MD file" in context:
+        return _build_note(api, context)
+    return _build_index(api, context)
+
+
+def main():
+    page = Build({}, CONTEXT({}))
+    print(page.render())
+
+
+if __name__ == "__main__":
+    main()

@@ -11,7 +11,9 @@ ENV/
 
 # Local state for the build script
 .webmention-state.json
+.gen-cache.json
 .env
+local.env
 .webmention-state.json
 # Pycharm
 .idea

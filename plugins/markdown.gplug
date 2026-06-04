@@ -1,0 +1,104 @@
+from pathlib import Path
+
+import markdown as markdown_lib
+
+from gen.html.elements import Div
+from gen.html.parser import GenHTMLParser
+
+
+MANIFEST = {
+    "name": "markdown",
+    "priority": 2,
+    "depends": ["config"],
+}
+
+
+def _markdown(text):
+    return markdown_lib.markdown(text)
+
+
+def _markdown_file(path):
+    return _markdown(Path(path).read_text(encoding="utf-8"))
+
+
+def _html_children(html):
+    root = GenHTMLParser().parse_text(f"<div>{html}</div>")
+    children = list(root.children)
+    for child in children:
+        child.parent = None
+    return children
+
+
+def _block_markdown(title, body):
+    content = "\n".join(body)
+    if "{}" in title:
+        return content
+    prefix = "" if title.lstrip().startswith("#") else "# "
+    return prefix + title + "\n" + content
+
+
+def _genmd(text, ghoist=None):
+    blocks = []
+    for raw_block in str(text).split("\n# "):
+        lines = raw_block.split("\n")
+        if len(lines) > 1:
+            blocks.append((lines[0], lines[1:]))
+        else:
+            blocks.append(("", [lines[0]]))
+
+    elements = []
+    for title, body in blocks:
+        if not title.strip() and not "\n".join(body).strip():
+            continue
+
+        parts = title.split("---")
+        attrs = {}
+        target = ghoist
+        if len(parts) > 1 and parts[1] != "{}":
+            target = parts[1]
+        if target:
+            attrs["gHoist"] = target
+        if len(parts) > 2 and parts[2] != "{}":
+            attrs["class"] = parts[2]
+        if len(parts) > 3 and parts[3] != "{}":
+            attrs["id"] = parts[3]
+
+        wrapper = Div(attrs)
+        for child in _html_children(_markdown(_block_markdown(parts[0], body))):
+            wrapper.add(child)
+        elements.append(wrapper)
+    return elements
+
+
+def _genmd_file(path, ghoist=None):
+    return _genmd(Path(path).read_text(encoding="utf-8"), ghoist=ghoist)
+
+
+def API(api):
+    api["register"]["method"]("markdown", _markdown)
+    api["register"]["method"]("markdown_file", _markdown_file)
+    api["register"]["method"]("genMD", _genmd)
+    api["register"]["method"]("genMD_file", _genmd_file)
+    return api
+
+
+def HELP():
+    return """Plugin: markdown
+
+Usage:
+  api["methods"]["markdown"]("# Title")
+  api["methods"]["markdown_file"]("content/page.md")
+  api["methods"]["genMD"]("# Title---body.main---panel---intro\\nContent")
+  api["methods"]["genMD_file"]("content/page.md", ghoist="body.main")
+
+Description:
+  Converts Markdown strings or files to HTML and exposes helpers through
+  api["methods"] for other gplugs and page code.
+
+genMD Format:
+  # Title---gHoist.target---class-name---element-id
+
+  Each block returns a GenHTML Div. The title is included in the rendered
+  Markdown content unless it contains "{}". Use "{}" for omitted target,
+  class, or id segments.
+"""

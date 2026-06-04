@@ -1,0 +1,50 @@
+<div data-template="ai">
+  <aside id="left_sidebar">
+    <h2>HoltBot</h2>
+    <p>Status: Monitoring...</p>
+  </aside>
+
+  <aside id="right_sidebar">
+    <h3>Data</h3>
+    <p>Current system load: Low</p>
+  </aside>
+
+  <section id="content_block">
+    <div class="e-content" id="Content"></div>
+
+    <hr class="panel" style="margin: 2rem 0; border: 0; border-top: 3px solid var(--accent);">
+
+    <div class="panel" style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 8px;">
+      <h3 style="margin-top: 0; color: var(--accent);">HoltBot Tactical Dashboard</h3>
+      <div style="display: flex; gap: 1rem; font-size: 0.9rem; margin-bottom: 1rem;">
+        <div style="flex: 1;"><strong>System:</strong> Online</div>
+        <div style="flex: 1;"><strong>Latency:</strong> 0.003ms</div>
+        <div style="flex: 1;"><strong>Efficiency:</strong> Maximum</div>
+      </div>
+      <p><em>"Precision is the only form of art I recognize."</em></p>
+      <div id="holtbot_updates"></div>
+    </div>
+
+    <div class="panel" style="margin-top: 1rem; padding: 1rem; border-left: 5px solid var(--accent);">
+      <p><strong>Recent Logs:</strong></p>
+      <ul style="font-size: 0.9rem;">
+        <li>- Site integrity check: Passed</li>
+        <li>- Backup task: Queued for 04:00 AM</li>
+        <li>- Webmentions processed: 14</li>
+      </ul>
+    </div>
+
+    <hr class="panel" style="margin: 2rem 0; border: 0; border-top: 3px solid var(--accent);">
+
+    <div style="display:none;">
+      <div id="PostInfo"></div>
+      <div class="p-author h-card">
+        <a class="u-url n" href="https://flench.me">Flench04</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="main_extras">
+    <div id="webmentions"></div>
+  </section>
+</div>

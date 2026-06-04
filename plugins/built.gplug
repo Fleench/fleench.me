@@ -1,0 +1,31 @@
+import datetime
+
+
+MANIFEST = {
+    "name": "built",
+    "priority": 999,
+    "depends": [],
+}
+
+
+def _built():
+    return f"<p>Last built: {datetime.datetime.now().date()}</p>"
+
+
+def API(api):
+    api["register"]["method"]("built", _built)
+    return api
+
+
+def HELP():
+    return """Plugin: built
+
+Usage:
+  api["methods"]["built"]()
+
+Description:
+  Returns a small HTML timestamp for the current build date.
+"""
+
+
+COMMANDS = {}

@@ -1,0 +1,78 @@
+from gen.html.elements import Element, Page, Text
+
+
+BODY = """# HI THERE
+### Test Ping
+I am testing more
+
+And now my blog [test page](https://flench.me/blogs/test/)
+But I think it is [broken](https://flench.me/blogs/test)
+# BOO ---test_output---{}---UP
+Yo this is at the bottom
+# HI ---left-sidebar
+![](/profile.png)
+
+# Stupid Table
+
+| Name | Type    | Hope      |
+|------|---------|-----------|
+| You  | Not Ai? | Please do |
+
+# Even more stupid code block
+```html
+<h1>Yeah this is broken I presume before I test</h1>
+```"""
+
+
+def CONTEXT(api):
+    return {
+        "route": "/test2/",
+        "title": "Test 2",
+        "canonical": "https://flench.me/test2/",
+    }
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+    gen_md = api["methods"]["genMD"]
+    blocks = gen_md(BODY, ghoist="TestContent")
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            page.add_before(page.find("class", "site-layout")[0].uuid, fragment("elements/marquee"))
+            with page_wrap:
+                fragment("elements/head")
+                fragment("elements/nav")
+                template = fragment("templates/test")
+                for head_extra in template.find("id", "head_extra"):
+                    for child in list(head_extra.children):
+                        head_extra.children.remove(child)
+                        child.parent = None
+                        child.attrs["gHoist"] = "head"
+                        template.add(child)
+                    head_extra.parent.children.remove(head_extra)
+                template.find("id", "left_sidebar")[0].attrs["gHoist"] = "left-sidebar"
+                template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+                template.find("id", "Content")[0].attrs["id"] = "TestContent"
+                template.find("id", "test_output")[0].attrs["gHoist"] = "ContentPanel"
+                for block in blocks:
+                    page_wrap.add(block)
+                api["methods"]["foot"]()
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page
+
+
+def main():
+    from gen.ssg.dispatcher import GenSSGDispatcher
+
+    dispatcher = GenSSGDispatcher()
+    api = dispatcher.create_api()
+    print(dispatcher.build_page(api, __import__(__name__), CONTEXT(api)))
+
+
+if __name__ == "__main__":
+    main()

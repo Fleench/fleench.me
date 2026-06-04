@@ -1,0 +1,60 @@
+from gen.html.elements import Element, Page, Text
+from gen.html.parser import GenHTMLParser
+
+
+BODY = """Sorry user but the page is in another location"""
+
+
+def CONTEXT(api):
+    return [
+        {
+            "route": "/404.html",
+            "title": "Not Found",
+            "canonical": "https://flench.me/404.html",
+        },
+        {
+            "route": "/404/",
+            "title": "Not Found",
+            "canonical": "https://flench.me/404/",
+        },
+    ]
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown = api["methods"]["markdown"]
+    parser = GenHTMLParser()
+    parsed = parser.parse_text(f"<div>{markdown(BODY)}</div>")
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            page.add_before(page.find("class", "site-layout")[0].uuid, fragment("elements/marquee"))
+            with page_wrap:
+                fragment("elements/head")
+                fragment("elements/nav")
+                template = fragment("templates/default")
+                template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+                template.find("id", "Content")[0].attrs["id"] = "DefaultContent"
+                with Element("div", {"gHoist": "DefaultContent"}) as content:
+                    for child in list(parsed.children):
+                        child.parent = None
+                        content.add(child)
+                api["methods"]["foot"]()
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page
+
+
+def main():
+    from gen.ssg.dispatcher import GenSSGDispatcher
+
+    dispatcher = GenSSGDispatcher()
+    api = dispatcher.create_api()
+    print(dispatcher.build_page(api, __import__(__name__), CONTEXT(api)))
+
+
+if __name__ == "__main__":
+    main()

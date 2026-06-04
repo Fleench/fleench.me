@@ -1,0 +1,144 @@
+from datetime import datetime
+from pathlib import Path
+
+from gen.html.elements import Element, Page, Text
+from gen.html.parser import GenHTMLParser
+
+
+NOTE_ROOT = Path("OLD/src/notes")
+
+
+def _split_frontmatter(text):
+    if not text.startswith("---"):
+        return {}, text
+
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}, text
+
+    meta = {}
+    for line in parts[1].splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        meta[key.strip()] = value.strip().strip('"').strip("'")
+    return meta, parts[2].strip()
+
+
+def _route_for(path):
+    rel = path.relative_to(NOTE_ROOT).with_suffix("")
+    return f"/notes/{rel.as_posix()}/"
+
+
+def _date_value(meta):
+    raw = str(meta.get("date", "") or "")
+    for pattern in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(raw, pattern)
+        except Exception:
+            continue
+    return datetime.min
+
+
+def _html_children(html):
+    root = GenHTMLParser().parse_text(f"<div>{html}</div>")
+    children = list(root.children)
+    for child in children:
+        child.parent = None
+    return children
+
+
+def _remove(element):
+    if element.parent is not None:
+        element.parent.children.remove(element)
+        element.parent = None
+
+
+def _move_head_extra(template):
+    for head_extra in template.find("id", "head_extra"):
+        for child in list(head_extra.children):
+            head_extra.children.remove(child)
+            child.parent = None
+            child.attrs["gHoist"] = "head"
+            template.add(child)
+        _remove(head_extra)
+
+
+def CONTEXT(api):
+    return {
+        "route": "/notes/",
+        "title": "Notes",
+        "canonical": "https://flench.me/notes/",
+        "cache": "dynamic",
+    }
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown = api["methods"]["markdown"]
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            page.add_before(page.find("class", "site-layout")[0].uuid, fragment("elements/marquee"))
+            with page_wrap:
+                fragment("elements/head")
+                fragment("elements/nav")
+
+                content_panel = page.find("id", "ContentPanel")[0]
+                for child in list(content_panel.children):
+                    _remove(child)
+
+                template = fragment("templates/note-full")
+                _move_head_extra(template)
+                for sidebar in [*template.find("id", "left_sidebar"), *template.find("id", "right_sidebar")]:
+                    _remove(sidebar)
+                template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+                for child in list(template.children):
+                    template.children.remove(child)
+                    child.parent = None
+                    page_wrap.add(child)
+
+                notes = []
+                for md_file in sorted(NOTE_ROOT.glob("**/*.md")):
+                    meta, body_text = _split_frontmatter(md_file.read_text(encoding="utf-8"))
+                    notes.append((_date_value(meta), md_file, meta, body_text))
+
+                for _date, md_file, meta, body_text in sorted(notes, reverse=True):
+                    title = str(meta.get("title") or md_file.stem)
+                    note_type = str(meta.get("type") or "note")
+                    date_text = str(meta.get("date") or "")
+
+                    article = Element("article", {"class": "note-item panel h-entry", "gHoist": "NotesList"}, _auto_add=False)
+                    link = Element("a", {"class": "u-url note-permalink", "href": _route_for(md_file)}, _auto_add=False)
+                    link.add(Text(title))
+                    article.add(link)
+
+                    meta_div = Element("div", {"class": "note-meta"}, _auto_add=False)
+                    meta_div.add(Text(f"{note_type} • {date_text}"))
+                    article.add(meta_div)
+
+                    content = Element("div", {"class": "e-content"}, _auto_add=False)
+                    for child in _html_children(markdown(body_text)):
+                        content.add(child)
+                    article.add(content)
+                    page_wrap.add(article)
+
+                api["methods"]["foot"]()
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page
+
+
+def main():
+    from gen.ssg.dispatcher import GenSSGDispatcher
+
+    dispatcher = GenSSGDispatcher()
+    api = dispatcher.create_api()
+    print(dispatcher.build_page(api, __import__(__name__), CONTEXT(api)))
+
+
+if __name__ == "__main__":
+    main()

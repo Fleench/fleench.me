@@ -1,0 +1,35 @@
+MANIFEST = {
+    "name": "content",
+    "priority": 999,
+    "depends": [],
+}
+
+def _post_info(slug,title,date):
+    return (f'<div gHoist="PostInfo"><a class="u-url p-name" href="{ slug }">{ title }</a>'
+            f'<time class="dt-published" datetime="{ date }">{ date }</time></div>')
+def API(api):
+    api["register"]["method"]("post_info", _post_info)
+    return api
+
+
+def HELP():
+    return """Plugin: plugin
+
+Usage:
+  gen run plugin.command [args...]
+  gen help plugin.gplug
+
+Description:
+  Start here for project-specific behavior. A gplug can register build hooks,
+  expose helper methods through api["methods"], and publish CLI commands.
+
+Commands:
+  Add entries to COMMANDS to expose named plugin commands.
+
+Example:
+  COMMANDS = {"sync": sync}
+  gen run plugin.sync
+"""
+
+
+COMMANDS = {}

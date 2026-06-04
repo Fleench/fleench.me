@@ -1,0 +1,238 @@
+import hashlib
+import json
+from pathlib import Path
+from threading import RLock
+
+from gen.html.elements import Element, Text, _stack
+from gen.html.parser import GenHTMLParser
+
+
+MANIFEST = {
+    "name": "cache",
+    "priority": 1,
+    "depends": ["config"],
+}
+
+
+HTML_SUFFIXES = {".html", ".htm"}
+DEFAULT_STATE_FILE = ".gen-cache.json"
+
+
+def _template_root(api):
+    config = api["methods"]["config"]
+    root = config("cache.templates_dir") or config("build.src") or "src"
+    return Path(root)
+
+
+def _resolve_template_path(template_name, api):
+    requested = Path(str(template_name))
+    if requested.is_absolute():
+        return requested
+
+    suffix = requested.suffix.lower()
+    if suffix and suffix not in HTML_SUFFIXES:
+        raise ValueError("template() only supports .html or .htm files")
+
+    if not suffix:
+        requested = requested.with_suffix(".html")
+
+    return _template_root(api) / requested
+
+
+def _clone_element(element):
+    if isinstance(element, Text):
+        return Text(element.text, _auto_add=False)
+    cloned = Element(element.tag, dict(element.attrs), _auto_add=False)
+    for child in element.children:
+        cloned.add(_clone_element(child))
+    return cloned
+
+
+def _auto_attach(element):
+    if _stack:
+        _stack[-1].add(element)
+    return element
+
+
+def _parse_detached(parser, text):
+    saved_stack = list(_stack)
+    _stack.clear()
+    try:
+        return parser.parse_text(text)
+    finally:
+        _stack[:] = saved_stack
+
+
+def _config(api, key, default=None):
+    lookup = api["methods"]["config"]
+    value = lookup(key)
+    return default if value is None else value
+
+
+def _state_path(api):
+    return Path(str(_config(api, "cache.state", DEFAULT_STATE_FILE)))
+
+
+def _dist_root(api):
+    return Path(str(_config(api, "build.dist", "dist")))
+
+
+def _output_path(api, route):
+    clean_route = str(route or "/").strip("/")
+    if clean_route.endswith(".html") or clean_route.endswith(".xml"):
+        return _dist_root(api) / clean_route
+    return _dist_root(api) / clean_route / "index.html" if clean_route else _dist_root(api) / "index.html"
+
+
+def _load_state(api):
+    path = _state_path(api)
+    if not path.exists():
+        return {"version": 1, "contexts": {}}
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"version": 1, "contexts": {}}
+    if not isinstance(state, dict):
+        return {"version": 1, "contexts": {}}
+    contexts = state.get("contexts")
+    if not isinstance(contexts, dict):
+        state["contexts"] = {}
+    state.setdefault("version", 1)
+    return state
+
+
+def _save_state(api, state):
+    path = _state_path(api)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _cache_mode(context):
+    cache = context.get("cache")
+    if isinstance(cache, dict):
+        return str(cache.get("mode", "") or "").strip().lower()
+    return str(cache or "").strip().lower()
+
+
+def _template_names(context):
+    cache = context.get("cache")
+    if isinstance(cache, dict) and "templates" in cache:
+        value = cache.get("templates")
+    elif "cache_templates" in context:
+        value = context.get("cache_templates")
+    elif "templates" in context:
+        value = context.get("templates")
+    else:
+        value = []
+
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return list(value)
+
+
+def _dependency_paths(api, page_source, context):
+    paths = [Path(page_source)]
+    if _cache_mode(context) == "templates":
+        paths.extend(_resolve_template_path(template, api) for template in _template_names(context))
+    return paths
+
+
+def _fingerprint(paths):
+    digest = hashlib.sha256()
+    normalized = []
+    for path in paths:
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"cache dependency not found: {path}")
+        resolved = path.resolve()
+        normalized.append(str(resolved))
+        digest.update(str(resolved).encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return {"hash": digest.hexdigest(), "dependencies": normalized}
+
+
+def _context_key(page_source, context):
+    return f"{Path(page_source).as_posix()}::{context.get('route', '')}"
+
+
+def _hold_unchanged_contexts(api):
+    state = _load_state(api)
+    api["cache_state"] = state
+    contexts = state.get("contexts", {})
+    for page_source, page in api.get("pages", {}).items():
+        for context in page.get("contexts", []):
+            if _cache_mode(context) == "dynamic":
+                continue
+            if not _output_path(api, context.get("route")).exists():
+                continue
+            current = _fingerprint(_dependency_paths(api, page_source, context))
+            previous = contexts.get(_context_key(page_source, context))
+            if previous and previous.get("hash") == current["hash"]:
+                api["methods"]["gHold"](page_source, context["route"], "cache", 1, 0)
+
+
+def _record_context_fingerprints(api):
+    state = {"version": 1, "contexts": {}}
+    for page_source, page in api.get("pages", {}).items():
+        for context in page.get("contexts", []):
+            if _cache_mode(context) == "dynamic":
+                continue
+            state["contexts"][_context_key(page_source, context)] = _fingerprint(
+                _dependency_paths(api, page_source, context)
+            )
+    api["cache_state"] = state
+    _save_state(api, state)
+
+
+def API(api):
+    cache = {}
+    lock = RLock()
+    parser = GenHTMLParser()
+
+    def _load_template(template_name):
+        path = _resolve_template_path(template_name, api)
+        key = str(path.resolve())
+        with lock:
+            if key not in cache:
+                cache[key] = _parse_detached(parser, path.read_text(encoding="utf-8"))
+            return _auto_attach(_clone_element(cache[key]))
+
+    api["cache"] = cache
+    api["register"]["method"]("template", _load_template)
+    api["register"]["method"]("fragment", _load_template)
+    api["register"]["on_discover"](_hold_unchanged_contexts)
+    api["register"]["post_build"](_record_context_fingerprints)
+    return api
+
+
+def HELP():
+    return """Plugin: cache
+
+Usage:
+  api["methods"]["template"]("layouts/base.html")
+  api["methods"]["fragment"]("partials/nav.html")
+
+Description:
+  Lazily reads and parses .html templates from cache.templates_dir, stores the
+  parsed GenHTML tree in memory on first access, and returns a clone of that
+  cached element on subsequent lookups during the same build.
+  During site builds, cache also fingerprints page contexts and registers a
+  Tier 1 gHold for unchanged contexts so GenSSG can skip rendering them.
+
+Config:
+  cache.templates_dir: src
+  cache.state: .gen-cache.json
+
+Behavior:
+  template  Read, parse, and cache a layout or template file
+  fragment  Alias for template
+
+Context Cache Tags:
+  cache: dynamic     never cache-hold this context
+  cache: templates   include listed template files in the fingerprint
+  templates: [...]   template list used with cache: templates
+"""

@@ -1,0 +1,44 @@
+from gen.html.elements import Element, Page, Text
+
+
+def CONTEXT(api):
+    return {
+        "route": "/",
+        "title": "The Void",
+        "canonical": "https://flench.me/",
+    }
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            page.add_before(
+                page.find("class", "site-layout")[0].uuid,
+                fragment("elements/marquee"),
+            )
+            with page_wrap:
+                fragment("elements/head")
+                fragment("elements/nav")
+                fragment("templates/index")
+                api["methods"]["foot"]()
+                title = page.find("tag", "title")[0]
+                title.add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page
+
+
+def main():
+    from gen.ssg.dispatcher import GenSSGDispatcher
+
+    dispatcher = GenSSGDispatcher()
+    api = dispatcher.create_api()
+    print(dispatcher.build_page(api, __import__(__name__), CONTEXT(api)))
+
+
+if __name__ == "__main__":
+    main()

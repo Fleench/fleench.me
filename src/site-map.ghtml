@@ -1,0 +1,95 @@
+from gen.html.elements import Element, Page, Text
+
+
+class Node:
+    def __init__(self, name: str, value: str, parent=None):
+        self.name = name
+        self.children = {}
+        self.parent = parent
+        self.value = value
+
+    def add_child(self, node):
+        self.children[node.name] = node
+
+    def get_children(self):
+        return self.children
+
+
+def CONTEXT(api):
+    return {
+        "route": "/site-map/",
+        "title": "Site Map",
+        "canonical": "https://flench.me/site-map/",
+        "cache": "dynamic",
+    }
+
+
+def Build(api, context):
+    frag = api["methods"]["fragment"]
+    top_node = Node("Top Node", "")
+    for page_job in api["pages"].values():
+        for page_context in page_job["contexts"]:
+            if page_context.get("hidden", False):
+                continue
+
+            route = str(page_context.get("route", "") or "")
+            if route in {"", "/"}:
+                continue
+            if route.endswith(".html"):
+                route = route[: -len(".html")]
+
+            cur_node = top_node
+            used_parts = []
+            for part in route.split("/"):
+                used_parts.append(part)
+                if not part.strip():
+                    continue
+
+                next_node = cur_node.children.get(part)
+                if next_node is None:
+                    next_node = Node(part, "/".join(used_parts), parent=cur_node)
+                    cur_node.add_child(next_node)
+                cur_node = next_node
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = frag("templates/page")
+            page.add_before(page.find("class", "site-layout")[0].uuid, frag("elements/marquee"))
+            with page_wrap:
+                frag("elements/head")
+                frag("elements/nav")
+                api["methods"]["foot"]()
+                with Element("div", {"gHoist": "Content"}):
+                    with Element("h1"):
+                        Text("Sitemap")
+                    with Element(
+                        "ul",
+                        {"style": "columns: 2;-webkit-columns: 2;-moz-columns: 2;column-width: 5px"},
+                    ):
+                        for depth, name, value in _walk_nodes(top_node):
+                            with Element("li", {"style": f"margin-left:{depth * 15}px"}):
+                                with Element("a", {"href": value}):
+                                    Text(name)
+
+
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+
+    return page
+
+
+def _walk_nodes(node: Node, depth: int = 0):
+    for child in node.children.values():
+        yield depth, child.name, child.value
+        yield from _walk_nodes(child, depth + 1)
+
+
+def main():
+    page = Build({}, CONTEXT({}))
+    print(page.render())
+
+
+if __name__ == "__main__":
+    main()

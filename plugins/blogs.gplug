@@ -1,0 +1,140 @@
+from __future__ import annotations
+
+import datetime as dt
+import html
+import re
+from pathlib import Path
+from typing import Any
+
+try:
+    import markdown as md_lib
+except Exception:
+    md_lib = None
+
+try:
+    import yaml
+except Exception:
+    yaml = None
+
+
+MANIFEST = {
+    "name": "blogs",
+    "priority": 999,
+    "depends": [],
+}
+
+
+def _parse_frontmatter(raw: str) -> tuple[dict[str, Any], str]:
+    if not raw.startswith("---\n"):
+        return {}, raw
+    marker = "\n---\n"
+    end = raw.find(marker, 4)
+    if end == -1:
+        return {}, raw
+    header = raw[4:end]
+    body = raw[end + len(marker) :]
+    if yaml is not None:
+        data = yaml.safe_load(header) or {}
+        if isinstance(data, dict):
+            return data, body
+    metadata = {}
+    for line in header.splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        metadata[key.strip()] = value.strip().strip('"').strip("'")
+    return metadata, body
+
+
+def _markdown(text: str) -> str:
+    if md_lib is not None:
+        return md_lib.markdown(text, extensions=["extra", "sane_lists"])
+    return "\n".join(f"<p>{html.escape(line)}</p>" for line in text.splitlines() if line.strip())
+
+
+def _first_paragraph(text: str) -> str:
+    for paragraph in re.split(r"\n\s*\n", text.strip()):
+        if paragraph.strip():
+            return paragraph.strip()
+    return ""
+
+
+def _date_from_slug(path: Path, src_dir: Path) -> str:
+    rel = path.relative_to(src_dir)
+    parts = rel.parts
+    if len(parts) >= 4:
+        try:
+            return dt.date(int(parts[1]), int(parts[2]), int(Path(parts[3]).stem)).strftime("%B %d, %Y")
+        except Exception:
+            pass
+    return ""
+
+
+def _permalink_from_path(path: Path, src_dir: Path) -> str:
+    return f"/{path.relative_to(src_dir).with_suffix('').as_posix()}/"
+
+
+def _blog_preview(metadata: dict[str, Any], body: str, permalink: str, date: str) -> str:
+    title = html.escape(str(metadata.get("title", "Untitled")))
+    img = metadata.get("img")
+    img_alt = html.escape(str(metadata.get("img-alt", "")))
+    excerpt_html = _markdown(_first_paragraph(body))
+    parts = ['<article class="blog-preview panel">']
+    parts.append(f'<h2 class="blog-title"><a href="{permalink}">{title}</a></h2>')
+    if date:
+        parts.append(f'<div class="blog-date"><small>{html.escape(date)}</small></div>')
+    if img:
+        parts.append(
+            f'<a href="{permalink}" class="blog-cover">'
+            f'<img src="{html.escape(str(img))}" alt="{img_alt}">'
+            "</a>"
+        )
+    parts.append(f'<div class="blog-excerpt">{excerpt_html}</div>')
+    parts.append("</article>")
+    return "\n".join(parts)
+
+
+def _blog_date(metadata: dict[str, Any], post_file: Path, src_dir: Path) -> str:
+    raw_date = str(metadata.get("date", "") or "")
+    if raw_date:
+        try:
+            year, month, day = raw_date.split("/")[:3]
+            return dt.date(int(year), int(month), int(day)).strftime("%B %d, %Y")
+        except Exception:
+            return raw_date
+    return _date_from_slug(post_file, src_dir)
+
+
+def _generate_blog_index(project_root: Path | None = None) -> str:
+    project_root = project_root or Path.cwd()
+    src_dir = project_root / "src"
+    blog_dir = src_dir / "blogs"
+    posts = sorted(blog_dir.rglob("*.md"), reverse=True) if blog_dir.exists() else []
+    rendered = []
+    for post_file in posts:
+        metadata, body = _parse_frontmatter(post_file.read_text(encoding="utf-8"))
+        permalink = _permalink_from_path(post_file, src_dir)
+        date = _blog_date(metadata, post_file, src_dir)
+        rendered.append((date, _blog_preview(metadata, body, permalink, date)))
+    return "\n".join(item for _, item in sorted(rendered, key=lambda item: item[0], reverse=True))
+
+
+def API(api):
+    api["register"]["method"]("blogs", _generate_blog_index)
+    api["register"]["method"]("blog_index", _generate_blog_index)
+    return api
+
+
+def HELP():
+    return """Plugin: blogs
+
+Usage:
+  api["methods"]["blogs"]()
+  api["methods"]["blog_index"]()
+
+Description:
+  Builds the blog preview list from src/blogs markdown files.
+"""
+
+
+COMMANDS = {}

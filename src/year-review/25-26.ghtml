@@ -1,0 +1,184 @@
+from pathlib import Path
+
+from gen.html.elements import Element, Page, Text
+
+
+SOURCE = Path("OLD/src/year-review/25-26.md")
+
+
+YEAR_REVIEW_STYLE = """
+.year-review-photo {
+  width: min(100%, 30rem);
+  margin: 1rem auto;
+  padding: 0.5rem;
+  background: var(--bg-shade);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 2px 0 #e2e6ef;
+}
+.year-review-photo img {
+  display: block;
+  width: 100%;
+  max-height: 24rem;
+  object-fit: contain;
+}
+.year-review-photo figcaption {
+  margin-top: 0.5rem;
+  color: var(--muted-text);
+  font-size: 0.9rem;
+  line-height: 1.35;
+  text-align: center;
+}
+html[data-mode="dark"] .year-review-photo {
+  background: #1a1a1a;
+  border-color: #333;
+  box-shadow: 0 2px 0 #000;
+}
+.year-review-month-left,
+.year-review-month-right {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  margin: 1.5rem 0;
+  padding-top: 1.5rem;
+  border-top: 1px dashed var(--panel-border);
+}
+.year-review-month-left .year-review-photo,
+.year-review-month-right .year-review-photo {
+  width: 100%;
+  margin: 0;
+}
+.year-review-month-left .year-review-photo {
+  grid-column: 1;
+  grid-row: 1 / span 5;
+}
+.year-review-month-left :not(.year-review-photo) {
+  grid-column: 2;
+}
+.year-review-month-right {
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 18rem);
+}
+.year-review-month-right .year-review-photo {
+  grid-column: 2;
+  grid-row: 1 / span 5;
+}
+.year-review-month-right :not(.year-review-photo) {
+  grid-column: 1;
+}
+.year-review-month-left h1,
+.year-review-month-right h1 {
+  margin-bottom: 0.5rem;
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  line-height: 1;
+}
+.year-review-month-left p,
+.year-review-month-right p {
+  font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+  line-height: 1.45;
+  margin: 0 0 1rem;
+}
+.year-review-month-left h3,
+.year-review-month-right h3 {
+  font-size: clamp(1.15rem, 2.6vw, 1.6rem);
+  margin: 1rem 0 0.5rem;
+}
+.year-review-month-left li,
+.year-review-month-right li {
+  font-size: clamp(1rem, 2.1vw, 1.2rem);
+}
+@media (max-width: 760px) {
+  .year-review-month-left,
+  .year-review-month-right {
+    display: block;
+  }
+  .year-review-month-left .year-review-photo,
+  .year-review-month-right .year-review-photo {
+    width: min(100%, 30rem);
+    margin: 1rem auto;
+  }
+}
+"""
+
+
+def _split_frontmatter(text):
+    if not text.startswith("---"):
+        return {}, text
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}, text
+    meta = {}
+    for line in parts[1].splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        meta[key.strip()] = value.strip().strip('"').strip("'")
+    return meta, parts[2].strip()
+
+
+def CONTEXT(api):
+    return [
+        {
+            "route": "/year-review/25-26/",
+            "title": "School Year Review 25/26",
+            "canonical": "https://flench.me/year-review/25-26/",
+            "cache": "dynamic",
+        },
+        {
+            "route": "/mobile/year-review/25-26/",
+            "title": "School Year Review 25/26",
+            "canonical": "https://flench.me/year-review/25-26/",
+            "cache": "dynamic",
+        },
+    ]
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+    gen_md = api["methods"]["genMD"]
+    _meta, body = _split_frontmatter(SOURCE.read_text(encoding="utf-8"))
+    blocks = gen_md(body, ghoist="YearReviewContent")
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            page.add_before(page.find("class", "site-layout")[0].uuid, fragment("elements/marquee"))
+            with page_wrap:
+                fragment("elements/head")
+                fragment("elements/nav")
+                with Element("script", {"src": "https://www.youtube.com/iframe_api", "gHoist": "head"}):
+                    Text("")
+                with Element("script", {"src": "/js/yt-player.js", "defer": True, "gHoist": "head"}):
+                    Text("")
+                with Element("style", {"gHoist": "head"}):
+                    Text(YEAR_REVIEW_STYLE)
+                with Element("div", {"class": "e-content indie-audio-page", "gHoist": "Content"}):
+                    with Element("h1"):
+                        Text(context["title"])
+                    with Element(
+                        "div",
+                        {
+                            "class": "yt-player",
+                            "data-id": "PLggCYnGwTiwbxlKocC4BqGHO7L4dfhySx",
+                            "data-type": "playlist",
+                            "data-random": "true",
+                        },
+                    ):
+                        Text("")
+                    Element("div", {"id": "YearReviewContent"})
+                for block in blocks:
+                    page_wrap.add(block)
+                api["methods"]["foot"]()
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page
+
+
+def main():
+    page = Build({}, CONTEXT({}))
+    print(page.render())
+
+
+if __name__ == "__main__":
+    main()
