@@ -14,15 +14,48 @@ MANIFEST = {
 
 
 def _markdown(text):
-    return markdown_lib.markdown(text)
+    return markdown_lib.markdown(text, extensions=["extra", "sane_lists", "attr_list"])
 
 
 def _markdown_file(path):
     return _markdown(Path(path).read_text(encoding="utf-8"))
 
 
+def _merge_class(attrs, class_name):
+    classes = attrs.get("class", "").split()
+    if class_name not in classes:
+        classes.append(class_name)
+    attrs["class"] = " ".join(classes)
+
+
+def _remove_class(attrs, class_name):
+    classes = [name for name in attrs.get("class", "").split() if name != class_name]
+    if classes:
+        attrs["class"] = " ".join(classes)
+    else:
+        attrs.pop("class", None)
+
+
+def _promote_list_card_classes(element):
+    for child in getattr(element, "children", []):
+        _promote_list_card_classes(child)
+
+    if getattr(element, "tag", None) not in {"ul", "ol"}:
+        return
+
+    promoted = False
+    for child in getattr(element, "children", []):
+        attrs = getattr(child, "attrs", None)
+        if attrs is not None and "list-card" in attrs.get("class", "").split():
+            promoted = True
+            _remove_class(attrs, "list-card")
+    if promoted:
+        _merge_class(element.attrs, "list-card")
+
+
 def _html_children(html):
     root = GenHTMLParser().parse_text(f"<div>{html}</div>")
+    _promote_list_card_classes(root)
     children = list(root.children)
     for child in children:
         child.parent = None

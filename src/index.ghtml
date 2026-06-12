@@ -1,4 +1,24 @@
+from pathlib import Path
+
 from gen.html.elements import Element, Page, Text
+
+
+SOURCE = Path("src/index.md")
+
+
+def _split_frontmatter(text):
+    if not text.startswith("---"):
+        return {}, text
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}, text
+    meta = {}
+    for line in parts[1].splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        meta[key.strip()] = value.strip().strip('"').strip("'")
+    return meta, parts[2].strip()
 
 
 def CONTEXT(api):
@@ -11,6 +31,12 @@ def CONTEXT(api):
 
 def Build(api, context):
     fragment = api["methods"]["fragment"]
+    gen_md = api["methods"]["genMD"]
+    _meta, body = _split_frontmatter(SOURCE.read_text(encoding="utf-8"))
+    blocks = gen_md(body, ghoist="Content")
+    for block in blocks:
+        if block.attrs.get("gHoist") == "button":
+            block.attrs["gHoist"] = "Button"
 
     page = Page("html", {"lang": "en"})
     with page:
@@ -24,7 +50,9 @@ def Build(api, context):
             with page_wrap:
                 fragment("elements/head")
                 fragment("elements/nav")
-                fragment("templates/index")
+                index_template = fragment("templates/index")
+                for block in blocks:
+                    index_template.add(block)
                 api["methods"]["foot"]()
                 title = page.find("tag", "title")[0]
                 title.add(Text(context["title"]))
