@@ -1,0 +1,113 @@
+from pathlib import Path
+
+from lxml import etree, html
+
+from gen.html.elements import Element, Page, Text, H1
+
+
+MARKDOWN_PATH = Path(__file__).with_suffix(".md")
+
+
+def CONTEXT(api):
+    return {
+        "route": "/Catholic-SameSex-FAQ/",
+        "title": "Catholic Same-Sex FAQ",
+        "canonical": "https://flench.me/Catholic-SameSex-FAQ/",
+    }
+
+
+def _markdown_children(api, markdown_text):
+    html_text = api["methods"]["markdown"](markdown_text)
+    try:
+        tree = html.fragment_fromstring(f"<div>{html_text}</div>")
+    except etree.ParserError:
+        tree = html.fragment_fromstring("<div></div>")
+    wrapper = _convert_node(tree)
+    children = list(wrapper.children)
+    for child in children:
+        child.parent = None
+    return children
+
+
+def _convert_node(node):
+    element = Element(node.tag, dict(node.attrib), _auto_add=False)
+    if node.text and node.text.strip():
+        element.add(Text(node.text, _auto_add=False))
+
+    for child in node:
+        child_element = _convert_node(child)
+        element.add(child_element)
+        if child.tail and child.tail.strip():
+            element.add(Text(child.tail, _auto_add=False))
+
+    return element
+
+
+def _faq_sections(markdown_text):
+    sections = []
+    current_title = None
+    current_body = []
+
+    for line in markdown_text.splitlines():
+        if line.startswith("# ") and not line.startswith("## "):
+            if current_title is not None:
+                sections.append((current_title, "\n".join(current_body).strip()))
+            current_title = line[2:].strip()
+            current_body = []
+        elif current_title is not None:
+            current_body.append(line)
+
+    if current_title is not None:
+        sections.append((current_title, "\n".join(current_body).strip()))
+
+    return sections
+
+
+def _add_faq_item(api, title, body):
+    with Element("details", {"class": "faq-item"}):
+        with Element("summary"):
+            Text(title)
+        with Element("div", {"class": "faq-content"}):
+            with Element("div", {"class": "body-text"}) as body_text:
+                for child in _markdown_children(api, body):
+                    body_text.add(child)
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown_text = MARKDOWN_PATH.read_text(encoding="utf-8")
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            page.add_before(page.find("class", "site-layout")[0].uuid, fragment("elements/marquee"))
+            with page_wrap:
+                fragment("elements/head")
+                fragment("elements/nav")
+                H1("This page is a work in progress. It will be update constantly. Right now it is not in a working state but is public.")
+                template = fragment("templates/default")
+                template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
+                template.find("id", "Content")[0].attrs["id"] = "DefaultContent"
+                with Element("div", {"gHoist": "DefaultContent"}) as content:
+                    with Element("section", {"class": "debate-rules"}):
+                        pass
+                    for title, body in _faq_sections(markdown_text):
+                        _add_faq_item(api, title, body)
+                api["methods"]["foot"]()
+                page.find("tag", "title")[0].add(Text(context["title"]))
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+    return page
+
+
+def main():
+    from gen.ssg.dispatcher import GenSSGDispatcher
+
+    dispatcher = GenSSGDispatcher()
+    api = dispatcher.create_api()
+    print(dispatcher.build_page(api, __import__(__name__), CONTEXT(api)))
+
+
+if __name__ == "__main__":
+    main()
