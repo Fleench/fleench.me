@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from gen.html.elements import Element, Page, Text
@@ -32,12 +32,20 @@ def _route_for(path):
 
 def _date_value(meta):
     raw = str(meta.get("date", "") or "")
+    normalized = raw.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    except Exception:
+        pass
     for pattern in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
         try:
-            return datetime.strptime(raw, pattern)
+            return datetime.strptime(raw, pattern).replace(tzinfo=timezone.utc)
         except Exception:
             continue
-    return datetime.min
+    return datetime.min.replace(tzinfo=timezone.utc)
 
 
 def _html_children(html):
