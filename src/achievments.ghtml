@@ -1,0 +1,29 @@
+from gen.html.elements import Element, Page, Text
+
+
+def CONTEXT(api):
+    return {
+        "route": "/",
+        "title": "New Page",
+        "draft": True,
+    }
+
+
+def Build(api, context):
+    page = Page()
+
+    with page:
+        with Element("body"):
+            with Element("h1"):
+                Text(context["title"])
+
+    return page
+
+
+def main():
+    page = Build({}, CONTEXT({}))
+    print(page.render())
+
+
+if __name__ == "__main__":
+    main()

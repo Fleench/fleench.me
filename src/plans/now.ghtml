@@ -30,7 +30,7 @@ def CONTEXT(api):
         "title": "Now Plan",
         "canonical": "https://flench.me/plans/now/",
         "hidden": True,
-        "cache": "dynamic",
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/default", "elements/footer", "templates/page"]},
     }
 
 

@@ -10,6 +10,7 @@ Or use the atabook guestbook below."""
 
 def CONTEXT(api):
     return {
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/guestbook", "elements/footer", "templates/page"]},
         "route": "/guestbook/",
         "title": "Guestbook",
         "canonical": "https://flench.me/guestbook/",

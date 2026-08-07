@@ -51,7 +51,8 @@ def CONTEXT(api):
                 "date": meta.get("date", ""),
                 "image": meta.get("img", ""),
                 "image_alt": meta.get("img-alt", ""),
-                "cache": "dynamic",
+                "draft": meta.get("draft", ""),
+                "cache": {"mode": "templates", "templates": ["elements/author", "elements/head", "elements/marquee", "elements/nav", "templates/blog", "elements/footer", "templates/page"]},
             }
         )
     return contexts

@@ -1,0 +1,24 @@
+MANIFEST = {
+    "name": "draft",
+    "priority": 100,
+    "depends": [],
+}
+
+def on_discover(api):
+    for page_key, page in api["pages"].items():
+        for context in page["contexts"]:
+            draft = context.get("draft", False)
+            if isinstance(draft, str):
+                draft = draft.lower() in ("true", "1", "yes")
+            if draft:
+                api["methods"]["gHold"](
+                    page["source"],
+                    context.get("route"),
+                    "draft",
+                    2, # Power level 2 allows `--rebuild` to override it
+                    1
+                )
+
+def API(api):
+    api["register"]["on_discover"](on_discover)
+    return api

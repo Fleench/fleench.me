@@ -43,7 +43,8 @@ def CONTEXT(api):
                 "MD file": str(md_file),
                 "date": meta.get("date", ""),
                 "type": meta.get("type", "note"),
-                "cache": "dynamic",
+                "draft": meta.get("draft", ""),
+                "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/note", "elements/footer", "templates/page"]},
             }
         )
     return contexts

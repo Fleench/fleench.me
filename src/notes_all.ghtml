@@ -77,7 +77,7 @@ def CONTEXT(api):
         "route": "/notes/",
         "title": "Notes",
         "canonical": "https://flench.me/notes/",
-        "cache": "dynamic",
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/note-full", "elements/footer", "templates/page"]},
     }
 
 
@@ -110,8 +110,12 @@ def Build(api, context):
                     page_wrap.add(child)
 
                 notes = []
+                rebuild = bool(api.get("flags", {}).get("rebuild", False))
                 for md_file in sorted(NOTE_ROOT.glob("**/*.md")):
                     meta, body_text = _split_frontmatter(md_file.read_text(encoding="utf-8"))
+                    draft = str(meta.get("draft", "")).lower() in ("true", "1", "yes")
+                    if draft and not rebuild:
+                        continue
                     notes.append((_date_value(meta), md_file, meta, body_text))
 
                 for _date, md_file, meta, body_text in sorted(notes, reverse=True):

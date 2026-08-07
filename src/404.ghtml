@@ -8,12 +8,14 @@ BODY = """Sorry user but the page is in another location"""
 def CONTEXT(api):
     return [
         {
-            "route": "/404.html",
+            "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/default", "elements/footer", "templates/page"]},
+        "route": "/404.html",
             "title": "Not Found",
             "canonical": "https://flench.me/404.html",
         },
         {
-            "route": "/404/",
+            "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/default", "elements/footer", "templates/page"]},
+        "route": "/404/",
             "title": "Not Found",
             "canonical": "https://flench.me/404/",
         },

@@ -21,7 +21,7 @@ def CONTEXT(api):
         "route": "/holtbot_updates/",
         "title": "HoltBot Updates",
         "canonical": "https://flench.me/holtbot_updates/",
-        "cache": "dynamic",
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/default", "elements/footer", "templates/page"]},
     }
 
 

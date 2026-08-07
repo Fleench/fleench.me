@@ -18,7 +18,7 @@ def CONTEXT(api):
         "route": "/mobile/about/",
         "title": "About",
         "canonical": "https://flench.me/about/",
-        "cache": "dynamic",
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/m-nav", "templates/mobile", "elements/footer", "templates/page"]},
     }
 
 

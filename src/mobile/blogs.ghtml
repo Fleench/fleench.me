@@ -79,7 +79,7 @@ def CONTEXT(api):
             "route": "/mobile/blogs/",
             "title": "Blogs",
             "canonical": "https://flench.me/blogs/",
-            "cache": "dynamic",
+            "cache": {"mode": "templates", "templates": ["elements/head", "elements/m-nav", "templates/mobile", "templates/mobile/mobile-blog", "elements/footer", "templates/page"]},
         }
     ]
     for md_file in sorted(BLOG_ROOT.glob("**/*.md")):
@@ -93,7 +93,7 @@ def CONTEXT(api):
                 "body": body_text,
                 "image": str(meta.get("img") or ""),
                 "image_alt": str(meta.get("img-alt") or ""),
-                "cache": "dynamic",
+                "cache": {"mode": "templates", "templates": ["elements/head", "elements/m-nav", "templates/mobile", "templates/mobile/mobile-blog", "elements/footer", "templates/page"]},
             }
         )
     return contexts

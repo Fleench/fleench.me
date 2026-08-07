@@ -121,13 +121,13 @@ def CONTEXT(api):
             "route": "/year-review/25-26/",
             "title": "School Year Review 25/26",
             "canonical": "https://flench.me/year-review/25-26/",
-            "cache": "dynamic",
+            "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "elements/footer", "templates/page"]},
         },
         {
             "route": "/mobile/year-review/25-26/",
             "title": "School Year Review 25/26",
             "canonical": "https://flench.me/year-review/25-26/",
-            "cache": "dynamic",
+            "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "elements/footer", "templates/page"]},
         },
     ]
 

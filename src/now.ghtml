@@ -111,7 +111,7 @@ def CONTEXT(api):
         "route": "/now/",
         "title": "Now",
         "canonical": "https://flench.me/now/",
-        "cache": "dynamic",
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "elements/footer", "templates/page"]},
     }
 
 

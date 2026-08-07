@@ -23,6 +23,7 @@ def _split_frontmatter(text):
 
 def CONTEXT(api):
     return {
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/index", "elements/footer", "templates/page"]},
         "route": "/",
         "title": "The Void",
         "canonical": "https://flench.me/",

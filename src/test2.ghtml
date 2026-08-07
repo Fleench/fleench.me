@@ -26,6 +26,7 @@ Yo this is at the bottom
 
 def CONTEXT(api):
     return {
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "elements/footer", "templates/page", "templates/test"]},
         "route": "/test2/",
         "title": "Test 2",
         "canonical": "https://flench.me/test2/",

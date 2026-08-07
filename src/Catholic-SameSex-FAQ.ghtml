@@ -10,6 +10,7 @@ MARKDOWN_PATH = Path(__file__).with_suffix(".md")
 
 def CONTEXT(api):
     return {
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/default", "elements/footer", "templates/page"]},
         "route": "/Catholic-SameSex-FAQ/",
         "title": "Catholic Same-Sex FAQ",
         "canonical": "https://flench.me/Catholic-SameSex-FAQ/",

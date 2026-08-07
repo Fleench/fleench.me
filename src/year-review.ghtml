@@ -3,6 +3,7 @@ from gen.html.elements import Element, Page, Text
 
 def CONTEXT(api):
     return {
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "elements/footer", "templates/page", "templates/year-review-redirect"]},
         "route": "/year-review/",
         "title": "Year Review",
         "canonical": "https://flench.me/year-review/",

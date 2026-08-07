@@ -95,7 +95,7 @@ def CONTEXT(api):
         "route": "/blogs/",
         "title": "Blogs",
         "canonical": "https://flench.me/blogs/",
-        "cache": "dynamic",
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/blogs-full", "elements/footer", "templates/page"]},
     }
 
 
@@ -128,8 +128,12 @@ def Build(api, context):
                     page_wrap.add(child)
 
                 posts = []
+                rebuild = bool(api.get("flags", {}).get("rebuild", False))
                 for md_file in sorted(BLOG_ROOT.glob("**/*.md")):
                     meta, body_text = _split_frontmatter(md_file.read_text(encoding="utf-8"))
+                    draft = str(meta.get("draft", "")).lower() in ("true", "1", "yes")
+                    if draft and not rebuild:
+                        continue
                     posts.append((_date_value(md_file, meta), md_file, meta, body_text))
 
                 for date_value, md_file, meta, body_text in sorted(posts, reverse=True):

@@ -15,6 +15,7 @@ P.S if you are on mobile then remove the m. in the url before sending the webmen
 
 def CONTEXT(api):
     return {
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/default", "elements/footer", "templates/page"]},
         "route": "/about/",
         "title": "About",
         "canonical": "https://flench.me/about/",

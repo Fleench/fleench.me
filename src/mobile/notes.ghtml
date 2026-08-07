@@ -67,7 +67,7 @@ def CONTEXT(api):
             "route": "/mobile/notes/",
             "title": "Notes",
             "canonical": "https://flench.me/notes/",
-            "cache": "dynamic",
+            "cache": {"mode": "templates", "templates": ["elements/head", "elements/m-nav", "templates/mobile", "templates/mobile/mobile-note", "elements/footer", "templates/page"]},
         }
     ]
     for md_file in sorted(NOTE_ROOT.glob("**/*.md")):
@@ -81,7 +81,7 @@ def CONTEXT(api):
                 "body": body_text,
                 "date": str(meta.get("date") or ""),
                 "type": str(meta.get("type") or "note"),
-                "cache": "dynamic",
+                "cache": {"mode": "templates", "templates": ["elements/head", "elements/m-nav", "templates/mobile", "templates/mobile/mobile-note", "elements/footer", "templates/page"]},
             }
         )
     return contexts

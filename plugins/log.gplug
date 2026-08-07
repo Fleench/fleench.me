@@ -1,0 +1,24 @@
+import sys
+
+MANIFEST = {
+    "name": "log",
+    "priority": 0,
+    "depends": [],
+}
+
+def API(api):
+    def _log(level, component, message):
+        print(f"[{component}] {level.upper()}: {message}", file=sys.stderr)
+
+    api["register"]["method"]("log", _log)
+    return api
+
+def HELP():
+    return """Plugin: log
+
+Usage:
+  api["methods"]["log"]("warning", "cache", "This is a warning message")
+
+Description:
+  Provides a centralized logging method for other plugins to use.
+"""

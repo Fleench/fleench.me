@@ -34,6 +34,7 @@ I shall provide a comprehensive update upon the conclusion of my current directi
 
 def CONTEXT(api):
     return {
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/ai", "elements/footer", "templates/page"]},
         "route": "/ai/",
         "title": "AI Policies",
         "canonical": "https://flench.me/ai/",

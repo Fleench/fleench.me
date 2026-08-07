@@ -10,7 +10,7 @@ from gen.html.parser import GenHTMLParser
 MANIFEST = {
     "name": "cache",
     "priority": 1,
-    "depends": ["config"],
+    "depends": ["config", "log"],
 }
 
 
@@ -188,12 +188,81 @@ def _record_context_fingerprints(api):
     _save_state(api, state)
 
 
+def _check_drift(api, page_module, context):
+    requested = api.get("_requested_templates", set())
+    if not requested:
+        return
+
+    mode = _cache_mode(context)
+    if mode == "dynamic":
+        return
+
+    page_source = None
+    for source, info in api.get("pages", {}).items():
+        if info.get("module") == page_module:
+            page_source = source
+            break
+
+    if not page_source:
+        page_source = getattr(page_module, "__file__", "unknown page")
+
+    logger = api["methods"].get("log")
+    
+    if mode == "templates":
+        declared = set(_template_names(context))
+        undeclared = requested - declared
+        for name in undeclared:
+            msg = f"{page_source} used template '{name}' but it isn't declared in cache.templates — this page's cache will go stale when that template changes."
+            if logger:
+                logger("warning", "cache", msg)
+            else:
+                import sys
+                print(f"[cache] WARNING: {msg}", file=sys.stderr)
+    elif not mode:
+        for name in requested:
+            msg = f"{page_source} used template '{name}' but it isn't declared in cache.templates — this page's cache will go stale when that template changes."
+            if logger:
+                logger("warning", "cache", msg)
+            else:
+                import sys
+                print(f"[cache] WARNING: {msg}", file=sys.stderr)
+
+
+def _setup_drift_detection(api):
+    for source, page in api.get("pages", {}).items():
+        module = page.get("module")
+        if not module or not hasattr(module, "Build"):
+            continue
+
+        original_build = module.Build
+
+        def make_wrapper(orig, mod):
+            def _wrapped_build(build_api, context):
+                build_api["_current_context"] = context
+                build_api["_requested_templates"] = set()
+                build_api["_current_page_module"] = mod
+                try:
+                    return orig(build_api, context)
+                finally:
+                    _check_drift(build_api, mod, context)
+                    build_api.pop("_current_context", None)
+                    build_api.pop("_requested_templates", None)
+                    build_api.pop("_current_page_module", None)
+            return _wrapped_build
+
+        module.Build = make_wrapper(original_build, module)
+
+
 def API(api):
     cache = {}
     lock = RLock()
     parser = GenHTMLParser()
 
     def _load_template(template_name):
+        requested_set = api.get("_requested_templates")
+        if requested_set is not None:
+            requested_set.add(str(template_name))
+
         path = _resolve_template_path(template_name, api)
         key = str(path.resolve())
         with lock:
@@ -204,6 +273,7 @@ def API(api):
     api["cache"] = cache
     api["register"]["method"]("template", _load_template)
     api["register"]["method"]("fragment", _load_template)
+    api["register"]["on_discover"](_setup_drift_detection)
     api["register"]["on_discover"](_hold_unchanged_contexts)
     api["register"]["post_build"](_record_context_fingerprints)
     return api

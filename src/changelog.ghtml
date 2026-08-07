@@ -39,6 +39,7 @@ BODY = """- #### [View roadmap](/todo)
 
 def CONTEXT(api):
     return {
+        "cache": {"mode": "templates", "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/default", "elements/footer", "templates/page"]},
         "route": "/changelog/",
         "title": "Changelog",
         "canonical": "https://flench.me/changelog/",
