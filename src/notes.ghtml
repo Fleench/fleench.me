@@ -106,14 +106,17 @@ def Build(api, context):
                     _remove(main_extras)
 
                 title = template.find("id", "Title")[0]
-                title.add(Text(context["title"]))
+                with title:
+                    Text(context["title"])
 
                 with Element("div", {"gHoist": "NoteContent"}) as content:
                     for child in _html_children(markdown(_read_body(context["MD file"]))):
                         content.add(child)
 
-                api["methods"]["foot"]()
-                page.find("tag", "title")[0].add(Text(context["title"]))
+                with Element("div", {"style": "display:none;"}):
+                    api["methods"]["foot"]()
+                with page.find("tag", "title")[0]:
+                    Text(context["title"])
                 page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
     return page
 

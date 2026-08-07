@@ -94,8 +94,10 @@ def Build(api, context):
                 template.find("id", "test_output")[0].attrs["gHoist"] = "ContentPanel"
                 for block in blocks:
                     page_wrap.add(block)
-                api["methods"]["foot"]()
-                page.find("tag", "title")[0].add(Text(context["title"]))
+                with Element("div", {"style": "display:none;"}):
+                    api["methods"]["foot"]()
+                with page.find("tag", "title")[0]:
+                    Text(context["title"])
                 page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
     return page
 

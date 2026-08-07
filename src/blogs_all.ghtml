@@ -166,8 +166,10 @@ def Build(api, context):
                     article.add(excerpt)
                     page_wrap.add(article)
 
-                api["methods"]["foot"]()
-                page.find("tag", "title")[0].add(Text(context["title"]))
+                with Element("div", {"style": "display:none;"}):
+                    api["methods"]["foot"]()
+                with page.find("tag", "title")[0]:
+                    Text(context["title"])
                 page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
     return page
 

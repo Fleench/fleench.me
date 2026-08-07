@@ -110,7 +110,8 @@ def _build_shell(api, context):
                 fragment("elements/head")
                 nav = fragment("elements/m-nav")
                 nav.attrs["gHoist"] = "Nav"
-                page.find("tag", "title")[0].add(Text(context["title"]))
+                with page.find("tag", "title")[0]:
+                    Text(context["title"])
                 page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
     return page, page_wrap
 
@@ -152,7 +153,8 @@ def _build_index(api, context):
                                 with Element("div", {"class": "blog-excerpt"}) as excerpt:
                                     for child in _html_children(markdown(_first_paragraph(body_text))):
                                         excerpt.add(child)
-                api["methods"]["foot"]()
+                with Element("div", {"style": "display:none;"}):
+                    api["methods"]["foot"]()
     return page
 
 
@@ -175,7 +177,8 @@ def _build_post(api, context):
         with Element("div", {"gHoist": "MobileBlogContent"}) as content:
             for child in _html_children(markdown(context["body"])):
                 content.add(child)
-        api["methods"]["foot"]()
+        with Element("div", {"style": "display:none;"}):
+            api["methods"]["foot"]()
     return page
 
 

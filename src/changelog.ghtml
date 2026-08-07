@@ -3,6 +3,7 @@ from gen.html.parser import GenHTMLParser
 
 
 BODY = """- #### [View roadmap](/todo)
+- **<2026-Aug-06>** --- added fake 90s/2000s style ad banners
 - **<2026-Jun-03>** --- Migrated to new python based ssg I made
 - **<2026-May-21>** --- Added a new school year in review page
 - **<2026-Apr-03>** --- Added a code to add my button on another site
@@ -66,8 +67,10 @@ def Build(api, context):
                     for child in list(parsed.children):
                         child.parent = None
                         content.add(child)
-                api["methods"]["foot"]()
-                page.find("tag", "title")[0].add(Text(context["title"]))
+                with Element("div", {"style": "display:none;"}):
+                    api["methods"]["foot"]()
+                with page.find("tag", "title")[0]:
+                    Text(context["title"])
                 page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
     return page
 

@@ -60,7 +60,8 @@ def Build(api, context):
             with page_wrap:
                 frag("elements/head")
                 frag("elements/nav")
-                api["methods"]["foot"]()
+                with Element("div", {"style": "display:none;"}):
+                    api["methods"]["foot"]()
                 with Element("div", {"gHoist": "Content"}):
                     with Element("h1"):
                         Text("Sitemap")
@@ -74,7 +75,8 @@ def Build(api, context):
                                     Text(name)
 
 
-                page.find("tag", "title")[0].add(Text(context["title"]))
+                with page.find("tag", "title")[0]:
+                    Text(context["title"])
                 page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
 
     return page

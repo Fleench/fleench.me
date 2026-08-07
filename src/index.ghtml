@@ -53,9 +53,11 @@ def Build(api, context):
                 index_template = fragment("templates/index")
                 for block in blocks:
                     index_template.add(block)
-                api["methods"]["foot"]()
+                with Element("div", {"style": "display:none;"}):
+                    api["methods"]["foot"]()
                 title = page.find("tag", "title")[0]
-                title.add(Text(context["title"]))
+                with title:
+                    Text(context["title"])
                 page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
     return page
 

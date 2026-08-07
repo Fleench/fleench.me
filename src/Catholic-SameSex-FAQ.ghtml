@@ -95,8 +95,10 @@ def Build(api, context):
                         pass
                     for title, body in _faq_sections(markdown_text):
                         _add_faq_item(api, title, body)
-                api["methods"]["foot"]()
-                page.find("tag", "title")[0].add(Text(context["title"]))
+                with Element("div", {"style": "display:none;"}):
+                    api["methods"]["foot"]()
+                with page.find("tag", "title")[0]:
+                    Text(context["title"])
                 page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
     return page
 
