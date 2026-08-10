@@ -128,7 +128,8 @@ def main():
     dispatcher = GenSSGDispatcher()
     api = dispatcher.create_api()
     for context in CONTEXT(api):
-        print(dispatcher.build_page(api, __import__(__name__), context))
+        html = dispatcher.build_page(api, __import__(__name__), context)
+        api["methods"]["log"]("info", "build", f"Built {context['route']}")
 
 
 if __name__ == "__main__":

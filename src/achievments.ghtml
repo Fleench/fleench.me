@@ -22,7 +22,7 @@ def Build(api, context):
 
 def main():
     page = Build({}, CONTEXT({}))
-    print(page.render())
+    api["methods"]["log"]("info", "build", "Rendered page")
 
 
 if __name__ == "__main__":

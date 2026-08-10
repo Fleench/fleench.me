@@ -68,7 +68,7 @@ def main():
 
     dispatcher = GenSSGDispatcher()
     api = dispatcher.create_api()
-    print(dispatcher.build_page(api, __import__(__name__), CONTEXT(api)))
+    api["methods"]["log"]("info", "build", dispatcher.build_page(api, __import__(__name__), CONTEXT(api)))
 
 
 if __name__ == "__main__":

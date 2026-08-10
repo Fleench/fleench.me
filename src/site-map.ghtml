@@ -90,7 +90,7 @@ def _walk_nodes(node: Node, depth: int = 0):
 
 def main():
     page = Build({}, CONTEXT({}))
-    print(page.render())
+    api["methods"]["log"]("info", "build", "Rendered page")
 
 
 if __name__ == "__main__":
