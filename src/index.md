@@ -11,6 +11,5 @@ Take a look around. If you are on mobile some pages will probably break includin
 # {} ---button
 ```html
 <a href="https://flench.me">
-<image src="https://flench.me/theme/button.gif">
-</image></a>
+<img src="https://flench.me/theme/button.gif"></a>
 ```

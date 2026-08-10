@@ -151,7 +151,7 @@ def _build_note(api, context):
         _move_head_extra(template)
         template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
         template.find("id", "Content")[0].attrs["id"] = "MobileNoteContent"
-        template.find("id", "Title")[0].add(Text(context["title"]))
+        template.find("id", "Title")[0].add(Text(context["title"], _auto_add=False))
         with Element("div", {"gHoist": "MobileNoteContent"}) as content:
             for child in _html_children(markdown(context["body"])):
                 content.add(child)

@@ -167,7 +167,7 @@ def _build_post(api, context):
         _move_head_extra(template)
         template.find("id", "content_block")[0].attrs["gHoist"] = "ContentPanel"
         template.find("id", "Content")[0].attrs["id"] = "MobileBlogContent"
-        template.find("id", "Title")[0].add(Text(context["title"]))
+        template.find("id", "Title")[0].add(Text(context["title"], _auto_add=False))
         hero = template.find("id", "HeroImage")[0]
         if context.get("image"):
             hero.attrs["src"] = context["image"]

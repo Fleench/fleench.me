@@ -125,11 +125,11 @@ def Build(api, context):
 
                     article = Element("article", {"class": "note-item panel h-entry", "gHoist": "NotesList"}, _auto_add=False)
                     link = Element("a", {"class": "u-url note-permalink", "href": _route_for(md_file)}, _auto_add=False)
-                    link.add(Text(title))
+                    link.add(Text(title, _auto_add=False))
                     article.add(link)
 
                     meta_div = Element("div", {"class": "note-meta"}, _auto_add=False)
-                    meta_div.add(Text(f"{note_type} • {date_text}"))
+                    meta_div.add(Text(f"{note_type} • {date_text}", _auto_add=False))
                     article.add(meta_div)
 
                     content = Element("div", {"class": "e-content"}, _auto_add=False)

@@ -141,7 +141,7 @@ def Build(api, context):
 
                     h2 = Element("h2", {"class": "blog-title"}, _auto_add=False)
                     link = Element("a", {"href": _route_for(md_file)}, _auto_add=False)
-                    link.add(Text(_title(meta)))
+                    link.add(Text(_title(meta), _auto_add=False))
                     h2.add(link)
                     article.add(h2)
 
@@ -149,7 +149,7 @@ def Build(api, context):
                     if label:
                         date_div = Element("div", {"class": "blog-date"}, _auto_add=False)
                         small = Element("small", _auto_add=False)
-                        small.add(Text(label))
+                        small.add(Text(label, _auto_add=False))
                         date_div.add(small)
                         article.add(date_div)
 
