@@ -139,15 +139,22 @@ def _notes(api):
         )
 
     site_url = str(config("site.url") or config("site_url") or "https://flench.me")
-    rss_output = src_dir / "notes" / "rss.xml"
-    rss_output.parent.mkdir(parents=True, exist_ok=True)
-    rss_output.write_text(_notes_rss(site_url, feed_entries), encoding="utf-8")
+    dist_dir = Path(str(config("build.dist") or "dist"))
+    notes_rss_output = dist_dir / "notes" / "rss.xml"
+    notes_rss_output.parent.mkdir(parents=True, exist_ok=True)
+    rss_content = _notes_rss(site_url, feed_entries)
+    notes_rss_output.write_text(rss_content, encoding="utf-8")
+
+    main_rss_output = dist_dir / "rss.xml"
+    main_rss_output.parent.mkdir(parents=True, exist_ok=True)
+    main_rss_output.write_text(rss_content, encoding="utf-8")
     return _notes_page(rendered)
 
 
 def API(api):
     api["register"]["method"]("notes", lambda: _notes(api))
     api["register"]["method"]("notes_index", lambda: _notes(api))
+    api["register"]["post_build"](_notes)
     return api
 
 

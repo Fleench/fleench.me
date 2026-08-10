@@ -47,6 +47,16 @@ def _resolve_path(page, path):
     return current
 
 
+def _remove_if_empty(element):
+    for child in list(element.children):
+        _remove_if_empty(child)
+    if not element.children:
+        text = getattr(element, "text_content", None)
+        if text is None or not text.strip():
+            if element.parent:
+                element.pop()
+
+
 def _hoist(api, context, page):
     targets = list(page.find("has_attr", "gHoist"))
     targets.extend(page.find("has_attr", "ghoist"))
@@ -59,6 +69,10 @@ def _hoist(api, context, page):
             element.parent.children.remove(element)
             element.parent = None
         target.add(element)
+
+    for tpl in list(page.find("has_attr", "data-template")):
+        _remove_if_empty(tpl)
+
     return page
 
 
