@@ -66,12 +66,12 @@ def _title(meta):
     return str(meta.get("title") or "Untitled")
 
 
-def _html_children(html):
-    root = GenHTMLParser().parse_text(f"<div>{html}</div>")
-    children = list(root.children)
-    for child in children:
-        child.parent = None
-    return children
+class RawHTML(Element):
+    def __init__(self, html_text):
+        super().__init__("div", _auto_add=False)
+        self.html_text = html_text
+    def render(self):
+        return self.html_text
 
 
 def _remove(element):
@@ -165,8 +165,7 @@ def Build(api, context):
                         article.add(cover)
 
                     excerpt = Element("div", {"class": "blog-excerpt"}, _auto_add=False)
-                    for child in _html_children(markdown(_first_paragraph(body_text))):
-                        excerpt.add(child)
+                    excerpt.add(RawHTML(markdown(_first_paragraph(body_text))))
                     article.add(excerpt)
                     page_wrap.add(article)
 
