@@ -50,12 +50,12 @@ def CONTEXT(api):
     return contexts
 
 
-def _html_children(html):
-    root = GenHTMLParser().parse_text(f"<div>{html}</div>")
-    children = list(root.children)
-    for child in children:
-        child.parent = None
-    return children
+class RawHTML(Element):
+    def __init__(self, html_text):
+        super().__init__("div", _auto_add=False)
+        self.html_text = html_text
+    def render(self):
+        return self.html_text
 
 
 def _remove(element):
@@ -111,8 +111,7 @@ def Build(api, context):
                     Text(context["title"])
 
                 with Element("div", {"gHoist": "NoteContent"}) as content:
-                    for child in _html_children(markdown(_read_body(context["MD file"]))):
-                        content.add(child)
+                    content.add(RawHTML(markdown(_read_body(context["MD file"]))))
 
                 with Element("div", {"style": "display:none;"}):
                     api["methods"]["foot"]()
