@@ -1,0 +1,27 @@
+from gen.html.elements import Element
+
+class RawHTML(Element):
+    def __init__(self, html_text):
+        super().__init__("div", _auto_add=False)
+        self.html_text = html_text
+    def render(self):
+        return self.html_text
+
+def API(api):
+    api["register"]["method"]("raw_html", RawHTML)
+    return api
+
+def HELP():
+    return """Plugin: raw_html
+
+Usage:
+  RawHTML = api["methods"]["raw_html"]
+  element.add(RawHTML("<p>Some raw HTML</p>"))
+
+Description:
+  Provides a RawHTML element class that injects raw HTML into the element tree
+  without parsing it through GenHTMLParser. This avoids bugs with duplicate
+  nodes on certain Python/lxml versions.
+"""
+
+COMMANDS = {}

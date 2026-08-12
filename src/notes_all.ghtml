@@ -48,12 +48,6 @@ def _date_value(meta):
     return datetime.min.replace(tzinfo=timezone.utc)
 
 
-class RawHTML(Element):
-    def __init__(self, html_text):
-        super().__init__("div", _auto_add=False)
-        self.html_text = html_text
-    def render(self):
-        return self.html_text
 
 
 def _remove(element):
@@ -84,6 +78,7 @@ def CONTEXT(api):
 def Build(api, context):
     fragment = api["methods"]["fragment"]
     markdown = api["methods"]["markdown"]
+    RawHTML = api["methods"]["raw_html"]
 
     page = Page("html", {"lang": "en"})
     with page:

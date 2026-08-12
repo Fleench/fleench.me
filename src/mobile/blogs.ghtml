@@ -55,12 +55,6 @@ def _first_paragraph(text):
     return ""
 
 
-class RawHTML(Element):
-    def __init__(self, html_text):
-        super().__init__("div", _auto_add=False)
-        self.html_text = html_text
-    def render(self):
-        return self.html_text
 
 
 def _move_head_extra(template):
@@ -119,6 +113,7 @@ def _build_shell(api, context):
 def _build_index(api, context):
     fragment = api["methods"]["fragment"]
     markdown = api["methods"]["markdown"]
+    RawHTML = api["methods"]["raw_html"]
     posts = []
     for md_file in sorted(BLOG_ROOT.glob("**/*.md")):
         meta, body_text = _split_frontmatter(md_file.read_text(encoding="utf-8"))
@@ -160,6 +155,7 @@ def _build_index(api, context):
 def _build_post(api, context):
     fragment = api["methods"]["fragment"]
     markdown = api["methods"]["markdown"]
+    RawHTML = api["methods"]["raw_html"]
     page, page_wrap = _build_shell(api, context)
     with page_wrap:
         template = fragment("templates/mobile/mobile-blog")
