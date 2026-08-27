@@ -7,6 +7,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let xOffset = 0, yOffset = 0;
 
     panel.addEventListener('pointerdown', function(e) {
+      // Exit immediately if the user is using a touchscreen
+      if (e.pointerType === 'touch') {
+        return; 
+      }
+
       // Prevent parent panels from also catching this drag event
       e.stopPropagation();
 
@@ -35,6 +40,14 @@ document.addEventListener('DOMContentLoaded', () => {
       // Moves the panel visually without removing its physical footprint from your grid
       panel.style.transform = `translate(${currentX}px, ${currentY}px)`;
     }
+
+    function closeDragElement() {
+      panel.style.userSelect = '';
+      document.removeEventListener('pointerup', closeDragElement);
+      document.removeEventListener('pointermove', elementDrag);
+    }
+  });
+});    }
 
     function closeDragElement() {
       panel.style.userSelect = '';
