@@ -18,10 +18,7 @@ body {
   min-height: 100vh;
   font-family: "Trebuchet MS", "Verdana", sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(circle at top, #171717 0%, transparent 45%),
-    radial-gradient(circle at bottom, #101010 0%, transparent 55%),
-    linear-gradient(180deg, var(--bg-shade), var(--bg));
+  background: #000000;
 }
 
 .page-wrap {
@@ -30,19 +27,22 @@ body {
 }
 
 .panel {
-  background: var(--panel-bg);
-  border: 2px solid var(--panel-border);
-  box-shadow: 0 0 0 1px #000, 0 10px 22px rgba(0, 0, 0, 0.45);
+  background: transparent;
+  border: none;
+  box-shadow: none;
   padding: 1rem;
 }
 
 .marquee-frame {
-  background: #0b0b0b;
+  background: transparent;
   color: var(--warning);
   font-weight: 700;
-  margin-bottom: 1rem;
+  margin: 2rem auto;
   text-transform: uppercase;
   letter-spacing: 1px;
+  max-width: fit-content;
+  border-radius: 50px;
+  overflow: hidden;
 }
 
 .top-nav {
@@ -62,10 +62,10 @@ body {
 .top-nav a {
   display: inline-block;
   padding: 0.45rem 0.85rem;
-  border: 1px solid #3a3a3a;
+  border: none;
   color: var(--text);
   text-decoration: none;
-  background: #0b0b0b;
+  background: transparent;
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.8rem;
@@ -95,7 +95,7 @@ body {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--sidebar-width);
   align-items: start;
-  gap: 1rem;
+  gap: 2rem;
 }
 
 .sidebar-toggle-button {
@@ -123,6 +123,8 @@ body {
   aspect-ratio: auto; /*was 4/3*/ 
   min-height: min(68vh, calc((100vw - 4rem) * 3 / 4));
   margin: 0 auto;
+  background: radial-gradient(circle, rgba(20,20,20,0.8) 0%, rgba(0,0,0,0) 70%);
+  overflow: visible;
 }
 
 .main-extras {
@@ -134,11 +136,16 @@ h2,
 h3 {
   margin-top: 0;
   font-family: "Courier New", monospace;
-  text-shadow: 1px 1px 0 #000;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+  color: #ffffff;
 }
 
 h1 {
-  color: var(--accent);
+  color: #ffffff;
+}
+
+p, .blog p {
+  color: #999999;
 }
 
 a {

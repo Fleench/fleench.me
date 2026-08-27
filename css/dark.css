@@ -11,21 +11,20 @@ html[data-mode="dark"] {
 }
 
 html[data-mode="dark"] body {
-  background:
-    radial-gradient(circle at top, #171717 0%, transparent 45%),
-    radial-gradient(circle at bottom, #101010 0%, transparent 55%),
-    linear-gradient(180deg, var(--bg-shade), var(--bg));
+  background: #000000;
 }
 
 html[data-mode="dark"] .panel {
-  box-shadow: 0 0 0 1px #000, 0 10px 22px rgba(0, 0, 0, 0.45);
+  box-shadow: 0px 10px 40px -5px rgba(30, 30, 50, 0.8);
+  border: none;
+  background: transparent;
 }
 
 html[data-mode="dark"] .marquee-frame,
 html[data-mode="dark"] .top-nav a,
 html[data-mode="dark"] .mobile-nav a {
-  background: #0b0b0b;
-  border-color: #3a3a3a;
+  background: transparent;
+  border-color: transparent;
 }
 
 html[data-mode="dark"] h1,
@@ -58,9 +57,9 @@ html[data-mode="dark"] ul.list-card li,
 html[data-mode="dark"] ol.list-card li,
 html[data-mode="dark"] .content ul:has(> li.list-card) > li,
 html[data-mode="dark"] .content ol:has(> li.list-card) > li {
-  background: #1a1a1a;
-  border-color: #333;
-  box-shadow: 0 2px 0 #000;
+  background: transparent;
+  border: none;
+  box-shadow: none;
   color: var(--text);
 }
 
