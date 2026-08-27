@@ -5,15 +5,28 @@
   const params = new URLSearchParams(window.location.search);
   const requestedMode = (params.get('mode') || '').toLowerCase();
   let activeMode = 'dark';
-  if (requestedMode === 'light' || requestedMode === 'dark') {
+  if (requestedMode === 'light' || requestedMode === 'dark' || requestedMode === 'win98') {
     activeMode = requestedMode;
   }
 
   const isLightMode = activeMode === 'light';
+  const isWin98Mode = activeMode === 'win98';
 
   const applyMode = () => {
     if (isLightMode) {
       document.documentElement.setAttribute('data-mode', 'light');
+      return;
+    }
+
+    if (isWin98Mode) {
+      document.documentElement.setAttribute('data-mode', 'win98');
+      if (!document.querySelector('link[data-theme-stylesheet="win98"]')) {
+        const win98Stylesheet = document.createElement('link');
+        win98Stylesheet.rel = 'stylesheet';
+        win98Stylesheet.href = '/css/98.css';
+        win98Stylesheet.setAttribute('data-theme-stylesheet', 'win98');
+        document.head.appendChild(win98Stylesheet);
+      }
       return;
     }
 
@@ -77,6 +90,9 @@
       if (isLightMode) {
         url.searchParams.delete('theme');
         url.searchParams.set('mode', 'light');
+      } else if (isWin98Mode) {
+        url.searchParams.delete('theme');
+        url.searchParams.set('mode', 'win98');
       } else {
         url.searchParams.delete('mode');
         url.searchParams.delete('theme');

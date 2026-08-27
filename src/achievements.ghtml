@@ -1,0 +1,53 @@
+from gen.html import Img
+from gen.html.elements import Element, Page, Text
+
+
+def CONTEXT(api):
+    return {
+        "route": "/achievements",
+        "title": "The Void Achievements",
+        "draft": False,
+        "canonical": "https://flench.me/achievements/",
+        "cache": {"mode": "templates",
+                  "templates": ["elements/head", "elements/marquee", "elements/nav", "templates/guestbook",
+                                "elements/footer", "templates/page"]},
+
+    }
+
+
+def Build(api, context):
+    fragment = api["methods"]["fragment"]
+    markdown = api["methods"]["markdown"]
+
+    page = Page("html", {"lang": "en"})
+    with page:
+        Element("head")
+        with Element("body"):
+            page_wrap = fragment("templates/page")
+            page.add_before(page.find("class", "site-layout")[0].uuid, fragment("elements/marquee"))
+            with page_wrap:
+                fragment("elements/head")
+                fragment("elements/nav")
+
+                with Element("div", {"gHoist": "Content"}) as content:
+                    #Place page content here
+                    Img(attrs={"src": "/media/webRatings/WebG.png", "style": "width: 100px"})
+                Img(attrs={"src": "/media/webRatings/WebG.png", "style": "width: 100%", "ghoist": "right-sidebar"})
+
+                Img(attrs={"src": "/media/webRatings/WebG.png", "style": "opacity: 50%", "ghoist": "left-sidebar"})
+                with Element("div", {"style": "display:none;"}):
+                    api["methods"]["foot"]()
+                with page.find("tag", "title")[0]:
+                    Text(context["title"])
+                page.find("id", "Canonical")[0].attrs["href"] = context["canonical"]
+                page.find("id", "ad1")[0].pop()
+    return page
+
+
+def main():
+    page = Build({}, CONTEXT({}))
+    api["methods"]["log"]("info", "build", "Rendered page")
+
+
+if __name__ == "__main__":
+    main()
